@@ -16,18 +16,16 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import { useThemeColors } from '@apitable/components';
-import { ChevronDownOutlined } from '@apitable/icons';
 import { useClickAway } from 'ahooks';
 import cx from 'classnames';
-import dynamic from 'next/dynamic';
-import { getElementDataset } from 'pc/utils';
 import RcTrigger from 'rc-trigger';
 import * as React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useThemeColors } from '@apitable/components';
+import { ChevronDownOutlined, CheckOutlined } from '@apitable/icons';
+import { getElementDataset } from 'pc/utils';
 import styles from './style.module.less';
 
-const CheckOutlined = dynamic(() => import('@ant-design/icons/CheckOutlined'), { ssr: false });
 type TSelectValue = string;
 
 interface IOption {
@@ -49,7 +47,7 @@ interface ISelectProps {
   trigger?: 'click' | 'hover' | 'mousedown';
   triggerArrowVisible?: boolean;
   selectedSignVisible?: boolean;
-  offset?: { x: number, y: number };
+  offset?: { x: number; y: number };
   destroyPopupOnHide?: boolean;
   customRenderTrigger?: (value: TSelectValue) => React.ReactElement;
   onVisibleChange?: (visible: boolean) => void;
@@ -74,7 +72,7 @@ export const Select = ({
   selectedSignVisible = true,
   zIndex = 1050,
   offset = { x: 0, y: 10 },
-  onVisibleChange
+  onVisibleChange,
 }: ISelectProps) => {
   const colors = useThemeColors();
   const [value, setValue] = useState(propsValue);
@@ -84,7 +82,9 @@ export const Select = ({
 
   const triggerRef = useRef(null);
 
-  useClickAway(() => { setVisible(false); }, [triggerRef, wrapRef]);
+  useClickAway(() => {
+    setVisible(false);
+  }, [triggerRef, wrapRef]);
 
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
@@ -96,22 +96,25 @@ export const Select = ({
     setVisible(!visible);
   };
 
-  const handleItemMouseDown = useCallback((e: React.MouseEvent<HTMLLIElement>) => {
-    e.preventDefault();
-    const target = e.currentTarget;
-    setVisible(false);
-    if (disabled || !target) {
-      return;
-    }
-    const nextValue = getElementDataset(target, 'value');
-    if (nextValue != null) {
-      if (onChangeRef.current) {
-        onChangeRef.current(nextValue);
-      } else {
-        setValue(nextValue);
+  const handleItemMouseDown = useCallback(
+    (e: React.MouseEvent<HTMLLIElement>) => {
+      e.preventDefault();
+      const target = e.currentTarget;
+      setVisible(false);
+      if (disabled || !target) {
+        return;
       }
-    }
-  }, [disabled, setValue]);
+      const nextValue = getElementDataset(target, 'value');
+      if (nextValue != null) {
+        if (onChangeRef.current) {
+          onChangeRef.current(nextValue);
+        } else {
+          setValue(nextValue);
+        }
+      }
+    },
+    [disabled, setValue],
+  );
 
   useEffect(() => {
     if (propsValue !== value) {
@@ -129,7 +132,11 @@ export const Select = ({
       if (customRenderTrigger) {
         child = customRenderTrigger(selected.value);
       }
-      return <span className={styles.triggerValue} data-with-arrow={triggerArrowVisible}>{child}</span>;
+      return (
+        <span className={styles.triggerValue} data-with-arrow={triggerArrowVisible}>
+          {child}
+        </span>
+      );
     }
     return value || UNKNOWN_VALUE;
   }, [value, placeholder, options, customRenderTrigger, triggerArrowVisible]);
@@ -142,24 +149,20 @@ export const Select = ({
       ref={triggerRef}
     >
       {renderedTrigger}
-      {triggerArrowVisible && <ChevronDownOutlined
-        color={colors.thirdLevelText} className={cx(styles.triggerIcon, { [styles.triggerIconOpen]: visible })} />
-      }
+      {triggerArrowVisible && (
+        <ChevronDownOutlined color={colors.thirdLevelText} className={cx(styles.triggerIcon, { [styles.triggerIconOpen]: visible })} />
+      )}
     </div>
   );
 
   const SelectPanel = (
     <ul className={styles.selectPanel} data-hide={!visible} ref={wrapRef}>
-      {
-        options.map((item) => <li
-          key={item.value}
-          data-value={item.value}
-          data-active={item.value === value}
-          onMouseDownCapture={handleItemMouseDown}>
+      {options.map((item) => (
+        <li key={item.value} data-value={item.value} data-active={item.value === value} onMouseDownCapture={handleItemMouseDown}>
           {item.option ?? item.label}
           {item.value === value && selectedSignVisible && <CheckOutlined />}
-        </li>)
-      }
+        </li>
+      ))}
     </ul>
   );
 
@@ -177,32 +180,36 @@ export const Select = ({
       const offsetTop = selected.offsetTop;
       const wrapHeight = ul.offsetHeight;
       const wrapScrollTop = ul.scrollTop;
-      if (offsetTop > (wrapHeight + wrapScrollTop)) {
+      if (offsetTop > wrapHeight + wrapScrollTop) {
         selected.scrollIntoView();
       }
     }
   });
 
-  const handleVisibleChange = useCallback((next: any) => {
-    setVisible(disabled ? false : next);
-    onVisibleChange?.(next);
-  }, [disabled, onVisibleChange]);
+  const handleVisibleChange = useCallback(
+    (next: any) => {
+      setVisible(disabled ? false : next);
+      onVisibleChange?.(next);
+    },
+    [disabled, onVisibleChange],
+  );
 
-  return <RcTrigger
-    popup={SelectPanel}
-    action={[trigger]}
-    destroyPopupOnHide={destroyPopupOnHide}
-    popupAlign={{
-      points: ['tl', 'bl'],
-      offset: [offset.x, offset.y],
-      overflow: { adjustX: true, adjustY: true },
-    }}
-    popupStyle={{ width: panelWidth || '100%' }}
-    popupVisible={disabled ? false : visible}
-    onPopupVisibleChange={handleVisibleChange}
-    zIndex={zIndex}
-  >
-    {TriggerElement}
-  </RcTrigger>;
+  return (
+    <RcTrigger
+      popup={SelectPanel}
+      action={[trigger]}
+      destroyPopupOnHide={destroyPopupOnHide}
+      popupAlign={{
+        points: ['tl', 'bl'],
+        offset: [offset.x, offset.y],
+        overflow: { adjustX: true, adjustY: true },
+      }}
+      popupStyle={{ width: panelWidth || '100%' }}
+      popupVisible={disabled ? false : visible}
+      onPopupVisibleChange={handleVisibleChange}
+      zIndex={zIndex}
+    >
+      {TriggerElement}
+    </RcTrigger>
+  );
 };
-

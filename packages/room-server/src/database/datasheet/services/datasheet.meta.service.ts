@@ -16,11 +16,13 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import { IMeta } from '@apitable/core';
+import { IDPrefix, IField, IFieldMap, IMeta } from '@apitable/core';
+import { Span } from '@metinseylan/nestjs-opentelemetry';
 import { Injectable } from '@nestjs/common';
 import { DatasheetMetaRepository } from 'database/datasheet/repositories/datasheet.meta.repository';
 import { PermissionException, ServerException } from 'shared/exception';
 import { IBaseException } from 'shared/exception/base.exception';
+import { DatasheetMetaEntity } from '../entities/datasheet.meta.entity';
 
 @Injectable()
 export class DatasheetMetaService {
@@ -28,15 +30,46 @@ export class DatasheetMetaService {
 
   async getMetaDataMaybeNull(dstId: string): Promise<IMeta | undefined> {
     const metaEntity = await this.repository.selectMetaByDstId(dstId);
+    await this.checkAndInitMeta(metaEntity, dstId);
     return metaEntity?.metaData;
   }
 
+  @Span()
   async getMetaDataByDstId(dstId: string, exception?: IBaseException, ignoreDeleted = false): Promise<IMeta> {
     const metaEntity = ignoreDeleted ? await this.repository.selectMetaByDstIdIgnoreDeleted(dstId) : await this.repository.selectMetaByDstId(dstId);
     if (metaEntity?.metaData) {
+      await this.checkAndInitMeta(metaEntity, dstId);
       return metaEntity.metaData;
     }
     throw new ServerException(exception ? exception : PermissionException.NODE_NOT_EXIST);
+  }
+
+  async checkAndInitMeta(metaEntity: DatasheetMetaEntity | undefined, dstId: string) {
+    if (metaEntity?.metaData) {
+      if (metaEntity.metaData.archivedRecordIds === undefined) {
+        metaEntity.metaData.archivedRecordIds = [];
+        await this.repository.update({ dstId: dstId }, metaEntity);
+      }
+    }
+  }
+
+  /**
+   * @param dstId datasheet id
+   * @param viewId If omitted, load the first view.
+   * @returns only contains fieldMap and views.
+   */
+  @Span()
+  async getMetadataWithViewByDstId(dstId: string, viewId?: string): Promise<IMeta> {
+    let meta: { metadata: IMeta } | undefined;
+    if (viewId) {
+      meta = await this.repository.selectMetaWithViewByDstIdAndViewId(dstId, viewId);
+    } else {
+      meta = await this.repository.selectMetaWithFirstViewByDstId(dstId);
+    }
+    if (!meta) {
+      throw new ServerException(PermissionException.NODE_NOT_EXIST);
+    }
+    return meta.metadata;
   }
 
   async getMetaMapByDstIds(dstIds: string[], ignoreDeleted = false): Promise<{ [dstId: string]: IMeta }> {
@@ -48,6 +81,34 @@ export class DatasheetMetaService {
       }
     }
     return metaMap;
+  }
+
+  async batchSave(metas: any[]) {
+    return await this.repository.createQueryBuilder().insert().values(metas).execute();
+  }
+
+  @Span()
+  async getFieldMapByDstId(dstId: string): Promise<IFieldMap> {
+    const raw = await this.repository.selectFieldMapByDstId(dstId);
+    if (raw) {
+      return raw.fieldMap;
+    }
+    throw new ServerException(PermissionException.NODE_NOT_EXIST);
+  }
+
+  @Span()
+  async getFieldByFldIdAndDstId(dstId: string, fieldId: string): Promise<IField | null> {
+    const raw = await this.repository.selectFieldByFldIdAndDstId(dstId, fieldId);
+    if (raw) {
+      return raw.field;
+    }
+    return null;
+  }
+
+  @Span()
+  async checkFieldExist(dstId: string, fieldId: string): Promise<boolean> {
+    const raw = await this.repository.selectFieldTypeByFldIdAndDstId(dstId, fieldId);
+    return Boolean(raw && raw.type);
   }
 
   /**
@@ -84,7 +145,16 @@ export class DatasheetMetaService {
   }
 
   async isViewIdExist(dstId: string, viewId: string): Promise<boolean | null> {
-    const viewIds = await this.getViewIdsByDstId(dstId);
-    return viewIds && viewIds.includes(viewId);
+    // only check for dst
+    if (dstId.startsWith(IDPrefix.Table)) {
+      const viewIds = await this.getViewIdsByDstId(dstId);
+      return viewIds && viewIds.includes(viewId);
+    }
+    return true;
+  }
+
+  async isFieldNameExist(dstId: string, fieldName: string): Promise<boolean> {
+    const count = await this.repository.selectCountByDstIdAndFieldName(dstId, fieldName);
+    return 0 != count;
   }
 }

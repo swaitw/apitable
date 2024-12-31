@@ -37,8 +37,8 @@ export function getEnvVariables() {
   return getInitializationData().envVars;
 }
 
-export function isHiddenIntercom() {
-  return getEnvVariables().INTERCOM_VISIBLE;
+export function isHiddenLivechat() {
+  return getEnvVariables().LIVECHAT_VISIBLE;
 }
 
 export function isMobileApp() {
@@ -70,8 +70,7 @@ export function getSpaceIdFormTemplate() {
   return null;
 }
 
-export const IS_QQBROWSER =
-  typeof navigator !== 'undefined' && /.*QQBrowser/.test(navigator.userAgent);
+export const IS_QQBROWSER = typeof navigator !== 'undefined' && /.*QQBrowser/.test(navigator.userAgent);
 
 export const isIframe = () => {
   return window.self !== window.top;

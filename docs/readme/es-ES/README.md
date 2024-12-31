@@ -14,7 +14,7 @@
     <!-- Java -->
     <img src="https://img.shields.io/badge/Java-ED8B00?logo=spring&logoColor=white" alt="Idioma de Java, Spring Framework" />
     <!-- hub.docker.com-->
-    <a target="_blank" href="#installation">
+    <a target="_blank" href="#Instalación">
         <img src="https://img.shields.io/docker/pulls/apitable/init-db" />
     </a>
     <!-- Github Release Latest -->
@@ -31,7 +31,7 @@
         <img src="https://img.shields.io/badge/LICENSE-AGPL--3.0-ff69b4" alt="Insignia de licencia APITable AGPL" />
     </a>
     <!-- Discord -->
-    <a target="_blank" href="https://discord.gg/TwNb9nfdBU">
+    <a target="_blank" href="https://discord.gg/zYWYTHXR4f">
         <img src="https://img.shields.io/discord/1016320471010115666?label=discord&logo=discord&style=social" />
     </a>
     <!-- Twitter -->
@@ -42,36 +42,39 @@
     <a target="_blank" href="https://github.com/apitable/apitable/actions/workflows/build.yaml">
         <img src="https://github.com/apitable/apitable/actions/workflows/build.yaml/badge.svg" />
     </a>
+    <!-- Better Uptime-->
+    <a target="_blank" href="https://apitable.betteruptime.com/">
+        <img src="https://betteruptime.com/status-badges/v1/monitor/a1a9.svg" />
+    </a>
 </p>
 
 <p align="center">
-  English
+  <a href="../../../README.md">English</a>
   | 
-  <a href="docs/readme/fr-FR/README.md">Français</a>
+  <a href="../fr-FR/README.md">Français</a>
   | 
-  <a href="docs/readme/es-ES/README.md">Español</a>
+  Español
   | 
-  <a href="docs/readme/de-DE/README.md">Deutsch</a>
+  <a href="../de-DE/README.md">Deutsch</a>
   | 
-  <a href="docs/readme/zh-CN/README.md">简体中文</a>
+  <a href="../zh-CN/README.md">简体中文</a>
   | 
-  <a href="docs/readme/zh-HK/README.md">繁體中文</a>
+  <a href="../zh-HK/README.md">繁體中文</a>
   | 
-  <a href="docs/readme/ja-JP/README.md">日本語</a>
+  <a href="../ja-JP/README.md">日本語</a>
 </p>
 
-## ✨ Inicio rápido
+## ✨ Inicio Rápido
 
-> APITable es actualmente un `Trabajo en progreso`.
-> 
-> Publicaremos la primera versión a finales de enero de 2023.
-> 
-> Únete a [Discord](https://discord.gg/TwNb9nfdBU) o [Twitter](https://twitter.com/apitable_com) para mantenerte en contacto.<!-- If you just want try out APITable\[^info], using our hosted version at [apitable.com\](https://apitable.com). -->Si solo quieres probar APITable[^info], haz clic aquí para [⚡Gitpod Online Demo](https://gitpod.io/#https://github.com/apitable/apitable).
+Si solo quieres probar APITable [^info], utiliza nuestra versión alojada en la nube en apitable.com.
 
-Si desea instalar APITable en su entorno de computación local o en la nube, consulte [💾 Instalación](#installation)
+Si quieres demostrar este proyecto de código abierto de APITable, haz clic aquí para la demo en línea de [⚡️Gitpod](https://gitpod.io/#https://github.com/apitable/apitable).
 
-Si quieres configurar tu entorno de desarrollo local, lee nuestra [🧑● 💻 Developer Guide](./docs/contribute/developer-guide.md)
+Si quieres instalar APITable en tu entorno local o en la nube, consulta [💾 Instalación](#Instalación)
 
+Si quieres configurar tu entorno de desarrollo local, lee nuestra guía de [🧑● 💻 Developer Guide](./docs/contribute/developer-guide.md)
+
+Únete a [Discord](https://discord.gg/TwNb9nfdBU) o [Twitter](https://twitter.com/apitable_com) para estar en contacto.
 ## 🔥 Características
 
 <table>
@@ -126,7 +129,7 @@ Si quieres configurar tu entorno de desarrollo local, lee nuestra [🧑● 💻 
       <a href="#">Permisos de poderosas filas/columnas</a>
     </th>
     <th>
-      <a href="#">Incrustar</a>
+      <a href="#">Embed</a>
     </th>
   </tr>
 
@@ -145,16 +148,16 @@ Si quieres configurar tu entorno de desarrollo local, lee nuestra [🧑● 💻 
 
 </table>
 
-APITable ofrece una gama de características asombrosas, desde lo personal hasta lo personal.
+APITable proporciona una amplia gama de características increíbles, desde lo personal hasta la empresa.
 
 - Pila de tecnología avanzada y código abierto
   - `La colaboración en tiempo real` permite a varios usuarios editar juntos en tiempo real, o simultáneamente con el algoritmo `Transformación operacional (OT)`.
-  - Interfaz de hoja de cálculo de base de datos extremadamente suave y fácil de usar en `<canvas> Motor de renderizado`.
+  - Interfaz de base de datos-hoja de cálculo extremadamente suave, fácil de usar y súper rápida en el motor de renderizado de `canvas`.
   - Arquitectura nativa de base de datos: Cambios / Operación / Acción / Instantánea y así sucesivamente.
   - **100k+** filas de datos con colaboración en tiempo real.
   - Acceso completo a la API, desde `Datos` hasta `Metadatos`.
   - Vínculo de tabla de una dirección / Bi-dirección y `Enlaces cruzados infinitos`
-  - Idiomas de programación y marco amigables con la comunidad, TypeScript ([NextJS](https://nextjs.org/) + [NestJS](https://nestjs.com/)) y Java ([Spring Boot](https://spring.io/projects/spring-boot))
+  - Lenguajes de programación y marco amigables con la comunidad TypeScript ([NextJS](https://nextjs.org/) + [NestJS](https://nestjs.com/)) y Java ([Spring Boot](https://spring.io/projects/spring-boot)).
 - Bonito y rico Database-Hoja de cálculo UI
   - `CRUD`: Crear, leer, actualizar, eliminar las tablas, columnas y filas
   - `Operaciones de campos`: ordenar, filtro, agrupar, ocultar/desocultar, ajuste de altura.
@@ -231,21 +234,33 @@ APITable proporcionará un lenguaje de consulta (DQL) en la hoja de datos para c
 
 Comparte tu tabla o carpeta de la hoja de datos. Los inserte copiando y pegando scripts HTML.
 
-#### Incrustación lista para empresas
+#### Enterprise-ready Embedding
 
 [APITable.com](https://apitable.com) proporciona más características de Incrustación listas para empresas para valores.
 
 ## Instalación
 
-Asegúrate de que tienes `docker` & `curl` instalado localmente.
+Antes de comenzar:
+* Se requiere un anfitrión con Docker y Docker Compose v2 instalado.
+* Se recomienda tener al menos 4 CPUs/8GB de RAM.
+* Se requiere una shell bash con utilidades básicas como curl instaladas.
+* Las imágenes de contenedor nativas arm64 (Apple Silicon) aún no están listas y pueden causar un mal rendimiento.
 
-Si tu ordenador ha instalado Docker Machine, abre tu terminal y ejecuta esto:
+Para instalar apitable usando docker-compose, abra su terminal y ejecute lo siguiente:
 
 ```
 curl https://apitable.github.io/install.sh | bash
 ```
 
-Luego abre [https://localhost:80](https://localhost:80) en tu navegador para visitarlo. (nombre de usuario predeterminado `admin@apitable.com` y contraseña `Apitable2022`)
+Luego abre [http://localhost:80](http://localhost:80) en tu navegador para visitarlo.
+
+También proporcionamos una imagen todo en uno basada en [pm2](https://pm2.keymetrics.io/) para propósitos de demostración o prueba (no recomendada para uso empresarial o producción):
+
+```bash
+sudo docker run -d -v ${PWD}/.data:/apitable -p 80:80 --name apitable apitable/all-in-one:latest
+```
+
+Dependiendo de su entorno, puede que necesite esperar varios minutos para que todos los servicios comiencen. Esta imagen es sólo amd64 (x86_64), puede encontrarse con un rendimiento bastante malo en arm64 o silicón de manzana.
 
 Si quieres configurar tu entorno de desarrollo local, lee nuestra [🧑● 💻 Developer Guide](./docs/contribute/developer-guide.md)
 
@@ -253,15 +268,32 @@ Si quieres configurar tu entorno de desarrollo local, lee nuestra [🧑● 💻 
 
 Bienvenido, y gracias por su interés en contribuir a APITable!
 
-Hay muchas maneras en las que puedes contribuir, más allá de escribir código.
+Además de escribir código, hay muchas formas en las que puedes contribuir.
+
+Puedes contribuir de la siguiente manera:
+- Unirte y modificar traducciones en nuestro proyecto de traducción de [Crowdin](https://crowdin.com/project/apitablecode/invite?h=f48bc26f9eb188dcd92d5eb4a66f2c1f1555185)
+- Crear [problemas](https://github.com/apitable/apitable/issues/new/choose)
+- Seguir nuestro [Twitter](https://twitter.com/apitable_com)
+- Crear [documentación](./docs)
+- [Contribuir con código](./docs/contribute/developer-guide.md)
+
+
+Tal como lo siguiente:
+- Join [Crowdin Translation Project](https://crowdin.com/project/apitablecom/invite?h=4a985ea532a01d973acc03f2f1c960951693577)
+- Crear [issues](https://github.com/apitable/apitable/issues/new/choose)
+- Seguir nuestro [Twitter](https://twitter.com/apitable_com)
+- Crear [documentación](./docs)
+- [Contribuir con código](./docs/contribute/developer-guide.md)
+
 
 Puede leer las [Directrices de contribución](./CONTRIBUTING.md) de este repositorio para aprender a contribuir.
 
 Aquí hay una guía rápida para ayudarte a contribuir a APITable.
 
+
 ### Medio ambiente de desarrollo
 
-Aprende cómo configurar tu entorno local, en nuestra [Guía para desarrolladores](./docs/contribute/developer-guide.md).
+Aprende cómo configurar tu entorno local, visita nuestra [Guía del Desarrollador](./docs/contribute/developer-guide.md).
 
 ### Flujo de trabajo Git básico
 
@@ -278,23 +310,26 @@ Aquí hay un flujo de trabajo general APITable git:
 
 Utilizar estas convenciones comunes:
 
-- ¿Cuál es nuestro modelo de sucursal Git? ¿Cuál es nuestro modelo de sucursal Git? [Gitflow](https://nvie.com/posts/a-successful-git-branching-model/)
-- ¿Cómo colaborar en sus proyectos de bifurcación? ¿Cómo colaborar en sus proyectos de bifurcación? [Github Flow](https://docs.github.com/en/get-started/quickstart/github-flow)
-- ¿Cómo escribir un buen mensaje de confirmación? ¿Cómo escribir un buen mensaje de confirmación? [Compromisos convencionales](https://www.conventionalcommits.org/)
-- ¿Cuál es nuestro formato de registro de cambios? ¿Cuál es nuestro formato de registro de cambios? [Mantener el registro de cambios](https://keepachangelog.com/en/1.0.0/)
-- ¿Cómo versionar y etiquetar? [Versionado semántico](https://semver.org/) [Versionado semántico](https://semver.org/)
-- ¿Qué es la guía de código de Java? [Java Coding Guideline](https://google.github.io/styleguide/javaguide.html) | [Intellij IDEA Plugin](https://plugins.jetbrains.com/plugin/8527)
-- ¿Qué es la guía de código de TypeScript? ¿Qué es la guía de código de TypeScript? -> [Guía de estilo de TypeScript](https://google.github.io/styleguide/tsguide.html) | [ESLint](https://www.npmjs.com/package/@typescript-eslint/eslint-plugin)
+- What's our Git branching model? ¿Cuál es nuestro modelo de sucursal Git? [Gitflow](https://nvie.com/posts/a-successful-git-branching-model/)
+- How to collaborate on your fork projects? ¿Cómo colaborar en sus proyectos de bifurcación? [Github Flow](https://docs.github.com/en/get-started/quickstart/github-flow)
+- How to write good commit message? ¿Cómo escribir un buen mensaje de confirmación? [Compromisos convencionales](https://www.conventionalcommits.org/)
+- What's our changelog format? ¿Cuál es nuestro formato de registro de cambios? [Mantener el registro de cambios](https://keepachangelog.com/en/1.0.0/)
+- ¿Cómo versionar y etiquetar? [Versionado semántico](https://semver.org/) [Semantic Versioning](https://semver.org/)
+- ¿Qué es la guía de código de Java? [Guía de código Java](https://github.com/alibaba/Alibaba-Java-Coding-Guidelines) | [Plugin Intellij IDEA](https://plugins.jetbrains.com/plugin/10046-alibaba-java-coding-guidelines) ¿Qué es la guía de código de Java? [Guía de código Java](https://google.github.io/styleguide/javaguide.html) | [Plugin Intellij IDEA](https://plugins.jetbrains.com/plugin/8527)
+- What is the TypeScript Coding Guideline? ¿Qué es la guía de código de TypeScript? -> [Guía de estilo de TypeScript](https://google.github.io/styleguide/tsguide.html) | [ESLint](https://www.npmjs.com/package/@typescript-eslint/eslint-plugin)
 
 ### Documentaciones
 
 - [Centro de ayuda](https://help.apitable.com/)
 - [👩‍💻 Centro de Desarrolladores](https://developers.apitable.com/)
   - [► Documentos de API REST](https://developers.apitable.com/api/introduction/)
-  - SDK Widget (Próximamente...)
-  - Scripting (Próximamente...)
+  - [SDK del Widget](https://developers.apitable.com/widget/introduction/)
+  - [Scripting Widget](https://developers.apitable.com/script/introduction/)
+- [Design System](https://figma.com/@apitable)
 
-## :autovía: Hoja de ruta
+## 🛣 Roadmap
+
+Por favor, consulte el mapa de ruta [de APITable](https://apitable.com/roadmap)
 
 ### Características futuras
 
@@ -302,23 +337,25 @@ Utilizar estas convenciones comunes:
 - Componentes de documentación de terceros incrustables
 - Idiomas específicos del dominio de SQL
 - Como IdP
+- Robot de automatización avanzado
 - Características Web 3
 - ...
 
 ### Las versiones Hosted y Enterprise ofrecen características avanzadas
 
-- Como identificador;
+- As an IdP;
 - SAML
-- Inicio de sesión simple
+- Single-Sign-On
 - Auditoría
 - Copia de seguridad de base de datos
+- Integración con ChatGPT, Zapier, Slack, Google Workspace...
 - Marca de agua
 
-Para más información, por favor contáctenos en <support@apitable.com>.
+For more information on our product, including enterprise self-hosted license, please contact us at <support@apitable.com> or [book a demo](https://apitable.com/share/shrdaGGppsfg3pjQLXALG?fldy5ZmHYGZx2=salesteam@apitable.com).
 
 ## 👫 Participar
 
-### ¿Qué es la guía de código de Java? [Guía de código Java](https://github.com/alibaba/Alibaba-Java-Coding-Guidelines) | [Plugin Intellij IDEA](https://plugins.jetbrains.com/plugin/10046-alibaba-java-coding-guidelines)
+### 🌏 Why we create APITable and open-source?
 
 - Creemos que `la base de datos es la piedra angular` de todo el software.
 - Creemos que crear una base de datos visual `con una interfaz de usuario rica y fácil para todos` puede reducir la dificultad de la industria de software e incrementar la adopción de digitalización en el mundo.
@@ -330,7 +367,7 @@ Siempre buscamos buenos talentos para APITable:
 
 - **Desarrollador Full-stack**: Tienes experiencia con React, NestJS, TypeScript, Spring Boot, Java, Terraform. Y le gusta escribir código de alta calidad con documentación clara y pruebas unitarias.
 - **Desarrollador back-end**: Tiene experiencia con NestJS, TypeScript, Spring Boot, Java, SQL, Kubernetes, Terraform. Y le gusta escribir código de alta calidad con documentación clara y pruebas unitarias.
-- **Desarrollador front-end**: Tiene experiencia con React, NextJS, TypeScript, WebPack. Y le gusta escribir código de alta calidad con documentación clara y pruebas unitarias.
+- **Desarrollador front-end**: Tiene experiencia con React, NextJS, TypeScript, WebPack. And you like to write high quality code with clear documentation and unit tests.
 
 Independientemente del tiempo y condiciones, si desea involucrarse en el equipo de APITable, no dudes en enviar tu CV a [talent@apitable. om](mailto:talent@apitable.com).
 
@@ -364,7 +401,7 @@ Independientemente del tiempo y condiciones, si desea involucrarse en el equipo 
     <img src="docs/static/screenshot-it.png" alt="Imagen de captura de pantalla APITable" />
 </p>
 <p align="center">
-    <img src="docs/static/screenshot-sales.png" alt="Imagen de captura de pantalla APITable" />
+    <img src="docs/static/screenshot-sales.png" alt="APITable Screenshot Image" />
 </p>
 
 ## 🥰 Licencia

@@ -18,25 +18,24 @@
 
 package com.apitable.player.ro;
 
-import javax.validation.constraints.Max;
-
-import io.swagger.annotations.ApiModel;
-import io.swagger.annotations.ApiModelProperty;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
 import lombok.Data;
 
 /**
  * <p>
- * User notification list parameters
+ * User notification list parameters.
  * </p>
  */
 @Data
-@ApiModel("User marked read notification")
+@Schema(description = "User marked read notification")
 public class NotificationReadRo {
-    @ApiModelProperty(value = "Notification ID, supporting batch", example = "[\"124324324\",\"243242\"]", required = true)
+
+    @Schema(description = "Notification ID, supporting batch",
+        requiredMode = RequiredMode.REQUIRED, example = "[\"124324324\",\"243242\"]")
     private String[] id;
 
-    @Max(1)
-    @ApiModelProperty(value = "Full 1 full, 0 incomplete", allowableValues = "range[0,1]", dataType = "Integer",
-            example = "0")
-    private Integer isAll;
+    @Schema(description = "Full 1 full, 0 incomplete", allowableValues = "range[0,1]",
+        type = "Boolean", example = "0")
+    private Boolean isAll;
 }

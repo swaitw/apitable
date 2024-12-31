@@ -18,7 +18,9 @@
 
 import { IResourceOpsCollect } from 'command_manager';
 import { OTActionName } from 'engine';
-import { IBaseDatasheetPack, ViewType } from 'exports/store';
+import { IBaseDatasheetPack } from 'exports/store/interfaces';
+import { Role } from 'config/constant';
+import { ViewType } from 'modules/shared/store/constants';
 import { FieldType, SegmentType } from 'types';
 
 export const mockDatasheetMap: Record<string, IBaseDatasheetPack> = {
@@ -60,8 +62,16 @@ export const mockDatasheetMap: Record<string, IBaseDatasheetPack> = {
             type: ViewType.Grid,
             columns: [{ fieldId: 'fld1' }, { fieldId: 'fld2', hidden: true }],
             frozenColumnCount: 1,
-            name: 'view 1',
+            name: 'view 2',
             rows: [{ recordId: 'rec2' }, { recordId: 'rec3' }, { recordId: 'rec5' }, { recordId: 'rec1' }, { recordId: 'rec4' }],
+          },
+          {
+            id: 'viw3',
+            type: ViewType.Grid,
+            columns: [{ fieldId: 'fld1' }, { fieldId: 'fld2' }],
+            frozenColumnCount: 1,
+            name: 'view 3',
+            rows: [{ recordId: 'rec3' }, { recordId: 'rec1' }, { recordId: 'rec2' }, { recordId: 'rec6' }, { recordId: 'rec4' }],
           },
         ],
       },
@@ -135,7 +145,30 @@ export const mockDatasheetMap: Record<string, IBaseDatasheetPack> = {
       permissions: {} as any,
       revision: 12,
     },
-    fieldPermissionMap: {},
+    fieldPermissionMap: {
+      fld1: {
+        role: Role.Editor,
+        setting: {
+          formSheetAccessible: true,
+        },
+        permission: {
+          editable: true,
+          readable: true,
+        },
+        manageable: true,
+      },
+      fld2: {
+        role: Role.Editor,
+        setting: {
+          formSheetAccessible: true,
+        },
+        permission: {
+          editable: true,
+          readable: true,
+        },
+        manageable: true,
+      },
+    },
   },
 };
 
@@ -157,6 +190,13 @@ export const mockOpsCollectOfAddOneDefaultRecord = (recordId: string): IResource
             },
             n: OTActionName.ListInsert,
             p: ['meta', 'views', 1, 'rows', 5],
+          },
+          {
+            li: {
+              recordId,
+            },
+            n: OTActionName.ListInsert,
+            p: ['meta', 'views', 2, 'rows', 5],
           },
           {
             n: OTActionName.ObjectInsert,

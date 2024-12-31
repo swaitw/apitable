@@ -16,6 +16,10 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+import classNames from 'classnames';
+import * as React from 'react';
+import { useCallback, useEffect, useRef } from 'react';
+import { IUseListenTriggerInfo, useListenVisualHeight, useThemeColors, WrapperTooltip } from '@apitable/components';
 import {
   BasicValueType,
   CollaCommandName,
@@ -30,21 +34,19 @@ import {
   Strings,
   t,
 } from '@apitable/core';
+import { AddOutlined } from '@apitable/icons';
+import { PopUpTitle } from 'pc/components/common';
+import { ComponentDisplay, ScreenSize } from 'pc/components/common/component_display';
+import { ViewFilterContext } from 'pc/components/tool_bar/view_filter/view_filter_context';
+import { useShowViewLockModal } from 'pc/components/view_lock/use_show_view_lock_modal';
+import { useResponsive } from 'pc/hooks';
 import { resourceService } from 'pc/resource_service';
-import { useCallback, useEffect, useRef } from 'react';
-import * as React from 'react';
-import { useSelector } from 'react-redux';
-import IconAdd from 'static/icon/common/common_icon_add_content.svg';
-import { useThemeColors, useListenVisualHeight, IUseListenTriggerInfo } from '@apitable/components';
+import { useAppSelector } from 'pc/store/react-redux';
+import { executeCommandWithMirror } from 'pc/utils/execute_command_with_mirror';
+import { SyncViewTip } from '../sync_view_tip';
 import ConditionList from './condition_list';
 import { ExecuteFilterFn } from './interface';
-import classNames from 'classnames';
 import styles from './style.module.less';
-import { PopUpTitle } from 'pc/components/common';
-import { SyncViewTip } from '../sync_view_tip';
-import { ComponentDisplay, ScreenSize } from 'pc/components/common/component_display';
-import { executeCommandWithMirror } from 'pc/utils/execute_command_with_mirror';
-import { useResponsive } from 'pc/hooks';
 
 interface IViewFilter {
   triggerInfo?: IUseListenTriggerInfo;
@@ -59,11 +61,13 @@ const ViewFilterBase = (props: IViewFilter) => {
   const colors = useThemeColors();
   const { screenIsAtMost } = useResponsive();
   const isMobile = screenIsAtMost(ScreenSize.md);
-  const view = useSelector(state => Selectors.getCurrentView(state))! as IGridViewProperty;
+  const view = useAppSelector((state) => Selectors.getCurrentView(state))! as IGridViewProperty;
   const columns = view.columns;
-  const fieldMap = useSelector(state => Selectors.getFieldMap(state, state.pageParams.datasheetId!))!;
-  const activeViewFilter = useSelector(state => Selectors.getFilterInfo(state))!;
+  const fieldMap = useAppSelector((state) => Selectors.getFieldMap(state, state.pageParams.datasheetId!))!;
+  const activeViewFilter = useAppSelector((state) => Selectors.getFilterInfo(state))!;
   const scrollShadowRef = useRef<HTMLDivElement>(null);
+  const isViewLock = useShowViewLockModal();
+
   const { style, onListenResize } = useListenVisualHeight({
     listenNode: containerRef,
     childNode: childRef,
@@ -119,9 +123,10 @@ const ViewFilterBase = (props: IViewFilter) => {
 
   function commandForAddViewFilter(_e: React.MouseEvent<HTMLDivElement, MouseEvent>) {
     const firstColumns = fieldMap[columns[0].fieldId];
-    const exitIds = activeViewFilter ? activeViewFilter.conditions.map(item => item.conditionId) : [];
+    const exitIds = activeViewFilter ? activeViewFilter.conditions.map((item) => item.conditionId) : [];
     const acceptFilterOperators = Field.bindModel(firstColumns).acceptFilterOperators;
     const newOperate = acceptFilterOperators[0];
+
     filterCommand({
       conjunction: activeViewFilter ? activeViewFilter.conjunction : CoreFilterConjunction.And,
       conditions: [
@@ -148,6 +153,7 @@ const ViewFilterBase = (props: IViewFilter) => {
   }, [activeViewFilter?.conditions.length, onListenResize]);
 
   function deleteFilter(idx: number) {
+    if (isViewLock) return;
     if (activeViewFilter!.conditions.length === 1) {
       filterCommand(null);
       return;
@@ -161,22 +167,31 @@ const ViewFilterBase = (props: IViewFilter) => {
   }
 
   return (
-    <div ref={containerRef} className={classNames(styles.viewFilter, styles.shadow)}>
-      <ComponentDisplay minWidthCompatible={ScreenSize.md}>
-        <PopUpTitle title={t(Strings.set_filter)} infoUrl={t(Strings.filter_help_url)} variant={'h7'} className={styles.boxTop} />
-        <SyncViewTip />
-      </ComponentDisplay>
-      <div ref={childRef} style={{ ...style, overflow: 'auto' }}>
-        <ConditionList filterInfo={activeViewFilter} fieldMap={fieldMap} changeFilter={changeFilter} deleteFilter={deleteFilter} />
-        <div ref={scrollShadowRef} className={classNames(!isMobile && styles.scrollShadow)} />
-      </div>
-      <div className={styles.addNewButton} onClick={commandForAddViewFilter}>
-        <div className={styles.iconAdd}>
-          <IconAdd width={16} height={16} fill={colors.thirdLevelText} />
+    <ViewFilterContext.Provider value={{ isViewLock }}>
+      <div ref={containerRef} className={classNames(styles.viewFilter, styles.shadow)}>
+        <ComponentDisplay minWidthCompatible={ScreenSize.md}>
+          <PopUpTitle title={t(Strings.set_filter)} infoUrl={t(Strings.filter_help_url)} variant={'h7'} className={styles.boxTop} />
+          <SyncViewTip />
+        </ComponentDisplay>
+        <div ref={childRef} style={{ ...style, overflow: 'auto' }}>
+          <ConditionList filterInfo={activeViewFilter} fieldMap={fieldMap} changeFilter={changeFilter} deleteFilter={deleteFilter} />
+          <div ref={scrollShadowRef} className={classNames(!isMobile && styles.scrollShadow)} />
         </div>
-        {t(Strings.add_filter)}
+        {
+          <WrapperTooltip wrapper={isViewLock} tip={t(Strings.view_lock_setting_desc)}>
+            <div
+              className={classNames(styles.addNewButton, { [styles.disabled]: isViewLock })}
+              onClick={!isViewLock ? commandForAddViewFilter : undefined}
+            >
+              <div className={styles.iconAdd}>
+                <AddOutlined size={16} color={colors.thirdLevelText} />
+              </div>
+              {t(Strings.add_filter)}
+            </div>
+          </WrapperTooltip>
+        }
       </div>
-    </div>
+    </ViewFilterContext.Provider>
   );
 };
 

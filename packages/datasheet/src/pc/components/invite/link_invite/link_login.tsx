@@ -16,43 +16,37 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import { IReduxState } from '@apitable/core';
 import { useMount } from 'ahooks';
 import classNames from 'classnames';
-
-import { Wrapper } from 'pc/components/common';
-// @ts-ignore
-import { LoginToggle } from 'enterprise';
 import { FC } from 'react';
-import { useSelector } from 'react-redux';
+import { IReduxState } from '@apitable/core';
+import { Wrapper } from 'pc/components/common';
+import { PcHome } from 'pc/components/home/pc_home';
+import { useAppSelector } from 'pc/store/react-redux';
+import { getEnvVariables } from 'pc/utils/env';
 import { InviteTitle } from '../components';
-
 import { useInvitePageRefreshed } from '../use_invite';
-
-// import '../invite.common.less';
+// @ts-ignore
+import { LoginToggle } from 'enterprise/home/login_toggle/login_toggle';
 import styles from './style.module.less';
 
 const LinkLogin: FC<React.PropsWithChildren<unknown>> = () => {
   const { whenPageRefreshed } = useInvitePageRefreshed({ type: 'linkInvite' });
-  const inviteLinkInfo = useSelector((state: IReduxState) => state.invite.inviteLinkInfo);
+  const inviteLinkInfo = useAppSelector((state: IReduxState) => state.invite.inviteLinkInfo);
   useMount(() => {
     whenPageRefreshed();
   });
 
+  const { IS_ENTERPRISE } = getEnvVariables();
+
   if (!inviteLinkInfo) return null;
-  return (
+  return !IS_ENTERPRISE ? (
+    <PcHome />
+  ) : (
     <Wrapper>
       <div className={classNames(styles.linkLogin, 'invite-children-center')}>
-        {
-          <InviteTitle
-            inviter={inviteLinkInfo.data.memberName}
-            spaceName={inviteLinkInfo.data.spaceName}
-            titleMarginBottom="40px"
-          />
-        }
-        <div className={styles.loginContent}>
-          {LoginToggle && <LoginToggle />}
-        </div>
+        {<InviteTitle inviter={inviteLinkInfo.data.memberName} spaceName={inviteLinkInfo.data.spaceName} titleMarginBottom="40px" />}
+        <div className={styles.loginContent}>{LoginToggle && <LoginToggle />}</div>
       </div>
     </Wrapper>
   );

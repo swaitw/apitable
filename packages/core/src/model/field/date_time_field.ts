@@ -17,15 +17,17 @@
  */
 
 import Joi from 'joi';
-import { DatasheetActions } from '../datasheet';
+import { DatasheetActions } from '../../commands_actions/datasheet';
 import { DateTimeBaseField } from './date_time_base_field';
 import { DateFormat, FieldType, IDateTimeField, IDateTimeFieldProperty, IField, TimeFormat } from 'types/field_types';
-import { IReduxState } from '../../exports/store';
+import { IReduxState } from '../../exports/store/interfaces';
 import { enumKeyToArray, enumToArray } from './validate_schema';
 import { ICellValue } from 'model/record';
 import dayjs from 'dayjs';
 import { IOpenDateTimeFieldProperty } from 'types/open/open_field_read_types';
 import { IUpdateOpenDateTimeFieldProperty } from 'types/open/open_field_write_types';
+import { getUserTimeZone } from 'modules/user/store/selectors/user';
+import { getFieldDefaultProperty } from './const';
 
 export class DateTimeField extends DateTimeBaseField {
   constructor(public override field: IDateTimeField, public override state: IReduxState) {
@@ -37,6 +39,8 @@ export class DateTimeField extends DateTimeBaseField {
     timeFormat: Joi.valid(...enumToArray(TimeFormat)).required(),
     includeTime: Joi.boolean().required(),
     autoFill: Joi.boolean().required(),
+    timeZone: Joi.string(),
+    includeTimeZone: Joi.boolean(),
   }).required();
 
   static cellValueSchema = Joi.number().custom((value, helpers) => {
@@ -66,12 +70,7 @@ export class DateTimeField extends DateTimeBaseField {
   }
 
   static defaultProperty(): IDateTimeFieldProperty {
-    return {
-      dateFormat: DateFormat['YYYY/MM/DD'],
-      timeFormat: TimeFormat['hh:mm'],
-      includeTime: false,
-      autoFill: false,
-    };
+    return getFieldDefaultProperty(FieldType.DateTime) as IDateTimeFieldProperty;
   }
 
   override defaultValue(): number | null {
@@ -81,7 +80,7 @@ export class DateTimeField extends DateTimeBaseField {
     return null;
   }
 
-  /* Due to the need to traverse the DateTimeFormat enumeration value, 
+  /* Due to the need to traverse the DateTimeFormat enumeration value,
   but DateTimeFormat will have the form of keyValue and valueKey after compilation
     Need to filter out the case of number key */
   validateProperty() {
@@ -94,6 +93,14 @@ export class DateTimeField extends DateTimeBaseField {
 
   validateOpenWriteValue(owv: string | Date | null) {
     return DateTimeField.openWriteValueSchema.validate(owv);
+  }
+
+  get includeTimeZone() {
+    return this.field.property?.includeTimeZone;
+  }
+
+  get timeZone() {
+    return this.field.property.timeZone || getUserTimeZone(this.state);
   }
 
   override get openFieldProperty(): IOpenDateTimeFieldProperty {
@@ -111,6 +118,8 @@ export class DateTimeField extends DateTimeBaseField {
     timeFormat: Joi.valid(...enumKeyToArray(TimeFormat)),
     includeTime: Joi.boolean(),
     autoFill: Joi.boolean(),
+    timeZone: Joi.string(),
+    includeTimeZone: Joi.boolean(),
   }).required();
 
   override validateUpdateOpenProperty(updateProperty: IUpdateOpenDateTimeFieldProperty) {

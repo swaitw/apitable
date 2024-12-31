@@ -16,14 +16,17 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import { isEmpty, find } from 'lodash';
-import { IJOTAction } from 'engine/ot';
-import { DatasheetActions } from 'model';
-import { Selectors } from '../../exports/store';
-import { t, Strings } from '../../exports/i18n';
-import { ResourceType } from 'types';
-import { CollaCommandName } from 'commands';
 import { ExecuteResult, ICollaCommandDef } from 'command_manager';
+import { CollaCommandName } from 'commands/enum';
+import { IJOTAction } from 'engine/ot';
+import { find, isEmpty } from 'lodash';
+import { DatasheetActions } from 'commands_actions/datasheet';
+import { ResourceType } from 'types';
+import { Strings, t } from '../../exports/i18n';
+import {
+  getActiveDatasheetId,
+  getSnapshot,
+} from 'modules/database/store/selectors/resource/datasheet/base';
 // import { IGridViewProperty } from 'store/interface';
 
 export interface IMoveView {
@@ -36,16 +39,18 @@ export interface IMoveViewsOptions {
   data: IMoveView[];
 }
 
+export type IMoveSelfView = Omit<IMoveView, 'viewId'>;
+
 export const moveViews: ICollaCommandDef<IMoveViewsOptions> = {
 
   undoable: true,
 
   execute: (context, options) => {
 
-    const { model: state } = context;
+    const { state: state } = context;
     const { data } = options;
-    const datasheetId = Selectors.getActiveDatasheetId(state)!;
-    const snapshot = Selectors.getSnapshot(state, datasheetId);
+    const datasheetId = getActiveDatasheetId(state)!;
+    const snapshot = getSnapshot(state, datasheetId);
     if (!snapshot) {
       return null;
     }

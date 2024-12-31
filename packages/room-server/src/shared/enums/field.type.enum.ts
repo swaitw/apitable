@@ -22,7 +22,7 @@ import Enum from './enum';
 export {
   APIMetaViewType as ViewTypeTextEnum,
   APIMetaFieldPermissionLevel as FieldPermissionEnum,
-  APIMetaFieldType as FieldTypeTextEnum
+  APIMetaFieldType as FieldTypeTextEnum,
 } from '@apitable/core';
 
 export const FieldTypeEnum = new Enum([
@@ -51,4 +51,8 @@ export const FieldTypeEnum = new Enum([
   { key: 'LastModifiedTime', name: 'LastModifiedTimeField', value: FieldType.LastModifiedTime },
   { key: 'CreatedBy', name: 'CreatedByField', value: FieldType.CreatedBy },
   { key: 'LastModifiedBy', name: 'LastModifiedByField', value: FieldType.LastModifiedBy },
+  { key: 'Cascader', name: 'CascaderField', value: FieldType.Cascader },
+  { key: 'OneWayLink', name: 'OneWayLinkField', value: FieldType.OneWayLink },
+  { key: 'Button', name: 'ButtonField', value: FieldType.Button },
+  { key: 'WorkDoc', name: 'WorkDocField', value: FieldType.WorkDoc },
 ]);

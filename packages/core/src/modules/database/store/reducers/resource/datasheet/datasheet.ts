@@ -23,9 +23,25 @@ import { fieldPermissionMap } from 'modules/database/store/reducers/resource/dat
 import { AnyAction, combineReducers } from 'redux';
 import { Strings, t } from '../../../../../../exports/i18n';
 import {
-  IAddDatasheetAction, IChangeViewAction, IComputedInfo, IComputedStatus, IDatasheetMap, IDatasheetPack, IDatasheetState, IJOTActionPayload,
-  ILoadedDataPackAction, IRecordNodeDesc, IRecordNodeShared, IRefreshSnapshotAction, IResetDatasheetAction, ISetNodeIcon, IUpdateDatasheetAction,
-  IUpdateDatasheetNameAction, IUpdateRevision, IUpdateSnapShotAction
+  IAddDatasheetAction,
+  IChangeViewAction,
+  IComputedInfo,
+  IComputedStatus,
+  IDatasheetMap,
+  IDatasheetPack,
+  IDatasheetState,
+  IJOTActionPayload,
+  ILoadedDataPackAction,
+  IRecordNodeDesc,
+  IRecordNodeShared,
+  IRefreshSnapshotAction,
+  IResetDatasheetAction,
+  ISetNodeIcon,
+  ISetViewPropertyAction,
+  IUpdateDatasheetAction,
+  IUpdateDatasheetNameAction,
+  IUpdateRevision,
+  IUpdateSnapShotAction,
 } from '../../../../../../exports/store/interfaces';
 import { Events, Player } from '../../../../../shared/player';
 import * as actions from '../../../../../shared/store/action_constants';
@@ -50,18 +66,18 @@ export const filterDatasheetOp = (state: IDatasheetState, action: IJOTAction[]) 
 };
 
 type IDatasheetAction = (
-  ILoadedDataPackAction |
-  IUpdateRevision |
-  IJOTActionPayload |
-  IChangeViewAction |
-  IRecordNodeDesc |
-  IRecordNodeShared |
-  IUpdateDatasheetNameAction |
-  ISetNodeIcon |
-  IUpdateDatasheetAction |
-  IRefreshSnapshotAction |
-  IUpdateSnapShotAction
-  ) & { datasheetId: string };
+    ILoadedDataPackAction |
+    IUpdateRevision |
+    IJOTActionPayload |
+    IChangeViewAction |
+    IRecordNodeDesc |
+    IRecordNodeShared |
+    IUpdateDatasheetNameAction |
+    ISetNodeIcon |
+    IUpdateDatasheetAction |
+    IRefreshSnapshotAction |
+    IUpdateSnapShotAction
+    ) & { datasheetId: string };
 
 export const datasheet = produce((
   state: IDatasheetState | null = null,
@@ -79,6 +95,7 @@ export const datasheet = produce((
     if (state && action.payload.isPartOfData && state.isPartOfData) {
       if (action.payload.revision === state.revision) {
         state.snapshot.recordMap = Object.assign({}, action.payload.snapshot.recordMap, state.snapshot.recordMap);
+        state.snapshot.meta.views = action.payload.snapshot.meta.views;
       } else {
         Player.doTrigger(Events.app_error_logger, {
           error: new Error(t(Strings.error_the_version_is_inconsistent_while_preparing_to_merge)),
@@ -141,10 +158,25 @@ export const datasheet = produce((
 
 export const datasheetMap = (
   state: IDatasheetMap = {},
-  action: IResetDatasheetAction | IAddDatasheetAction | AnyAction,
+  action: IResetDatasheetAction | IAddDatasheetAction | ISetViewPropertyAction | AnyAction,
 ): IDatasheetMap => {
   if (!action.datasheetId) {
     return state;
+  }
+  if (action.type === actions.SET_VIEW_PROPERTY) {
+    if (!state[action.datasheetId]) {
+      return state;
+    }
+
+    const payload = (action as ISetViewPropertyAction).payload;
+
+    return produce(state, draft => {
+      const views = draft[action.datasheetId]!.datasheet?.snapshot.meta?.views ?? [];
+      const findIndex = views.findIndex(item => item.id === payload.viewId);
+      if (findIndex > -1) {
+        views.splice(findIndex, 1, payload.viewProperty);
+      }
+    });
   }
   if (action.type === actions.RESET_DATASHEET) {
     const newState = { ...state };

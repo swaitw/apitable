@@ -19,12 +19,12 @@
 import Joi from 'joi';
 import { ICellValue } from '../record';
 import { Field } from './field';
-import { IFilterCondition, FOperator } from '../../types/view_types';
+import { IFilterCondition, FOperator, IFilterCheckbox } from '../../types/view_types';
 import {
   ICheckboxField, ICheckboxFieldProperty, IStandardValue,
   FieldType, IField, BasicValueType,
 } from '../../types/field_types';
-import { DatasheetActions } from '../datasheet';
+import { DatasheetActions } from '../../commands_actions/datasheet';
 import { isEmpty } from 'lodash';
 import { StatType } from './stat';
 import { t, Strings } from '../../exports/i18n';
@@ -34,10 +34,11 @@ import { IOpenCheckboxFieldProperty } from 'types/open/open_field_read_types';
 import { IUpdateOpenCheckboxFieldProperty } from 'types/open/open_field_write_types';
 import { EmojisConfig } from 'config/emojis_config';
 import { joiErrorResult } from './validate_schema';
+import { IOpenFilterValueBoolean } from 'types/open/open_filter_types';
+import { getFieldDefaultProperty } from './const';
 
 const trueText = ['1', 'true', t(Strings.stat_checked)];
 const falseText = ['0', 'false', t(Strings.stat_un_checked)];
-
 export class CheckboxField extends Field {
   static propertySchema = Joi.object({
     icon: Joi.string().required(),
@@ -99,9 +100,7 @@ export class CheckboxField extends Field {
   }
 
   static defaultProperty(): ICheckboxFieldProperty {
-    return {
-      icon: 'white_check_mark',
-    };
+    return getFieldDefaultProperty(FieldType.Checkbox) as ICheckboxFieldProperty;
   }
 
   static createDefault(fieldMap: { [fieldId: string]: IField }): ICheckboxField {
@@ -209,5 +208,31 @@ export class CheckboxField extends Field {
       return joiErrorResult('icon is not Emoji slug');
     }
     return result;
+  }
+
+  static _filterValueToOpenFilterValue(value: IFilterCheckbox): IOpenFilterValueBoolean {
+    return value;
+  }
+
+  override filterValueToOpenFilterValue(value: IFilterCheckbox): IOpenFilterValueBoolean {
+    return CheckboxField._filterValueToOpenFilterValue(value);
+  }
+
+  static _openFilterValueToFilterValue(value: IOpenFilterValueBoolean): IFilterCheckbox {
+    return value;
+  }
+
+  override openFilterValueToFilterValue(value: IOpenFilterValueBoolean): IFilterCheckbox {
+    return CheckboxField._openFilterValueToFilterValue(value);
+  }
+
+  static validateOpenFilterSchema = Joi.boolean().allow(null);
+
+  static _validateOpenFilterValue(value: IOpenFilterValueBoolean) {
+    return CheckboxField.validateOpenFilterSchema.validate(value);
+  }
+
+  override validateOpenFilterValue(value: IOpenFilterValueBoolean) {
+    return CheckboxField._validateOpenFilterValue(value);
   }
 }

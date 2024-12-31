@@ -22,12 +22,13 @@ import { FixedSizeList as List } from 'react-window';
 import { LinkButton } from '../../link_button';
 import { Typography } from '../../typography';
 import { IconButton } from '../../icon_button';
-import { NarrowRecordOutlined, CloseMiddleOutlined } from '@apitable/icons';
+import { NarrowOutlined, CloseOutlined } from '@apitable/icons';
 import { MoreDiv, MoreListDiv, MoreHeader, DrawerStyled, ListItemStyled } from './styled';
 import { CalendarContext } from '../calendar_context';
-import { DETAIL_WEEKS, MAX_LEVEL } from '../constants';
+import { MAX_LEVEL } from '../constants';
 import { formatDayValue } from '../utils';
 import { Task } from './task';
+import { Strings, t } from '@apitable/core';
 
 interface IMoreTask {
   mIndex: number;
@@ -41,13 +42,15 @@ interface IMoreTask {
 
 export const MoreTask = (props: IMoreTask) => {
   const { mIndex, curDay, moreTasks, takeLevelLen } = props;
-  const { lang, listHeight, defaultListHeight, space, isMobile, moreText } = useContext(CalendarContext);
+  const { listHeight, defaultListHeight, space, isMobile, moreText } = useContext(CalendarContext);
   const [visible, setVisible] = useState(false);
+
+  const detailWeeks: string[] = JSON.parse(t(Strings.calendar_const_detail_weeks)) || [];
   const title = (
     <Typography variant="h6">
-      {formatDayValue(curDay.month, curDay.day, lang)}
+      {formatDayValue(curDay.month, curDay.day)}
       <MoreHeader>
-        {DETAIL_WEEKS[lang][mIndex]}
+        {detailWeeks[mIndex]}
       </MoreHeader>
     </Typography>
   );
@@ -76,7 +79,7 @@ export const MoreTask = (props: IMoreTask) => {
   if (isMobile && visible) {
     return (
       <DrawerStyled
-        closeIcon={<IconButton icon={CloseMiddleOutlined} />}
+        closeIcon={<IconButton icon={CloseOutlined} />}
         push={{ distance: 0 }}
         visible={visible}
         placement="bottom"
@@ -107,7 +110,7 @@ export const MoreTask = (props: IMoreTask) => {
         <MoreDiv>
           <header>
             {title}
-            <IconButton icon={NarrowRecordOutlined} onClick={() => setVisible(false)} />
+            <IconButton icon={NarrowOutlined} onClick={() => setVisible(false)} />
           </header>
           {moreList}
         </MoreDiv>

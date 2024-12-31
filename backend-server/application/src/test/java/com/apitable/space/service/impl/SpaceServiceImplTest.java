@@ -18,71 +18,86 @@
 
 package com.apitable.space.service.impl;
 
-import java.time.LocalDate;
-import java.util.List;
-
-import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.Test;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatNoException;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.apitable.AbstractIntegrationTest;
-import com.apitable.interfaces.billing.facade.EntitlementServiceFacade;
-import com.apitable.interfaces.billing.model.SubscriptionFeature;
-import com.apitable.interfaces.billing.model.SubscriptionFeatures.ConsumeFeatures.AdminNums;
-import com.apitable.interfaces.billing.model.SubscriptionFeatures.ConsumeFeatures.ApiCallNums;
-import com.apitable.interfaces.billing.model.SubscriptionFeatures.ConsumeFeatures.CalendarViews;
-import com.apitable.interfaces.billing.model.SubscriptionFeatures.ConsumeFeatures.CapacitySize;
-import com.apitable.interfaces.billing.model.SubscriptionFeatures.ConsumeFeatures.FieldPermissionNums;
-import com.apitable.interfaces.billing.model.SubscriptionFeatures.ConsumeFeatures.FormViews;
-import com.apitable.interfaces.billing.model.SubscriptionFeatures.ConsumeFeatures.GalleryViews;
-import com.apitable.interfaces.billing.model.SubscriptionFeatures.ConsumeFeatures.GanttViews;
-import com.apitable.interfaces.billing.model.SubscriptionFeatures.ConsumeFeatures.KanbanViews;
-import com.apitable.interfaces.billing.model.SubscriptionFeatures.ConsumeFeatures.MirrorNums;
-import com.apitable.interfaces.billing.model.SubscriptionFeatures.ConsumeFeatures.NodePermissionNums;
-import com.apitable.interfaces.billing.model.SubscriptionFeatures.ConsumeFeatures.RowNums;
-import com.apitable.interfaces.billing.model.SubscriptionFeatures.ConsumeFeatures.RowsPerSheet;
-import com.apitable.interfaces.billing.model.SubscriptionFeatures.ConsumeFeatures.Seat;
-import com.apitable.interfaces.billing.model.SubscriptionFeatures.ConsumeFeatures.SheetNums;
-import com.apitable.interfaces.billing.model.SubscriptionFeatures.SolidFeatures.AuditQueryDays;
-import com.apitable.interfaces.billing.model.SubscriptionFeatures.SolidFeatures.RemainRecordActivityDays;
-import com.apitable.interfaces.billing.model.SubscriptionFeatures.SolidFeatures.RemainTimeMachineDays;
-import com.apitable.interfaces.billing.model.SubscriptionFeatures.SolidFeatures.RemainTrashDays;
-import com.apitable.interfaces.billing.model.SubscriptionFeatures.SubscribeFeatures.AllowApplyJoin;
-import com.apitable.interfaces.billing.model.SubscriptionFeatures.SubscribeFeatures.AllowCopyData;
-import com.apitable.interfaces.billing.model.SubscriptionFeatures.SubscribeFeatures.AllowDownload;
-import com.apitable.interfaces.billing.model.SubscriptionFeatures.SubscribeFeatures.AllowEmbed;
-import com.apitable.interfaces.billing.model.SubscriptionFeatures.SubscribeFeatures.AllowExport;
-import com.apitable.interfaces.billing.model.SubscriptionFeatures.SubscribeFeatures.AllowInvitation;
-import com.apitable.interfaces.billing.model.SubscriptionFeatures.SubscribeFeatures.AllowShare;
-import com.apitable.interfaces.billing.model.SubscriptionFeatures.SubscribeFeatures.ContactIsolation;
-import com.apitable.interfaces.billing.model.SubscriptionFeatures.SubscribeFeatures.ForbidCreateOnCatalog;
-import com.apitable.interfaces.billing.model.SubscriptionFeatures.SubscribeFeatures.RainbowLabel;
-import com.apitable.interfaces.billing.model.SubscriptionFeatures.SubscribeFeatures.ShowMobileNumber;
-import com.apitable.interfaces.billing.model.SubscriptionFeatures.SubscribeFeatures.SocialConnect;
-import com.apitable.interfaces.billing.model.SubscriptionFeatures.SubscribeFeatures.Watermark;
-import com.apitable.interfaces.billing.model.SubscriptionInfo;
+import com.apitable.core.exception.BusinessException;
 import com.apitable.mock.bean.MockUserSpace;
+import com.apitable.shared.holder.SpaceHolder;
 import com.apitable.space.dto.GetSpaceListFilterCondition;
-import com.apitable.space.dto.SpaceCapacityUsedInfo;
+import com.apitable.space.entity.SpaceEntity;
+import com.apitable.space.enums.SpaceResourceGroupCode;
+import com.apitable.space.vo.SeatUsage;
+import com.apitable.space.vo.SpaceSubscribeVo;
 import com.apitable.space.vo.SpaceVO;
 import com.apitable.user.entity.UserEntity;
+import com.apitable.workspace.enums.NodeType;
+import java.util.Collections;
+import java.util.List;
+import org.junit.jupiter.api.Test;
 
-import org.springframework.boot.test.mock.mockito.MockBean;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.BDDMockito.given;
-
-@Disabled
 public class SpaceServiceImplTest extends AbstractIntegrationTest {
 
-    @MockBean
-    private EntitlementServiceFacade entitlementServiceFacade;
+    @Test
+    void testGetBySpaceId() {
+        MockUserSpace mockUserSpace = createSingleUserAndSpace();
+        SpaceEntity spaceEntity = iSpaceService.getBySpaceId(mockUserSpace.getSpaceId());
+        assertThat(spaceEntity).isNotNull();
+    }
+
+    @Test
+    void testGetBySpaceIdNotExist() {
+        assertThatThrownBy(() -> iSpaceService.getBySpaceId("xxxxx"))
+            .isInstanceOf(BusinessException.class);
+    }
+
+    @Test
+    void testCheckMemberIsAdminWithMainAdminNotException() {
+        MockUserSpace mockUserSpace = createSingleUserAndSpace();
+        SpaceHolder.init();
+        SpaceHolder.set(mockUserSpace.getSpaceId());
+        // check no exceptions
+        assertThatNoException().isThrownBy(
+            () -> iSpaceService.checkMemberIsAdmin(mockUserSpace.getSpaceId(),
+                mockUserSpace.getMemberId()));
+    }
+
+    @Test
+    void testCheckMemberIsAdminNotException() {
+        MockUserSpace mockUserSpace = createSingleUserAndSpace();
+        SpaceHolder.init();
+        SpaceHolder.set(mockUserSpace.getSpaceId());
+        UserEntity user = createUserWithEmail("shawndgh@163.com");
+        Long newMemberId = createMember(user.getId(), mockUserSpace.getSpaceId());
+        iSpaceRoleService.createRole(mockUserSpace.getSpaceId(),
+            Collections.singletonList(newMemberId),
+            Collections.singletonList(SpaceResourceGroupCode.MANAGE_MEMBER.getCode()));
+        // check no exceptions
+        assertThatNoException().isThrownBy(
+            () -> iSpaceService.checkMemberIsAdmin(mockUserSpace.getSpaceId(), newMemberId));
+    }
+
+    @Test
+    void testCheckMemberIsAdminThrowException() {
+        MockUserSpace mockUserSpace = createSingleUserAndSpace();
+        SpaceHolder.init();
+        SpaceHolder.set(mockUserSpace.getSpaceId());
+        UserEntity user = createUserWithEmail("shawndgh@163.com");
+        Long newMemberId = createMember(user.getId(), mockUserSpace.getSpaceId());
+        assertThatThrownBy(
+            () -> iSpaceService.checkMemberIsAdmin(mockUserSpace.getSpaceId(), newMemberId))
+            .isInstanceOf(BusinessException.class);
+    }
 
     @Test
     void getSpaceListWithAll() {
         MockUserSpace userSpace = createSingleUserAndSpace();
         GetSpaceListFilterCondition condition = new GetSpaceListFilterCondition();
         condition.setManageable(false);
-        List<SpaceVO> spaceVOList = iSpaceService.getSpaceListByUserId(userSpace.getUserId(), condition);
+        List<SpaceVO> spaceVOList =
+            iSpaceService.getSpaceListByUserId(userSpace.getUserId(), condition);
         assertThat(spaceVOList).isNotEmpty().hasSize(1);
     }
 
@@ -91,7 +106,8 @@ public class SpaceServiceImplTest extends AbstractIntegrationTest {
         MockUserSpace userSpace = createSingleUserAndSpace();
         GetSpaceListFilterCondition condition = new GetSpaceListFilterCondition();
         condition.setManageable(true);
-        List<SpaceVO> spaceVOList = iSpaceService.getSpaceListByUserId(userSpace.getUserId(), condition);
+        List<SpaceVO> spaceVOList =
+            iSpaceService.getSpaceListByUserId(userSpace.getUserId(), condition);
         assertThat(spaceVOList).isNotEmpty().hasSize(1);
     }
 
@@ -99,7 +115,7 @@ public class SpaceServiceImplTest extends AbstractIntegrationTest {
     void givenExitMemberWhenCheckUserInSpaceWhenSuccess() {
         MockUserSpace userSpace = createSingleUserAndSpace();
         iSpaceService.checkUserInSpace(userSpace.getUserId(), userSpace.getSpaceId(),
-                status -> assertThat(status).isNotNull().isTrue());
+            status -> assertThat(status).isNotNull().isTrue());
     }
 
     @Test
@@ -107,274 +123,100 @@ public class SpaceServiceImplTest extends AbstractIntegrationTest {
         MockUserSpace userSpace = createSingleUserAndSpace();
         UserEntity user = iUserService.createUserByEmail("boy@apitable.com");
         iSpaceService.checkUserInSpace(user.getId(), userSpace.getSpaceId(),
-                status -> assertThat(status).isNotNull().isFalse());
+            status -> assertThat(status).isNotNull().isFalse());
     }
 
     @Test
-    void testGetSpaceCapacityUsedInfoIsOverUsed() {
-        String spaceId = "spc01";
-        Long capacityUsedSize = 2147483648L;
-        SubscriptionInfo subscriptionInfo = new TestSimpleSubscriptionInfo(1073741824L, 314572800L);
-        // given
-        given(entitlementServiceFacade.getSpaceSubscription(spaceId)).willReturn(subscriptionInfo);
-        // when
-        SpaceCapacityUsedInfo spaceCapacityUsedInfo = iSpaceService.getSpaceCapacityUsedInfo(spaceId, capacityUsedSize);
-        // then
-        assertThat(spaceCapacityUsedInfo.getCurrentBundleCapacityUsedSizes()).isEqualTo(1073741824L);
-        assertThat(spaceCapacityUsedInfo.getGiftCapacityUsedSizes()).isEqualTo(314572800L);
+    void testGetNodeCountExcludeFolder() {
+        MockUserSpace userSpace = createSingleUserAndSpace();
+        String rootNodeId = iNodeService.getRootNodeIdBySpaceId(userSpace.getSpaceId());
+        initNodeTreeMockData(userSpace.getSpaceId(), rootNodeId);
+        long count =
+            iSpaceService.getNodeCountBySpaceId(userSpace.getSpaceId(), NodeType::isFolder);
+        assertThat(count).isNotZero().isEqualTo(5L);
     }
 
     @Test
-    void testGetSpaceCapacityUsedInfoAndGiftCapacityIsNotUse() {
-        String spaceId = "spc01";
-        Long capacityUsedSize = 1073741824L;
-        SubscriptionInfo subscriptionInfo = new TestSimpleSubscriptionInfo(1073741824L, 314572800L);
-        // given
-        given(entitlementServiceFacade.getSpaceSubscription(spaceId)).willReturn(subscriptionInfo);
-        // when
-        SpaceCapacityUsedInfo spaceCapacityUsedInfo = iSpaceService.getSpaceCapacityUsedInfo(spaceId, capacityUsedSize);
-        // then
-        assertThat(spaceCapacityUsedInfo.getCurrentBundleCapacityUsedSizes()).isEqualTo(1073741824L);
-        assertThat(spaceCapacityUsedInfo.getGiftCapacityUsedSizes()).isEqualTo(0L);
+    void testGetNodeCountExcludeFolderWhenNone() {
+        MockUserSpace userSpace = createSingleUserAndSpace();
+        long count =
+            iSpaceService.getNodeCountBySpaceId(userSpace.getSpaceId(), NodeType::isFolder);
+        assertThat(count).isZero();
     }
 
     @Test
-    void testGetSpaceCapacityUsedInfoAndGiftCapacityIsUse() {
-        String spaceId = "spc01";
-        Long capacityUsedSize = 1073741830L;
-        SubscriptionInfo subscriptionInfo = new TestSimpleSubscriptionInfo(1073741824L, 314572800L);
-        // given
-        given(entitlementServiceFacade.getSpaceSubscription(spaceId)).willReturn(subscriptionInfo);
-        // when
-        SpaceCapacityUsedInfo spaceCapacityUsedInfo = iSpaceService.getSpaceCapacityUsedInfo(spaceId, capacityUsedSize);
-        // then
-        assertThat(spaceCapacityUsedInfo.getCurrentBundleCapacityUsedSizes()).isEqualTo(1073741824L);
-        assertThat(spaceCapacityUsedInfo.getGiftCapacityUsedSizes()).isEqualTo(6L);
+    void testCheckFileNumOverLimitWithThrownException() {
+        MockUserSpace userSpace = createSingleUserAndSpace();
+        String rootNodeId = iNodeService.getRootNodeIdBySpaceId(userSpace.getSpaceId());
+        initNodeTreeMockData(userSpace.getSpaceId(), rootNodeId);
+        assertThatThrownBy(() -> iSpaceService.checkFileNumOverLimit(userSpace.getSpaceId()))
+            .isInstanceOf(BusinessException.class);
     }
 
-    public static class TestSimpleSubscriptionInfo implements SubscriptionInfo {
-
-        private final SubscriptionFeature feature;
-
-        private final CapacitySize giftCapacity;
-
-        public TestSimpleSubscriptionInfo(long capacitySize, long giftCapacitySize) {
-            feature = new TestSimpleSubscriptionFeature(new CapacitySize(capacitySize));
-            this.giftCapacity = new CapacitySize(giftCapacitySize);
-        }
-
-        @Override
-        public String getProduct() {
-            return null;
-        }
-
-        @Override
-        public boolean isFree() {
-            return true;
-        }
-
-        @Override
-        public boolean onTrial() {
-            return true;
-        }
-
-        @Override
-        public String getBasePlan() {
-            return null;
-        }
-
-        @Override
-        public List<String> getAddOnPlans() {
-            return SubscriptionInfo.super.getAddOnPlans();
-        }
-
-        @Override
-        public LocalDate getStartDate() {
-            return SubscriptionInfo.super.getStartDate();
-        }
-
-        @Override
-        public LocalDate getEndDate() {
-            return SubscriptionInfo.super.getEndDate();
-        }
-
-        @Override
-        public SubscriptionFeature getFeature() {
-            return feature;
-        }
-
-        @Override
-        public CapacitySize getGiftCapacity() {
-            return giftCapacity;
-        }
+    @Test
+    void testCheckFileNumOverLimitWithoutException() {
+        MockUserSpace userSpace = createSingleUserAndSpace();
+        assertThatNoException().isThrownBy(
+            () -> iSpaceService.checkFileNumOverLimit(userSpace.getSpaceId()));
     }
 
-    public static class TestSimpleSubscriptionFeature implements SubscriptionFeature {
-
-        private final CapacitySize capacity;
-
-        public TestSimpleSubscriptionFeature(CapacitySize capacity) {
-            this.capacity = capacity;
-        }
-
-        @Override
-        public Seat getSeat() {
-            return null;
-        }
-
-        @Override
-        public CapacitySize getCapacitySize() {
-            return capacity;
-        }
-
-        @Override
-        public SheetNums getSheetNums() {
-            return null;
-        }
-
-        @Override
-        public RowsPerSheet getRowsPerSheet() {
-            return null;
-        }
-
-        @Override
-        public RowNums getRowNums() {
-            return null;
-        }
-
-        @Override
-        public MirrorNums getMirrorNums() {
-            return null;
-        }
-
-        @Override
-        public AdminNums getAdminNums() {
-            return null;
-        }
-
-        @Override
-        public ApiCallNums getApiCallNums() {
-            return null;
-        }
-
-        @Override
-        public GalleryViews getGalleryViews() {
-            return null;
-        }
-
-        @Override
-        public KanbanViews getKanbanViews() {
-            return null;
-        }
-
-        @Override
-        public FormViews getFormViews() {
-            return null;
-        }
-
-        @Override
-        public GanttViews getGanttViews() {
-            return null;
-        }
-
-        @Override
-        public CalendarViews getCalendarViews() {
-            return null;
-        }
-
-        @Override
-        public FieldPermissionNums getFieldPermissionNums() {
-            return null;
-        }
-
-        @Override
-        public NodePermissionNums getNodePermissionNums() {
-            return null;
-        }
-
-        @Override
-        public SocialConnect getSocialConnect() {
-            return null;
-        }
-
-        @Override
-        public RainbowLabel getRainbowLabel() {
-            return null;
-        }
-
-        @Override
-        public Watermark getWatermark() {
-            return null;
-        }
-
-        @Override
-        public AllowInvitation getAllowInvitation() {
-            return null;
-        }
-
-        @Override
-        public AllowApplyJoin getAllowApplyJoin() {
-            return null;
-        }
-
-        @Override
-        public AllowShare getAllowShare() {
-            return null;
-        }
-
-        @Override
-        public AllowExport getAllowExport() {
-            return null;
-        }
-
-        @Override
-        public AllowDownload getAllowDownload() {
-            return null;
-        }
-
-        @Override
-        public AllowCopyData getAllowCopyData() {
-            return null;
-        }
-
-        @Override
-        public AllowEmbed getAllowEmbed() {
-            return null;
-        }
-
-        @Override
-        public ShowMobileNumber getShowMobileNumber() {
-            return null;
-        }
-
-        @Override
-        public ContactIsolation getContactIsolation() {
-            return null;
-        }
-
-        @Override
-        public ForbidCreateOnCatalog getForbidCreateOnCatalog() {
-            return null;
-        }
-
-        @Override
-        public RemainTrashDays getRemainTrashDays() {
-            return null;
-        }
-
-        @Override
-        public RemainTimeMachineDays getRemainTimeMachineDays() {
-            return null;
-        }
-
-        @Override
-        public RemainRecordActivityDays getRemainRecordActivityDays() {
-            return null;
-        }
-
-        @Override
-        public AuditQueryDays getAuditQueryDays() {
-            return null;
-        }
+    @Test
+    void testGetSpaceSubscriptionInfo() {
+        MockUserSpace userSpace = createSingleUserAndSpace();
+        SpaceSubscribeVo spaceSubscribeVo =
+            iSpaceService.getSpaceSubscriptionInfo(userSpace.getSpaceId());
+        assertThat(spaceSubscribeVo).isNotNull();
+        assertThat(spaceSubscribeVo.getProduct()).isEqualTo("CE");
+        assertThat(spaceSubscribeVo.getPlan()).isEqualTo("ce_unlimited");
+        assertThat(spaceSubscribeVo.getOnTrial()).isFalse();
+        assertThat(spaceSubscribeVo.getExpireAt()).isNull();
+        assertThat(spaceSubscribeVo.getDeadline()).isNull();
+        assertThat(spaceSubscribeVo.getMaxSeats()).isEqualTo(2L);
+        assertThat(spaceSubscribeVo.getMaxCapacitySizeInBytes()).isEqualTo(1024 * 1024 * 1024L);
+        assertThat(spaceSubscribeVo.getMaxSheetNums()).isEqualTo(5L);
+        assertThat(spaceSubscribeVo.getMaxRowsPerSheet()).isEqualTo(100L);
+        assertThat(spaceSubscribeVo.getMaxRowsInSpace()).isEqualTo(250L);
+        assertThat(spaceSubscribeVo.getMaxAdminNums()).isEqualTo(-1L);
+        assertThat(spaceSubscribeVo.getMaxMirrorNums()).isEqualTo(-1L);
+        assertThat(spaceSubscribeVo.getMaxApiCall()).isEqualTo(-1L);
+        assertThat(spaceSubscribeVo.getMaxGalleryViewsInSpace()).isEqualTo(-1L);
+        assertThat(spaceSubscribeVo.getMaxKanbanViewsInSpace()).isEqualTo(-1L);
+        assertThat(spaceSubscribeVo.getMaxFormViewsInSpace()).isEqualTo(-1L);
+        assertThat(spaceSubscribeVo.getMaxGanttViewsInSpace()).isEqualTo(-1L);
+        assertThat(spaceSubscribeVo.getMaxCalendarViewsInSpace()).isEqualTo(-1L);
+        assertThat(spaceSubscribeVo.getFieldPermissionNums()).isEqualTo(-1L);
+        assertThat(spaceSubscribeVo.getNodePermissionNums()).isEqualTo(-1L);
+        assertThat(spaceSubscribeVo.getMaxMessageCredits()).isEqualTo(0L);
+        assertThat(spaceSubscribeVo.getMaxRemainTimeMachineDays()).isEqualTo(-1L);
+        assertThat(spaceSubscribeVo.getMaxRemainRecordActivityDays()).isEqualTo(-1L);
+        assertThat(spaceSubscribeVo.getMaxAuditQueryDays()).isEqualTo(0);
+        assertThat(spaceSubscribeVo.getAuditQuery()).isFalse();
+        assertThat(spaceSubscribeVo.getRainbowLabel()).isEqualTo(false);
+        assertThat(spaceSubscribeVo.getWatermark()).isEqualTo(false);
+        assertThat(spaceSubscribeVo.getIntegrationFeishu()).isEqualTo(false);
+        assertThat(spaceSubscribeVo.getIntegrationDingtalk()).isEqualTo(false);
+        assertThat(spaceSubscribeVo.getIntegrationWeCom()).isEqualTo(false);
+        assertThat(spaceSubscribeVo.getIntegrationOfficePreview()).isEqualTo(false);
+        assertThat(spaceSubscribeVo.getSecuritySettingAddressListIsolation()).isEqualTo(false);
+        assertThat(spaceSubscribeVo.getSecuritySettingApplyJoinSpace()).isEqualTo(false);
+        assertThat(spaceSubscribeVo.getSecuritySettingExport()).isEqualTo(false);
+        assertThat(spaceSubscribeVo.getSecuritySettingCatalogManagement()).isEqualTo(false);
+        assertThat(spaceSubscribeVo.getSecuritySettingDownloadFile()).isEqualTo(false);
+        assertThat(spaceSubscribeVo.getSecuritySettingMobile()).isEqualTo(false);
+        assertThat(spaceSubscribeVo.getSecuritySettingCopyCellData()).isEqualTo(false);
+        assertThat(spaceSubscribeVo.getSecuritySettingInviteMember()).isEqualTo(false);
+        assertThat(spaceSubscribeVo.getSecuritySettingShare()).isEqualTo(false);
     }
+
+    @Test
+    void testGetSeatUsage() {
+        MockUserSpace userSpace = createSingleUserAndSpace();
+        // create ai node
+        SeatUsage seatUsage = iSpaceService.getSeatUsage(userSpace.getSpaceId());
+        assertThat(seatUsage).isNotNull();
+        assertThat(seatUsage.getMemberCount()).isEqualTo(1L);
+        assertThat(seatUsage.getTotal()).isEqualTo(1L);
+    }
+
+
 }

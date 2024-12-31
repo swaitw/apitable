@@ -97,25 +97,27 @@ build: ## build
 	make build-local
 
 build-local:
+	make _pre-check
 	make _build-java
-	make _build-room
-	make _build-web
+	make _build-ts
 
-_build-web:
-	yarn workspaces focus @apitable/core @apitable/i18n-lang @apitable/icons @apitable/components @apitable/widget-sdk @apitable/datasheet root
-	yarn build:dst
+_build-ts:
+	pnpm install
+	nx run-many -t build --exclude @apitable/datasheet
 
 _build-java:
 	cd backend-server && ./gradlew build -x test --stacktrace
 
-_build-core: ## build core
-	yarn workspaces focus @apitable/core @apitable/i18n-lang root
-	yarn build:i18n
-	yarn build:core
+_pre-check:
+	make _check-web
 
-_build-room: ## build room server
-	yarn workspaces focus @apitable/room-server root
-	yarn build:sr
+_check-web:
+	pnpm install && pnpm build:dst:pre
+	pnpm lint:datasheet
+
+_build-core:
+	pnpm install
+	nx run @apitable/core:build
 
 ################################ test
 
@@ -123,19 +125,18 @@ test: ## do test, unit tests, integration tests and so on.
 	make _test-ut-core-cov
 
 test-e2e: ## start integration tests
-	yarn cy:run
+	pnpm run cy:run
 test-e2e-open: ## start and debug integration tests
-	yarn cy:open
+	pnpm run cy:open
 
 ###### 【core unit test】 ######
 
 _test-ut-core:
-	make _build-core
-	yarn test:core
+	make _build-ts
+	pnpm run test:core
 
 _test-ut-core-cov:
-	make _build-core
-	yarn test:core:cov
+	pnpm run test:core:cov
 
 ###### 【core unit test】 ######
 
@@ -144,13 +145,15 @@ SIKP_INITDB=false
 
 _test_init_db:
 	@echo "${YELLOW}init-db initializing..${RESET}"
-	docker compose -f docker-compose.unit-test.yaml run -u $(shell id -u):$(shell id -g) --rm \
-    	-e DB_HOST=test-mysql \
-    	test-initdb
+	docker compose -f docker-compose.unit-test.yaml build test-init-db
+	docker compose -f docker-compose.unit-test.yaml run --rm test-init-db
 	@echo "${GREEN}initialize unit test db completed...${RESET}"
 
 _test_clean: ## clean the docker in test step
 	docker rm -fv $$(docker ps -a --filter "name=test-.*" --format "{{.ID}}") || true
+
+_test_docker_mysql: ## only run mysql container
+	docker compose -f docker-compose.unit-test.yaml up -d test-mysql
 
 _test_dockers: ## run depends container in test step
 	docker compose -f docker-compose.unit-test.yaml up -d test-mysql ;\
@@ -164,12 +167,13 @@ ifeq ($(SIKP_INITDB),false)
 	sleep 20
 	make _test_init_db
 endif
-	make _build-room
+	make _build-ts
 	MYSQL_HOST=127.0.0.1 MYSQL_PORT=3306 MYSQL_USERNAME=apitable MYSQL_PASSWORD=password MYSQL_DATABASE=apitable_test MYSQL_USE_SSL=false \
+	DATABASE_TABLE_PREFIX=apitable_ \
 	REDIS_HOST=127.0.0.1 REDIS_PORT=6379 REDIS_DB=4 REDIS_PASSWORD= \
 	RABBITMQ_HOST=127.0.0.1 RABBITMQ_PORT=5672 RABBITMQ_USERNAME=apitable RABBITMQ_PASSWORD=password \
 	INSTANCE_COUNT=1 APPLICATION_NAME=NEST_REST_SERVER \
-	yarn test:ut:room
+	pnpm run test:ut:room
 	make _test_clean
 
 test-ut-room-docker:
@@ -184,14 +188,15 @@ test-ut-room-docker:
 		-e MYSQL_HOST=test-mysql \
 		-e REDIS_HOST=test-redis \
 		-e RABBITMQ_HOST=test-rabbitmq \
-		unit-test-room yarn test:ut:room:cov
+		-e TZ=UTC \
+		unit-test-room pnpm run test:ut:room:cov
 	@echo "${GREEN}finished unit test, clean up images...${RESET}"
+
+_clean_room_coverage:
 	if [ -d "./packages/room-server/coverage" ]; then \
 		sudo chown -R $(shell id -u):$(shell id -g) ./packages/room-server/coverage; \
 	fi
 	make _test_clean
-
-_clean_room_jest_coverage:
 	rm -fr ./packages/room-server/coverage || true
 
 ###### 【backend server unit test】 ######
@@ -199,12 +204,14 @@ _clean_room_jest_coverage:
 test-ut-backend-docker:
 	@echo "$$(docker compose version)"
 	make _test_clean
-	docker compose -f docker-compose.ut-backend.yaml up -d
-	make test-ut-backend
+	make _test_dockers
+	sleep 20
+	make _test_init_db
+	make test-ut-backend-run
 	@echo "${GREEN}finished unit test, clean up images...${RESET}"
 	make _test_clean
 
-test-ut-backend:
+test-ut-backend-run:
 	cd backend-server ;\
 	DATABASE_TABLE_PREFIX=apitable_ \
 	MYSQL_HOST=127.0.0.1  \
@@ -214,13 +221,25 @@ test-ut-backend:
 	MYSQL_DATABASE=apitable_test \
 	REDIS_HOST=127.0.0.1 \
 	REDIS_PORT=6379 \
+	REDIS_PASSWORD= \
 	RABBITMQ_HOST=127.0.0.1 \
 	RABBITMQ_PORT=5672 \
 	RABBITMQ_USERNAME=apitable \
 	RABBITMQ_PASSWORD=password \
+	BACKEND_GRPC_PORT=-1 \
 	./gradlew testCodeCoverageReport --stacktrace
 
 ###### 【backend server unit test】 ######
+
+###### 【init-db test】 ######
+test-init-db-docker:
+	@echo "${LIGHTPURPLE}Working dir, $(shell pwd)${RESET}"
+	@echo "${LIGHTPURPLE}$$(docker compose version)${RESET}"
+	make _test_clean
+	make _test_docker_mysql
+	sleep 20
+	make _test_init_db
+	@echo "${GREEN}finished testing, clean up images...${RESET}"
 
 buildpush-docker: ## build all and push all to hub.docker.io registry
 	echo $$APITABLE_DOCKER_HUB_TOKEN | docker login -u apitable --password-stdin || true;\
@@ -244,12 +263,18 @@ Which service do you want to start run?
   1) backend-server
   2) room-server
   3) web-server
+  4) databus-server
 endef
 export RUN_LOCAL_TXT
 
 define RUN_PERF_TXT
+*NOTE* You must build a package before profiling it.
+
 Which service do you want to start run?
   1) room-server / production mode / Clinic.js flamegraph
+  2) room-server / production mode / Clinic.js doctor
+  3) room-server / production mode / Clinic.js heapprofiler
+  4) room-server / production mode / Clinic.js bubbleprof
 endef
 export RUN_PERF_TXT
 
@@ -269,13 +294,17 @@ run-local: ## run services with local programming language envinroment
 	@read -p "ENTER THE NUMBER: " SERVICE ;\
  	if [ "$$SERVICE" = "1" ]; then make _run-local-backend-server; fi ;\
  	if [ "$$SERVICE" = "2" ]; then make _run-local-room-server; fi ;\
- 	if [ "$$SERVICE" = "3" ]; then make _run-local-web-server; fi
+ 	if [ "$$SERVICE" = "3" ]; then make _run-local-web-server; fi ;\
+ 	if [ "$$SERVICE" = "4" ]; then make _run-docker-databus-server; fi
 
 .PHONY: run-perf
-run-perf: ## run services with local programming language envinroment for performance profiling
+run-perf: ## run room-server with local programming language envinroment for performance profiling
 	@echo "$$RUN_PERF_TXT"
 	@read -p "ENTER THE NUMBER: " SERVICE ;\
- 	if [ "$$SERVICE" = "1" ]; then make _run-perf-flame-local-room-server; fi
+ 	if [ "$$SERVICE" = "1" ]; then export PERF_TYPE=flame; make _run-perf-local-room-server; fi; \
+ 	if [ "$$SERVICE" = "2" ]; then export PERF_TYPE=doctor; make _run-perf-local-room-server; fi; \
+ 	if [ "$$SERVICE" = "3" ]; then export PERF_TYPE=heapprofiler; make _run-perf-local-room-server; fi; \
+ 	if [ "$$SERVICE" = "4" ]; then export PERF_TYPE=bubbleprof; make _run-perf-local-room-server; fi
 
 _run-local-backend-server:
 	source scripts/export-env.sh $$ENV_FILE;\
@@ -290,18 +319,21 @@ _run-local-backend-server:
 _run-local-room-server:
 	source scripts/export-env.sh $$ENV_FILE;\
 	source scripts/export-env.sh $$DEVENV_FILE;\
-	yarn start:room-server
+	pnpm run start:room-server
 
-_run-perf-flame-local-room-server:
+_run-perf-local-room-server:
 	source scripts/export-env.sh $$ENV_FILE;\
 	source scripts/export-env.sh $$DEVENV_FILE;\
-	yarn start:room-server:perf:flame
+	pnpm run  start:room-server:perf:$$PERF_TYPE
 
 _run-local-web-server:
 	source scripts/export-env.sh $$ENV_FILE;\
 	source scripts/export-env.sh $$DEVENV_FILE;\
 	rm -rf packages/datasheet/web_build;\
-	yarn sd
+	pnpm run  sd
+
+_run-docker-databus-server:
+	$(_DATAENV) up databus-server
 
 define DEVENV_TXT
 Which devenv do you want to start run?
@@ -342,11 +374,11 @@ devenv-backend-server:
 
 .PHONY: devenv-web-server
 devenv-web-server:
-	$(RUNNER) web-server sh -c "yarn install && yarn sd"
+	$(RUNNER) web-server sh -c "pnpm run  install && pnpm run  sd"
 
 .PHONY: devenv-room-server
 devenv-room-server:
-	$(RUNNER) room-server yarn start:room-server
+	$(RUNNER) room-server pnpm run  start:room-server
 
 
 .PHONY: install
@@ -355,7 +387,8 @@ install: install-local
 
 .PHONY: install-local
 install-local: ## install all dependencies with local programming language environment
-	yarn install && yarn build:dst:pre
+	pnpm install && pnpm build:dst:pre
+	pnpm build:sr
 	cd backend-server && ./gradlew build -x test --stacktrace
 
 .PHONY: install-docker
@@ -368,11 +401,11 @@ _install-docker-backend-server:
 
 .PHONY: _install-docker-web-server
 _install-docker-web-server:
-	$(RUNNER) web-server sh -c "yarn install && yarn build:dst:pre"
+	$(RUNNER) web-server sh -c "pnpm run  install && pnpm run build"
 
 .PHONY: _install-docker-room-server
 _install-docker-room-server:
-	$(RUNNER) room-server sh -c "yarn install && yarn build:dst:pre"
+	$(RUNNER) room-server sh -c "pnpm run  install && pnpm run build"
 
 
 .PHONY:
@@ -397,7 +430,7 @@ major: # bump version number patch
 
 ### data environement
 .PHONY: dataenv
-dataenv:
+dataenv: _check_env
 	make dataenv-up
 
 DATAENV_SERVICES := mysql minio redis rabbitmq init-db init-appdata
@@ -450,12 +483,12 @@ INIT_DB_DOCKER_PATH=apitable/init-db
 db-plan: ## init-db dry update
 	cd init-db ;\
 	docker build -f Dockerfile . --tag=${INIT_DB_DOCKER_PATH}
-	docker run --rm --env-file $$ENV_FILE -e ACTION=updateSQL ${INIT_DB_DOCKER_PATH}
+	docker run --rm --env-file $$ENV_FILE -e ACTION=updateSQL --network apitable_default ${INIT_DB_DOCKER_PATH}
 
 db-apply: ## init-db update database structure (use .env)
 	cd init-db ;\
 	docker build -f Dockerfile . --tag=${INIT_DB_DOCKER_PATH}
-	docker run --rm --env-file $$ENV_FILE -e ACTION=update ${INIT_DB_DOCKER_PATH}
+	docker run --rm --env-file $$ENV_FILE -e ACTION=update --network apitable_default ${INIT_DB_DOCKER_PATH}
 
 changelog: ## make changelog with github api
 	@read -p "GITHUB_TOKEN: " GITHUB_TOKEN;\
@@ -467,6 +500,20 @@ changelog: ## make changelog with github api
 	echo "FROM: $$GIT_FROM" ;\
 	echo "TO: $$GIT_TO" ;\
 	npx github-changelog-builder --token $$GITHUB_TOKEN -o apitable -r apitable -f $$GIT_FROM -t $$GIT_TO -a CHANGELOG.md
+
+.PHONY: settings
+settings: ## settings and l10n init
+	make _l10n
+
+
+.PHONY: _l10n
+_l10n: ## l10n apitable-ce
+	bash ./scripts/language-generate.sh ./packages/i18n-lang/src ./packages/l10n/gen ./packages/l10n/base ./packages/i18n-lang/src ./
+	bash ./scripts/l10n.sh ./packages/i18n-lang/src ./packages/l10n/gen ./packages/l10n/base ./packages/l10n/base ./
+	pnpm run build
+
+wizard: ## wizard update
+	npx ts-node ./scripts/enterprise/wizard-update.ts
 
 ### help
 .PHONY: search

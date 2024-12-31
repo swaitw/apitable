@@ -16,48 +16,59 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import { isEmpty, find } from 'lodash';
-import { IJOTAction } from 'engine/ot';
-import { DatasheetActions } from 'model';
-import { Selectors, IViewColumn } from '../../exports/store';
-import { t, Strings } from '../../exports/i18n';
-import { ResourceType } from 'types';
-import { CollaCommandName } from 'commands';
 import { ExecuteResult, ICollaCommandDef } from 'command_manager';
+import { CollaCommandName } from 'commands/enum';
+import { getCustomConfig } from 'config';
+import { IJOTAction } from 'engine/ot';
+import { find, isEmpty } from 'lodash';
+import { DatasheetActions } from 'commands_actions/datasheet';
+import { ResourceType } from 'types';
+import { Strings, t } from '../../exports/i18n';
+import { IViewColumn } from '../../exports/store/interfaces';
+
+import {
+  getActiveDatasheetId,
+  getSnapshot,
+} from 'modules/database/store/selectors/resource/datasheet/base';
 
 export interface IModifyViewBase {
   viewId: string;
 }
 
 export interface IModifyViewColumns extends IModifyViewBase {
-  viewId: string;
   key: 'columns';
   value: IViewColumn[];
 }
 
 export interface IModifyViewStrings extends IModifyViewBase {
-  viewId: string;
   key: 'name' | 'description';
   value: string;
 }
 
-type IModifyView = IModifyViewColumns | IModifyViewStrings;
+export interface IModifyViewBoolean extends IModifyViewBase {
+  key: 'displayHiddenColumnWithinMirror';
+  value: boolean;
+}
+
+export type IModifyView = IModifyViewColumns | IModifyViewStrings | IModifyViewBoolean;
+
+export type IModifySelfView = Omit<IModifyViewColumns, 'viewId'> | Omit<IModifyViewStrings, 'viewId'> | Omit<IModifyViewBoolean, 'viewId'>;
 
 export interface IModifyViewsOptions {
   cmd: CollaCommandName.ModifyViews;
   data: IModifyView[];
-  datasheetId?: string
+  datasheetId?: string;
 }
 
 export const modifyViews: ICollaCommandDef<IModifyViewsOptions> = {
   undoable: true,
 
   execute: (context, options) => {
-    const { model: state } = context;
+    const { state: state } = context;
     const { data, datasheetId: _datasheetId } = options;
-    const activeDatasheetId = Selectors.getActiveDatasheetId(state)!;
+    const activeDatasheetId = getActiveDatasheetId(state)!;
     const datasheetId = _datasheetId || activeDatasheetId;
-    const snapshot = Selectors.getSnapshot(state, datasheetId);
+    const snapshot = getSnapshot(state, datasheetId);
     if (!snapshot) {
       return null;
     }
@@ -72,7 +83,7 @@ export const modifyViews: ICollaCommandDef<IModifyViewsOptions> = {
       const { viewId, key, value } = recordOption;
 
       // character is too long or not filled
-      if (key === 'name' && (value.length > 30 || value.length < 1)) {
+      if (key === 'name' && (value.length > (getCustomConfig().VIEW_NAME_MAX_COUNT || 30) || value.length < 1)) {
         return collected;
       }
 

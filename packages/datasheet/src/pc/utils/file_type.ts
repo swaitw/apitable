@@ -16,11 +16,20 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import { cellValueToImageSrc, getHostOfAttachment, IAttachmentValue, IImageSrcOption, isImage, isPdf, isWebp } from '@apitable/core';
 import accept from 'attr-accept';
 import mime from 'mime-types';
 import { browser } from 'modules/shared/browser';
+import {
+  cellValueToImageSrc,
+  getHostOfAttachment,
+  IAttachmentValue,
+  IImageSrcOption,
+  isImage,
+  isPdf,
+  isWebp
+} from '@apitable/core';
 import { byte2Mb } from 'pc/utils';
+import { getEnvVariables } from 'pc/utils/env';
 import IconImg from 'static/icon/datasheet/attachment/attachment_ img_small_placeholder_filled.png'; // img
 import IconTxt from 'static/icon/datasheet/attachment/datasheet_img_attachment_ text_placeholder.png'; // txt
 import IconZip from 'static/icon/datasheet/attachment/datasheet_img_attachment_compressed_placeholder.png'; // zip
@@ -47,11 +56,7 @@ export enum DocType {
   PPT,
 }
 
-export const NO_SUPPORT_IMG_MIME_TYPE = [
-  'image/vnd.adobe.photoshop',
-  'image/tiff',
-  'image/vnd.dwg',
-];
+export const NO_SUPPORT_IMG_MIME_TYPE = ['image/vnd.adobe.photoshop', 'image/tiff', 'image/vnd.dwg'];
 
 const WORD_MIME_TYPE = [
   'application/msword',
@@ -82,22 +87,14 @@ const EXCEL_MIME_TYPE = [
   'text/csv',
 ];
 
-export const DOC_MIME_TYPE = [
-  ...WORD_MIME_TYPE,
-  ...EXCEL_MIME_TYPE,
-  ...PPT_MIME_TYPE,
-];
+export const DOC_MIME_TYPE = [...WORD_MIME_TYPE, ...EXCEL_MIME_TYPE, ...PPT_MIME_TYPE];
 
 const MEDIA_TYPE = ['audio/*', 'video/*'];
 
 // ts suffix files are recognized as video/mp2t video format by default
 const INVALID_MEDIA_TYPE = ['video/mp2t'];
 
-const ZIPPED_TYPE = [
-  'application/zip',
-  'application/x-7z-compressed',
-  'application/x-rar-compressed',
-];
+const ZIPPED_TYPE = ['application/zip', 'application/x-7z-compressed', 'application/x-rar-compressed'];
 
 interface IFileLikeProps {
   name: string;
@@ -180,6 +177,9 @@ export function renderFileIconUrl(curFile: IFileLikeProps) {
 }
 
 export const imageSizeExceeded = (size: number) => {
+  if (getEnvVariables().IGNORE_IMG_SIZE_LIMIT) {
+    return false;
+  }
   const MAX_FILE_SIZE = 20;
   return byte2Mb(size) >= MAX_FILE_SIZE;
 };
@@ -189,14 +189,7 @@ export const imageSizeExceeded = (size: number) => {
  */
 export const showOriginImageThumbnail = (file: IAttachmentValue) => {
   const fileArgument = { name: file.name, type: file.mimeType };
-  return (
-    isPdf(fileArgument) ||
-    (
-      isImage(fileArgument) &&
-      !imageSizeExceeded(file.size) &&
-      isSupportImage(file.mimeType)
-    )
-  );
+  return (isPdf(fileArgument) && file.preview) || (isImage(fileArgument) && !imageSizeExceeded(file.size) && isSupportImage(file.mimeType));
 };
 
 export const isSupportImage = (mimeType: string) => {
@@ -206,10 +199,7 @@ export const isSupportImage = (mimeType: string) => {
 // Get a preview of the file
 // 1. Pictures, PDF Show pictures
 // 2. Other file types show the corresponding Icon
-export const getCellValueThumbSrc = (
-  file: IAttachmentValue,
-  option: IImageSrcOption,
-) => {
+export const getCellValueThumbSrc = (file: IAttachmentValue, option: IImageSrcOption) => {
   let imgSrc = '';
   if (!file) {
     return imgSrc;
@@ -234,12 +224,32 @@ export const getCellValueThumbSrc = (
   return imgSrc;
 };
 
+export function getPreviewUrl(fileInfo: IAttachmentValue) {
+  if (fileInfo.token.includes('http') || !fileInfo.bucket) {
+    return fileInfo.token;
+  }
+  const host = getHostOfAttachment(fileInfo.bucket);
+  return `${host}${fileInfo.token}`;
+}
+
 export function getDownloadSrc(fileInfo: IAttachmentValue) {
+  if (fileInfo.token.includes('http')) {
+    const url = new URL(fileInfo.token);
+    url.searchParams.set('attname', encodeURIComponent(fileInfo.name));
+    return url.href;
+  }
   const host = getHostOfAttachment(fileInfo.bucket);
   return `${host}${fileInfo.token}?attname=${encodeURIComponent(fileInfo.name)}`;
 }
 
 export function getAvInfoRequestUrl(fileInfo: IAttachmentValue) {
+  if (fileInfo.token.includes('http')) {
+    const url = new URL(fileInfo.token);
+    if (url.search) {
+      return url.href + '&avinfo';
+    }
+    return url.href;
+  }
   const host = getHostOfAttachment(fileInfo.bucket);
   return `${host}${fileInfo.token}?avinfo`;
 }

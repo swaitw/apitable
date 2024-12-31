@@ -18,31 +18,32 @@
 
 package com.apitable.workspace.ro;
 
-import javax.validation.constraints.Size;
-
-import io.swagger.annotations.ApiModel;
-import io.swagger.annotations.ApiModelProperty;
+import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 import org.hibernate.validator.constraints.Range;
 
 /**
- * Node Edit Request Parameters
+ * Node Edit Request Parameters.
  */
 @Data
-@ApiModel("Node Edit Request Parameters")
+@Schema(description = "Node Edit Request Parameters")
 public class NodeUpdateOpRo {
 
-    @ApiModelProperty(value = "Name", example = "This is a new node name", position = 1)
+    @Schema(description = "Name", example = "This is a new node name")
     @Size(max = 100, message = "The name length cannot exceed 100 bits")
     private String nodeName;
 
-    @ApiModelProperty(value = "Icon", example = ":smile", position = 2)
+    @Schema(description = "Icon", example = ":smile")
     private String icon;
 
-    @ApiModelProperty(value = "Cover, Empty（'null' OR 'undefined'）", example = "space/2020/5/19/..", position = 3)
+    @Schema(description = "Cover, Empty（'null' OR 'undefined'）", example = "space/2020/5/19/..")
     private String cover;
 
-    @ApiModelProperty(value = "Whether to display the recorded history", example = "1", position = 4)
+    @Schema(description = "Whether to display the recorded history", example = "1")
     @Range(min = 0, max = 1, message = "Display record history can only be 0/1")
     private Integer showRecordHistory;
+
+    @Schema(description = "Embed page info", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+    private NodeEmbedPageRo embedPage;
 }

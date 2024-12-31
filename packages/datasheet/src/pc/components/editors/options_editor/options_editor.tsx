@@ -16,6 +16,9 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+import { produce } from 'immer';
+import { forwardRef, useImperativeHandle, useRef, useState } from 'react';
+import * as React from 'react';
 import {
   CollaCommandName,
   ExecuteResult,
@@ -31,23 +34,21 @@ import {
   Selectors,
   IField,
 } from '@apitable/core';
-import { produce } from 'immer';
 import { ScreenSize } from 'pc/components/common/component_display';
 import { OptionList } from 'pc/components/list';
-import { resourceService } from 'pc/resource_service';
 import { useResponsive } from 'pc/hooks';
-import { forwardRef, useImperativeHandle, useRef, useState } from 'react';
-import * as React from 'react';
-import { useSelector } from 'react-redux';
+import { resourceService } from 'pc/resource_service';
+import { useAppSelector } from 'pc/store/react-redux';
+import { useFocusEffect } from '../hooks/use_focus_effect';
 import { IBaseEditorProps, IEditor } from '../interface';
 import { PopStructure } from '../pop_structure';
 import styles from './style.module.less';
-import { useFocusEffect } from '../hooks/use_focus_effect';
 
 export interface IEditorProps extends IBaseEditorProps {
-  style: React.CSSProperties;
+  style?: React.CSSProperties;
   editing: boolean;
   recordId: string;
+  editable: boolean;
   toggleEditing?: (next?: boolean) => void;
 }
 
@@ -70,12 +71,12 @@ export const OptionsEditorBase: React.ForwardRefRenderFunction<IEditor, IEditorP
   );
   const { field, recordId, style, datasheetId, height, width, editing, toggleEditing, onSave } = props;
   const inputRef = useRef<HTMLInputElement>(null);
-  const { fieldPropertyEditable } = useSelector(state => Selectors.getPermissions(state, datasheetId));
-  const cellValue = useSelector((state: IReduxState) => {
+  const { fieldPropertyEditable } = useAppSelector((state) => Selectors.getPermissions(state, datasheetId));
+  const cellValue = useAppSelector((state: IReduxState) => {
     const snapshot = Selectors.getSnapshot(state, datasheetId);
     return Selectors.getCellValue(state, snapshot!, recordId, field.id);
   });
-  const currentFieldInfo = useSelector(state => Selectors.getField(state, field.id, datasheetId));
+  const currentFieldInfo = useAppSelector((state) => Selectors.getField(state, field.id, datasheetId));
   const isMulti = FieldType.MultiSelect === field.type;
 
   const { screenIsAtMost } = useResponsive();
@@ -108,7 +109,7 @@ export const OptionsEditorBase: React.ForwardRefRenderFunction<IEditor, IEditorP
   const [draggingId, setDraggingId] = useState<string | undefined>();
 
   function afterDrag(trulyOldIndex: number, trulyNewIndex: number) {
-    setCurrentField(field => {
+    setCurrentField((field) => {
       return produce(field, (draft: IField) => {
         moveArrayElement(draft.property.options, trulyOldIndex, trulyNewIndex);
         return draft;
@@ -161,7 +162,7 @@ export const OptionsEditorBase: React.ForwardRefRenderFunction<IEditor, IEditorP
   return (
     <PopStructure style={style} height={height} editing={editing} className={styles.optionsEditor} width={width} onClose={onClose}>
       <OptionList
-        listData={Number(style.width) === 0 ? [] : options}
+        listData={Number(style?.width) === 0 ? [] : options}
         onAddHandle={fieldPropertyEditable ? insertNewItem : undefined}
         setCurrentField={setCurrentField}
         existValues={cellValue}

@@ -20,12 +20,26 @@ package com.apitable.shared.constants;
 
 /**
  * <p>
- * mail constants
+ * mail constants.
  * </p>
  *
  * @author Shawn Deng
  */
 public class MailPropConstants {
+
+    public static final String SUBJECT_MEMBER_APPLY_CLOSE_ACCOUNT = "memberAppliedToCloseAccount";
+
+    public static final String SUBJECT_ADD_SUB_ADMIN = "addSubAdmin";
+
+    public static final String SUBJECT_REMOVE_SUB_ADMIN = "changedOrdinaryUser";
+
+    public static final String SUBJECT_ASSIGN_GROUP = "assignedToGroup";
+
+    public static final String SUBJECT_ASSIGN_ROLE = "assignedToRole";
+
+    public static final String SUBJECT_REMOVE_ROLE = "removeFromRole";
+
+    public static final String SUBJECT_ACCEPT_INVITE = "acceptInvite";
 
     public static final String SUBJECT_INVITE_NOTIFY = "inviteEmail";
 
@@ -40,6 +54,18 @@ public class MailPropConstants {
     public static final String SUBJECT_DATASHEET_REMIND = "remindMember";
 
     public static final String SUBJECT_SPACE_APPLY = "spaceApply";
+
+    public static final String SUBJECT_SPACE_APPLY_APPROVE = "spaceApplyApproved";
+
+    public static final String SUBJECT_SPACE_APPLY_REFUSE = "spaceApplyRefused";
+
+    public static final String SUBJECT_SPACE_BETA_FEATURE_APPLY_SUCCESS =
+        "applySpaceBetaFeatureSuccess";
+
+    public static final String SUBJECT_SPACE_CERTIFICATION_NOTIFY = "spaceCertificationNotify";
+
+    public static final String SUBJECT_SPACE_CERTIFICATION_FAIL_NOTIFY =
+        "spaceCertificationFailNotify";
 
     public static final String SUBJECT_RECORD_COMMENT = "remindComment";
 
@@ -57,7 +83,8 @@ public class MailPropConstants {
 
     public static final String SUBJECT_WIDGET_UNPUBLISH_NOTIFY = "widgetUnpublishNotify";
 
-    public static final String SUBJECT_WIDGET_UNPUBLISH_GLOBAL_NOTIFY = "widgetUnpublishGlobalNotify";
+    public static final String SUBJECT_WIDGET_UNPUBLISH_GLOBAL_NOTIFY =
+        "widgetUnpublishGlobalNotify";
 
     public static final String SUBJECT_WIDGET_TRANSFER_NOTIFY = "widgetTransferNotify";
 
@@ -65,17 +92,21 @@ public class MailPropConstants {
 
     public static final String SUBJECT_WIDGET_SUBMIT_FAIL = "widgetSubmitFail";
 
-    public static final String SUBJECT_WIDGET_QUALIFICATION_AUTH_SUCCESS = "widgetQualificationAuthSuccess";
+    public static final String SUBJECT_WIDGET_QUALIFICATION_AUTH_SUCCESS =
+        "widgetQualificationAuthSuccess";
 
-    public static final String SUBJECT_WIDGET_QUALIFICATION_AUTH_FAIL = "widgetQualificationAuthFail";
+    public static final String SUBJECT_WIDGET_QUALIFICATION_AUTH_FAIL =
+        "widgetQualificationAuthFail";
 
-    public static final String SUBJECT_SUBSCRIBED_RECORD_CELL_UPDATED = "subscribedRecordCellUpdated";
+    public static final String SUBJECT_SUBSCRIBED_RECORD_CELL_UPDATED =
+        "subscribedRecordCellUpdated";
 
     public static final String SUBJECT_SUBSCRIBED_RECORD_COMMENTED = "subscribedRecordCommented";
 
     public static final String SUBJECT_SUBSCRIBED_DATASHEET_LIMIT = "subscribedDatasheetLimit";
 
-    public static final String SUBJECT_SUBSCRIBED_DATASHEET_RECORD_LIMIT = "subscribedDatasheetRecordLimit";
+    public static final String SUBJECT_SUBSCRIBED_DATASHEET_RECORD_LIMIT =
+        "subscribedDatasheetRecordLimit";
 
     public static final String SUBJECT_SUBSCRIBED_CAPACITY_LIMIT = "subscribedCapacityLimit";
 
@@ -93,9 +124,17 @@ public class MailPropConstants {
 
     public static final String SUBJECT_SUBSCRIBED_GANNT_LIMIT = "SubscribedGanntLimit";
 
-    public static final String SUBJECT_SUBSCRIBED_FIELD_PERMISSION_LIMIT = "subscribedFieldPermissionLimit";
+    public static final String SUBJECT_SUBSCRIBED_FIELD_PERMISSION_LIMIT =
+        "subscribedFieldPermissionLimit";
 
-    public static final String SUBJECT_SUBSCRIBED_FILE_PERMISSION_LIMIT = "subscribedFilePermissionLimit";
+    public static final String SUBJECT_SUBSCRIBED_FILE_PERMISSION_LIMIT =
+        "subscribedFilePermissionLimit";
 
     public static final String SUBJECT_SUBSCRIBED_ADMIN_LIMIT = "subscribedAdminLimit";
+
+    public static final String SUBJECT_AUTOMATION_ERROR = "automationError";
+
+    public static final String SUBJECT_SUBSCRIBED_RECORD_UNARCHIVED = "subscribedRecordUnarchived";
+
+    public static final String SUBJECT_SUBSCRIBED_RECORD_ARCHIVED = "subscribedRecordArchived";
 }

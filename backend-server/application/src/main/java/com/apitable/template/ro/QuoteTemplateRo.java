@@ -18,28 +18,33 @@
 
 package com.apitable.template.ro;
 
-import javax.validation.constraints.NotBlank;
-
-import io.swagger.annotations.ApiModel;
-import io.swagger.annotations.ApiModelProperty;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
+import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
 /**
  * <p>
- * Reference Template Request Parameters
+ * Reference Template Request Parameters.
  * </p>
  */
 @Data
-@ApiModel("Reference Template Request Parameters")
+@Schema(description = "Reference Template Request Parameters")
 public class QuoteTemplateRo {
 
-    @ApiModelProperty(value = "Template ID", example = "tplHTbkg7qbNJ", position = 1, required = true)
+    @Schema(description = "Template ID", requiredMode = RequiredMode.REQUIRED,
+        example = "tplHTbkg7qbNJ")
     @NotBlank(message = "Template ID cannot be empty")
     private String templateId;
 
-    @ApiModelProperty(value = "Parent node ID", example = "fodSf4PZBNwut", position = 2, required = true)
+    @Schema(description = "Parent node ID", requiredMode = RequiredMode.REQUIRED,
+        example = "fodSf4PZBNwut")
     private String parentId;
 
-    @ApiModelProperty(value = "Whether to retain data", example = "true", position = 3)
+    @Schema(description = "Whether to retain data", example = "true")
     private Boolean data = true;
+
+    @Schema(description = "where to quote", example = "23445")
+    private String unitId;
+
 }

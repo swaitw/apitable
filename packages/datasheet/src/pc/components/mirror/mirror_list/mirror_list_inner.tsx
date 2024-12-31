@@ -16,18 +16,22 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import { Button, Skeleton, Typography, useThemeColors } from '@apitable/components';
-import { ConfigConstant, integrateCdnHost, Navigation, Selectors, Settings, Strings, t } from '@apitable/core';
-import { AddOutlined } from '@apitable/icons';
 import Image from 'next/image';
+import * as React from 'react';
+import { Button, Checkbox, Skeleton, Typography, useThemeColors } from '@apitable/components';
+import { CollaCommandName, ConfigConstant, Events, ICollaCommandOptions, Navigation, Player, Selectors, Strings, t, ThemeName } from '@apitable/core';
+import { AddOutlined } from '@apitable/icons';
 import { PopUpTitle } from 'pc/components/common';
 import { Router } from 'pc/components/route_manager/router';
 import { useCatalog } from 'pc/hooks/use_catalog';
-import * as React from 'react';
-import { useSelector } from 'react-redux';
+import { resourceService } from 'pc/resource_service';
+import { useAppSelector } from 'pc/store/react-redux';
+import { executeCommandWithMirror } from 'pc/utils/execute_command_with_mirror';
+import MirrorEmptyDark from 'static/icon/common/mirror_empty_dark.png';
+import MirrorEmptyLight from 'static/icon/common/mirror_empty_light.png';
 import { IMirrorItem } from './interface';
-import styles from './style.module.less';
 import { gstMirrorIconByViewType } from './utils';
+import styles from './style.module.less';
 
 interface IMirrorListInner {
   mirrorList: IMirrorItem[];
@@ -41,10 +45,12 @@ interface IBlankInner {
 }
 
 const BlankInner = ({ createMirrorNode, mirrorCreatable }: IBlankInner) => {
+  const theme = useAppSelector((state) => state.theme);
+  const MirrorEmpty = theme === ThemeName.Light ? MirrorEmptyLight : MirrorEmptyDark;
   return (
     <div className={styles.blackInner}>
       <div className={styles.imgBox}>
-        <Image src={integrateCdnHost(Settings.view_mirror_list_empty_img.value)} alt="" width={160} height={120} />
+        <Image src={MirrorEmpty} alt="" width={160} height={120} />
       </div>
       <span className={styles.emptyText}>{t(Strings.black_mirror_list_tip)}</span>
       <Button color={'primary'} onClick={createMirrorNode} disabled={!mirrorCreatable}>
@@ -54,23 +60,26 @@ const BlankInner = ({ createMirrorNode, mirrorCreatable }: IBlankInner) => {
   );
 };
 
-export const MirrorListInner: React.FC<React.PropsWithChildren<IMirrorListInner>> = props => {
+export const MirrorListInner: React.FC<React.PropsWithChildren<IMirrorListInner>> = (props) => {
   const colors = useThemeColors();
   const { mirrorList, loading } = props;
-  const { datasheetId, viewId } = useSelector(state => state.pageParams)!;
-  const folderId = useSelector(state => {
+  const { datasheetId, viewId } = useAppSelector((state) => state.pageParams)!;
+  const folderId = useAppSelector((state) => {
     return Selectors.getDatasheetParentId(state, datasheetId);
   });
-  const view = useSelector(state => {
+  const view = useAppSelector((state) => {
     const snapshot = Selectors.getSnapshot(state, datasheetId)!;
     return Selectors.getViewById(snapshot, viewId!);
   });
 
-  const mirrorCreatable = useSelector(state => {
+  const mirrorCreatable = useAppSelector((state) => {
     const { manageable } = Selectors.getPermissions(state);
-    const { manageable: folderManageable } = state.catalogTree.treeNodesMap[folderId!]?.permissions || {};
+    const { manageable: folderManageable } = state.catalogTree.treeNodesMap[folderId!]?.permissions ||
+    state.catalogTree.privateTreeNodesMap[folderId!]?.permissions || {};
     return manageable && folderManageable;
   });
+  const execute = (cmd: ICollaCommandOptions) => resourceService.instance!.commandManager.execute(cmd);
+  const { editable } = useAppSelector((state) => Selectors.getPermissions(state));
 
   const { addTreeNode } = useCatalog();
 
@@ -84,19 +93,52 @@ export const MirrorListInner: React.FC<React.PropsWithChildren<IMirrorListInner>
       },
       `${view!.name}${t(Strings.key_of_adjective)}${t(Strings.mirror)}`,
     );
+    Player.doTrigger(Events.datasheet_create_mirror_tip);
   };
 
   const linkTo = (id: string) => {
-    Router.push(Navigation.WORKBENCH,{
+    Router.push(Navigation.WORKBENCH, {
       params: {
         nodeId: id,
       },
     });
   };
 
+  const switchShowHiddenFieldWithinMirror = (checked: boolean) => {
+    executeCommandWithMirror(() => {
+      execute({
+        cmd: CollaCommandName.ModifyViews,
+        data: [
+          {
+            viewId: view!.id,
+            key: 'displayHiddenColumnWithinMirror',
+            value: checked,
+          },
+        ],
+      });
+    }, {});
+  };
+
   return (
     <div className={styles.mirrorListInner}>
-      <PopUpTitle variant={'h7'} title={t(Strings.mirror)} infoUrl={t(Strings.mirror_help_url)} className={styles.boxTop} />
+      <PopUpTitle
+        variant={'h7'}
+        title={t(Strings.mirror)}
+        infoUrl={t(Strings.mirror_help_url)}
+        className={styles.boxTop}
+        rightContent={
+          editable ? (
+            <div className={styles.switchCoverFit}>
+              <Checkbox
+                checked={typeof view!.displayHiddenColumnWithinMirror === 'boolean' ? view!.displayHiddenColumnWithinMirror : true}
+                onChange={switchShowHiddenFieldWithinMirror}
+                size={14}
+              />
+              <span style={{ paddingLeft: 4 }}>{t(Strings.mirror_show_hidden_checkbox)}</span>
+            </div>
+          ) : undefined
+        }
+      />
       {loading ? (
         <div className={styles.skeletonWrapper} style={{ width: 368, height: 200 }}>
           <Skeleton count={2} height="24px" />
@@ -104,7 +146,7 @@ export const MirrorListInner: React.FC<React.PropsWithChildren<IMirrorListInner>
       ) : mirrorList.length ? (
         <div>
           <div className={styles.scroll}>
-            {mirrorList.map(item => {
+            {mirrorList.map((item) => {
               return (
                 <div
                   key={item.nodeId}

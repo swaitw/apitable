@@ -17,10 +17,23 @@
  */
 
 import {
-  IBaseDatasheetPack, IFieldPermissionMap, IGetRecords, IOperation, IRecord, IRecordMap, IRemoteChangeset, IServerDatasheetPack, ISnapshot,
-  IUnitValue, IUserValue, IViewPack, IViewProperty, ResourceType,
+  IBaseDatasheetPack,
+  IFieldPermissionMap,
+  IGetRecords,
+  IOperation,
+  IRecord,
+  IRecordMap,
+  IRemoteChangeset,
+  IServerDatasheetPack,
+  ISnapshot,
+  IUnitValue,
+  IUserValue,
+  IViewPack,
+  IViewProperty,
+  ResourceType,
 } from '@apitable/core';
 import { NodeInfo } from './node.model';
+import { INamedUser } from '../../../shared/interfaces';
 
 export class ChangesetView implements IRemoteChangeset {
   userId!: string;
@@ -31,10 +44,6 @@ export class ChangesetView implements IRemoteChangeset {
   resourceType!: ResourceType;
   operations!: IOperation[];
   createdAt!: number;
-}
-
-export class RecordMap implements IRecordMap {
-  [recordId: string]: IRecord;
 }
 
 export class RecordsMapView implements IGetRecords {
@@ -71,11 +80,17 @@ export class FieldPermissionMap {
 export class DatasheetPack extends FieldPermissionMap implements IServerDatasheetPack {
   snapshot!: ISnapshot;
   datasheet!: NodeInfo;
-  foreignDatasheetMap?: { [foreignDatasheetId: string]: IBaseDatasheetPack; };
+  foreignDatasheetMap?: { [foreignDatasheetId: string]: IBaseDatasheetPack };
   units?: (UserInfo | UnitInfo)[];
 }
 
 export class ViewPack implements IViewPack {
   view!: IViewProperty;
   revision!: number;
+}
+
+export class ArchivedRecord {
+  record!: IRecord | undefined;
+  archivedUser!: INamedUser | undefined;
+  archivedAt!: number;
 }

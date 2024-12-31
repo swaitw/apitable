@@ -16,37 +16,46 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+import { useMount, useToggle } from 'ahooks';
+import { Switch } from 'antd';
 import { useState } from 'react';
 import * as React from 'react';
+import { IOption, LinkButton, Typography, useThemeColors } from '@apitable/components';
+import {
+  DatasheetApi,
+  IFieldPermissionMember,
+  IFieldPermissionRole,
+  IMember,
+  IUnitValue,
+  MemberType,
+  Selectors,
+  Strings,
+  t,
+  ConfigConstant,
+} from '@apitable/core';
+import { ChevronRightOutlined, UserGroupFilled } from '@apitable/icons';
+import { MembersDetail } from 'pc/components/catalog/permission_settings/permission/members_detail';
+import { UnitItem } from 'pc/components/catalog/permission_settings/permission/unit_item';
+import { Message, Popconfirm } from 'pc/components/common';
+import { ScreenSize } from 'pc/components/common/component_display';
 import { IEnablePermission } from 'pc/components/field_permission/interface';
 import styles from 'pc/components/field_permission/styles.module.less';
-import { Message, Popconfirm } from 'pc/components/common';
-import { Switch } from 'antd';
 import { UnitPermissionSelect } from 'pc/components/field_permission/unit_permission_select';
-import { useMount, useToggle } from 'ahooks';
-import { useRequest } from 'pc/hooks';
-import { DatasheetApi, IFieldPermissionMember, IFieldPermissionRole, IMember, IUnitValue, MemberType, Selectors, Strings, t } from '@apitable/core';
-import { UnitItem } from 'pc/components/catalog/permission_settings/permission/unit_item';
-import { IOption, LinkButton, Typography, useThemeColors } from '@apitable/components';
-import ArrowRightIcon from 'static/icon/common/common_icon_right_line.svg';
-import { useSelector } from 'react-redux';
-import { permission } from '@apitable/core/dist/config/constant';
-import { MembersDetail } from 'pc/components/catalog/permission_settings/permission/members_detail';
-import { MultiplemembersFilled } from '@apitable/icons';
-import { useResponsive } from 'pc/hooks';
-import { ScreenSize } from 'pc/components/common/component_display';
+import { useRequest, useResponsive } from 'pc/hooks';
 
-export const EnableFieldPermission: React.FC<React.PropsWithChildren<IEnablePermission>> = props => {
+import { useAppSelector } from 'pc/store/react-redux';
+
+export const EnableFieldPermission: React.FC<React.PropsWithChildren<IEnablePermission>> = (props) => {
   const colors = useThemeColors();
   const { permissionStatus, onClose, field } = props;
   const [confirmPopVisible, setConfirmPopVisible] = useState(false);
   const [roleList, setRoleList] = useState<IFieldPermissionRole[]>([]);
   const [memberList, setMemberList] = useState<IFieldPermissionMember[]>([]);
   const [setting, setSetting] = useState({ formSheetAccessible: false });
-  const datasheetId = useSelector(state => state.pageParams.datasheetId)!;
+  const datasheetId = useAppSelector((state) => state.pageParams.datasheetId)!;
   const [isMemberDetail, { toggle: toggleIsMemberDetail }] = useToggle(false);
   const { screenIsAtLeast, screenIsAtMost } = useResponsive();
-  const fieldPermission = useSelector(Selectors.getFieldPermissionMap)!;
+  const fieldPermission = useAppSelector(Selectors.getFieldPermissionMap)!;
   const readonly = fieldPermission[field.id] && !fieldPermission[field.id].manageable;
   const { run } = useRequest(DatasheetApi.fetchFieldPermissionRoleList, {
     manual: true,
@@ -65,11 +74,11 @@ export const EnableFieldPermission: React.FC<React.PropsWithChildren<IEnablePerm
     fetchRoleList();
   });
 
-  const submitAddRole = async(unitInfos: IUnitValue[], permission: IOption) => {
+  const submitAddRole = async (unitInfos: IUnitValue[], permission: IOption) => {
     if (!unitInfos.length || !permission) {
       return;
     }
-    const unitIds = unitInfos.map(item => {
+    const unitIds = unitInfos.map((item) => {
       return item.unitId;
     });
     const role = permission.value + '';
@@ -90,12 +99,12 @@ export const EnableFieldPermission: React.FC<React.PropsWithChildren<IEnablePerm
 
   const permissionList = [
     {
-      value: permission.editor,
+      value: ConfigConstant.permission.editor,
       label: t(Strings.field_permission_add_editor),
       subLabel: t(Strings.field_permission_edit_sub_label),
     },
     {
-      value: permission.reader,
+      value: ConfigConstant.permission.reader,
       label: t(Strings.field_permission_add_reader),
       subLabel: t(Strings.field_permission_read_sub_label),
     },
@@ -107,7 +116,7 @@ export const EnableFieldPermission: React.FC<React.PropsWithChildren<IEnablePerm
     });
   };
 
-  const closeFieldPermission = async() => {
+  const closeFieldPermission = async () => {
     const res = await DatasheetApi.setFieldPermissionStatus(datasheetId, field.id, false);
     const { success, message } = res.data;
     if (!success) {
@@ -117,7 +126,7 @@ export const EnableFieldPermission: React.FC<React.PropsWithChildren<IEnablePerm
     onClose();
   };
 
-  const editRole = async(unitId: string, role: string) => {
+  const editRole = async (unitId: string, role: string) => {
     const res = await DatasheetApi.editFieldPermissionRole(datasheetId, field.id, {
       role,
       unitId,
@@ -133,7 +142,7 @@ export const EnableFieldPermission: React.FC<React.PropsWithChildren<IEnablePerm
     await fetchRoleList();
   };
 
-  const onRemove = async(unitId: string) => {
+  const onRemove = async (unitId: string) => {
     const res = await DatasheetApi.deleteFieldPermissionRole(datasheetId, field.id, unitId);
     const { success, message } = res.data;
     if (!success) {
@@ -146,11 +155,11 @@ export const EnableFieldPermission: React.FC<React.PropsWithChildren<IEnablePerm
     await fetchRoleList();
   };
 
-  const fetchRoleList = async() => {
+  const fetchRoleList = async () => {
     await run(datasheetId, field.id);
   };
 
-  const changeFormSheetAccessible = async(checked: boolean) => {
+  const changeFormSheetAccessible = async (checked: boolean) => {
     const res = await DatasheetApi.updateFieldPermissionSetting(datasheetId, field.id, checked);
     const { success, message } = res.data;
     if (!success) {
@@ -201,7 +210,7 @@ export const EnableFieldPermission: React.FC<React.PropsWithChildren<IEnablePerm
       {!readonly && <UnitPermissionSelect classNames={styles.permissionSelect} permissionList={permissionList} onSubmit={submitAddRole} />}
       <div className={styles.collaboratorTip}>
         <span className={styles.leftTip}>
-          <MultiplemembersFilled color={[colors.thirdLevelText, 'transparent']} />
+          <UserGroupFilled color={[colors.thirdLevelText, 'transparent']} />
           <Typography variant={'body4'} component={'span'} className={styles.customColor}>
             {t(Strings.field_permission_modal_tip)}
           </Typography>
@@ -211,7 +220,7 @@ export const EnableFieldPermission: React.FC<React.PropsWithChildren<IEnablePerm
             <Typography variant={'body4'} component={'span'} className={styles.customColor}>
               {t(Strings.view_by_person)}
             </Typography>
-            <ArrowRightIcon fill={colors.thirdLevelText} />
+            <ChevronRightOutlined color={colors.thirdLevelText} />
           </LinkButton>
         )}
       </div>
@@ -223,19 +232,15 @@ export const EnableFieldPermission: React.FC<React.PropsWithChildren<IEnablePerm
         </span>
       )}
       <div className={styles.unitPermissionList}>
-        {roleList.map(item => {
+        {roleList.map((item) => {
           const roleOptions = [
             {
-              value: permission.editor,
+              value: ConfigConstant.permission.editor,
               label: t(Strings.can_edit),
-              disabled: !item.canEdit,
-              disabledTip: t(Strings.cannot_switch_field_permission),
             },
             {
-              value: permission.reader,
+              value: ConfigConstant.permission.reader,
               label: t(Strings.can_read),
-              disabled: !item.canRead,
-              disabledTip: t(Strings.cannot_switch_field_permission),
             },
           ];
           return (
@@ -273,7 +278,7 @@ export const EnableFieldPermission: React.FC<React.PropsWithChildren<IEnablePerm
         <MembersDetail
           data={{
             members: memberList,
-            admins: (memberList.filter(member => member.isAdmin) as any) as IMember[],
+            admins: memberList.filter((member) => member.isAdmin) as any as IMember[],
           }}
           onCancel={toggleIsMemberDetail}
         />

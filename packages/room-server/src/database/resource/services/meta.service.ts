@@ -32,6 +32,7 @@ export class MetaService {
   constructor(
     @Inject(forwardRef(() => NodeService))
     private readonly nodeService: NodeService,
+    @Inject(forwardRef(() => DatasheetService))
     private readonly datasheetService: DatasheetService,
     private readonly widgetService: WidgetService,
     private readonly resourceMetaRepository: ResourceMetaRepository,
@@ -45,7 +46,7 @@ export class MetaService {
       case ResourceType.Form:
       case ResourceType.Dashboard:
       case ResourceType.Mirror:
-        const resourceRevision = await this.nodeService.getReversionByResourceId(resourceId);
+        const resourceRevision = await this.nodeService.getRevisionByResourceId(resourceId);
         return { resourceRevision, nodeId: resourceId };
       case ResourceType.Widget:
         const widget = await this.widgetService.getWidgetInfo(resourceId);
@@ -68,12 +69,12 @@ export class MetaService {
     return await this.resourceMetaRepository.updateMetaAndRevision(resourceId, userId, metaData, revision);
   }
 
-  public async selectReversionByResourceId(resourceId: string): Promise<{ revision: number } | undefined> {
-    return await this.resourceMetaRepository.selectReversionByResourceId(resourceId);
+  public async selectRevisionByResourceId(resourceId: string): Promise<{ revision: number } | undefined> {
+    return await this.resourceMetaRepository.selectRevisionByResourceId(resourceId);
   }
 
   public async getRevisionByDstId(dstId: string): Promise<number | undefined> {
-    const rawData = await this.datasheetService.selectRevisionByDstId(dstId);
+    const rawData = await this.datasheetService.getRevisionByDstId(dstId);
     return rawData && Number(rawData.revision);
   }
 }

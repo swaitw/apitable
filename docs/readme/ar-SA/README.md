@@ -14,7 +14,7 @@
     <!-- Java -->
     <img src="https://img.shields.io/badge/Java-ED8B00?logo=spring&logoColor=white" alt="لغة جافا، إطار الربيع" />
     <!-- hub.docker.com-->
-    <a target="_blank" href="#installation">
+    <a target="_blank" href="#تثبيت">
         <img src="https://img.shields.io/docker/pulls/apitable/init-db" />
     </a>
     <!-- Github Release Latest -->
@@ -31,7 +31,7 @@
         <img src="https://img.shields.io/badge/LICENSE-AGPL--3.0-ff69b4" alt="شارة ترخيص التطبيق AGPL" />
     </a>
     <!-- Discord -->
-    <a target="_blank" href="https://discord.gg/TwNb9nfdBU">
+    <a target="_blank" href="https://discord.gg/zYWYTHXR4f">
         <img src="https://img.shields.io/discord/1016320471010115666?label=discord&logo=discord&style=social" />
     </a>
     <!-- Twitter -->
@@ -42,36 +42,39 @@
     <a target="_blank" href="https://github.com/apitable/apitable/actions/workflows/build.yaml">
         <img src="https://github.com/apitable/apitable/actions/workflows/build.yaml/badge.svg" />
     </a>
+    <!-- Better Uptime-->
+    <a target="_blank" href="https://apitable.betteruptime.com/">
+        <img src="https://betteruptime.com/status-badges/v1/monitor/a1a9.svg" />
+    </a>
 </p>
 
 <p align="center">
-  English
+  <a href="../../../README.md">English</a>
   | 
-  <a href="docs/readme/fr-FR/README.md">Français</a>
+  <a href="../fr-FR/README.md">Français</a>
   | 
-  <a href="docs/readme/es-ES/README.md">Español</a>
+  <a href="../es-ES/README.md">Español</a>
   | 
-  <a href="docs/readme/de-DE/README.md">Deutsch</a>
+  <a href="../de-DE/README.md">Deutsch</a>
   | 
-  <a href="docs/readme/zh-CN/README.md">简体中文</a>
+  <a href="../zh-CN/README.md">简体中文</a>
   | 
-  <a href="docs/readme/zh-HK/README.md">繁體中文</a>
+  <a href="../zh-HK/README.md">繁體中文</a>
   | 
-  <a href="docs/readme/ja-JP/README.md">日本語</a>
+  <a href="../ja-JP/README.md">日本語</a>
 </p>
 
 ## ✨ بداية سريعة
 
-> APITable حاليا هو `العمل قيد التقدم`.
-> 
-> سنقوم بنشر الإصدار الأول في أواخر يناير 2023.
-> 
-> انضم إلى [ديسكورد](https://discord.gg/TwNb9nfdBU) أو [تويتر](https://twitter.com/apitable_com) للإبقاء على اتصال.<!-- If you just want try out APITable\[^info], using our hosted version at [apitable.com\](https://apitable.com). -->إذا كنت ترغب فقط في تجربة APITable[^info]، انقر هنا مقابل [⚡Gitpod Online التجريبي](https://gitpod.io/#https://github.com/apitable/apitable).
+إذا كنت ترغب فقط في تجربة APITable [^info] ، فاستخدم الإصدار المستضاف على السحابة على [ apitable.com ](https://apitable.com).
 
-إذا كنت ترغب في تثبيت APITable في بيئة الحوسبة المحلية أو السحابية، انظر [💾 Ininstallation](#installation)
+إذا كنت ترغب في عرض هذا المشروع مفتوح المصدر القابل للتطبيق ، فانقر هنا للحصول على [ ⚡️Gitpod Online Demo ](https://gitpod.io/#https://github.com/apitable/apitable).
+
+إذا كنت ترغب في تثبيت APITable في بيئة الحوسبة المحلية أو السحابية، انظر [💾 Ininstallation](#تثبيت)
 
 إذا كنت ترغب في إعداد بيئة التنمية المحلية الخاصة بك، اقرأ دليل المطور [🧑<unk> :laptop_computer](./docs/contribute/developer-guide.md)
 
+انضم إلى [ديسكورد](https://discord.gg/TwNb9nfdBU) أو [تويتر](https://twitter.com/apitable_com) للإبقاء على اتصال.
 ## ميزات 🔥
 
 <table>
@@ -126,7 +129,7 @@
       <a href="#">أذونات الصفوف القوية / الأضافات</a>
     </th>
     <th>
-      <a href="#">تضمين</a>
+      <a href="#">Embed</a>
     </th>
   </tr>
 
@@ -154,7 +157,7 @@ APITable يوفر مجموعة من الميزات المذهلة، من الش�
   - **100k+** صفوف البيانات مع التعاون في الوقت الحقيقي.
   - الوصول إلى واجهة برمجة التطبيقات الكاملة، من `بيانات` إلى `بيانات التعريف`.
   - اتجاه واحد / رابط جدول الاتجاه الثنائي و `روابط متداخلة لا نهائية`
-  - لغات البرمجة الملائمة للمجتمع و إطار, TypeScript ([NextJS](https://nextjs.org/) + [NestJS](https://nestjs.com/)) و Java ([حذاء الربيع](https://spring.io/projects/spring-boot))
+  - لغات البرمجة الملائمة للمجتمع و إطار, TypeScript ([NextJS](https://nextjs.org/) + [NestJS](https://nestjs.com/)) و Java ([حذاء الربيع](https://spring.io/projects/spring-boot)).
 - واجهة المستخدم لقاعدة البيانات الغنية الجميلة
   - `CRUD`: إنشاء، قراءة، تحديث، حذف الجداول، الأعمدة، والصفوف
   - `عمليات الحقول`: الفرز، الفلتر، التجميع، الإخفاء/الفحص، إعداد الطول.
@@ -187,7 +190,7 @@ APITable يوفر مجموعة من الميزات المذهلة، من الش�
   - تسجيل دخول أحادي (SSO)
   - مراجعة
   - النسخ الاحتياطي التلقائي لقاعدة البيانات
-  - مصدر البيانات
+  - Data Exporter
   - العلامة المائية
 - ....
 
@@ -200,10 +203,10 @@ APITable يوفر مجموعة من الميزات المذهلة، من الش�
 - كبرنامج رائع للإدارة
   - إدارة المشاريع المرنة & المهام / المشاكل.
   - إدارة قيادة التسويق.
-  - إدارة العلاقة مع الزبائن الأكثر مرونة وقابلية للتواصل.
+  - Most flexible and connectable CRM.
   - • الاستخبارات التجارية المرنة.
-  - استمارات واستقصاءات ملائمة للسكان
-  - نظام مرن لتخطيط الموارد.
+  - People-Friendly Forms and Surveys
+  - Flexible ERP.
   - رمز منخفض ومنصة بدون رموز.
   - ...وأكثر من ذلك، APITable يضع 1000 برنامج في جيبك.
 - كبنية أساسية مرئية لقواعد البيانات
@@ -215,7 +218,7 @@ APITable يوفر مجموعة من الميزات المذهلة، من الش�
   - ...وأكثر من ذلك، APITable يربط كل شيء.
 - كما أنه مفتوح المصدر وقابل للتوسع
 
-## :revolving_قلوب: APIالموجه
+## 💞 API-oriented
 
 #### API UI Panel
 
@@ -231,23 +234,35 @@ APITable يوفر مجموعة من الميزات المذهلة، من الش�
 
 شارك جدول أو مجلد ورقة البيانات الخاصة بك. أدمجهم عن طريق نسخ ولصق البرامج النصية HTML.
 
-#### مشروع مدمج جاهز
+#### Enterprise-ready Embedding
 
 [APITable.com](https://apitable.com) يوفر المزيد من ميزات Enterprise-ready Embedding للأوراق المالية.
 
 ## تثبيت
 
-تأكد من أن لديك `مرفأ` & `` مثبت محلياً.
+قبل ان تبدأ:
+* مضيف به [ docker ](https://docs.docker.com/engine/install/) و [ docker-compose v2 ](https://docs.docker.com/engine/install/) مثبت.
+* يوصى باستخدام 4 وحدات معالجة مركزية / ذاكرة وصول عشوائي سعة 8 جيجابايت أو أكثر.
+* قذيفة bash مع أدوات مساعدة أساسية مثل curl مثبتة.
+* صور حاوية arm64 الأصلية (apple silicon) ليست جاهزة بعد وقد تسبب أداءً سيئًا.
 
-إذا قمت بتثبيت جهاز الكمبيوتر جهاز Docker ، قم بفتح المحطة الطرفية الخاصة بك وتشغيل هذا:
+لتثبيت apitable باستخدام docker compose ، افتح Terminal وقم بتشغيل هذا:
 
 ```
-حظر https://apitable.github.io/install.sh <unk> bash
+curl https://apitable.github.io/install.sh | bash
 ```
 
-ثم افتح [https://localhost:80](https://localhost:80) في المتصفح الخاص بك لزيارته. (اسم المستخدم الافتراضي `admin@apitable.com` وكلمة المرور `Apitable2022`)
+ثم افتح [ http://localhost:80](http://localhost:80) في متصفحك لزيارته.
 
-إذا كنت ترغب في إعداد بيئة التنمية المحلية الخاصة بك، اقرأ دليل المطور [🧑<unk> :laptop_computer](./docs/contribute/developer-guide.md)
+نحن أيضًا نقدم صورة كل في واحد استنادًا إلى [pm2](https://pm2.keymetrics.io/) للغرض التجريبي أو الاختباري (غير موصى به للمؤسسة أو لاستخدام الإنتاج):
+
+```bash
+sudo docker run -d -v ${PWD}/.data:/apitable -p 80:80 --name apitable apitable/all-in-one:latest
+```
+
+تبعاً لبيئتك، قد تحتاج إلى الانتظار عدة دقائق حتى تبدأ جميع الخدمات. هذه الصورة هي amd64 (x86_64) فقط، قد تواجه أداء سيئ للغاية على الدروع 64 أو السيليكون التفاح.
+
+إذا كنت ترغب في إعداد بيئة التطوير المحلية الخاصة بك ، فاقرأ [ 🧑‍💻 Developer Guide ](./docs/contribute/developer-guide.md)
 
 ## 💻 المساهمة
 
@@ -255,17 +270,34 @@ APITable يوفر مجموعة من الميزات المذهلة، من الش�
 
 هناك العديد من الطرق التي يمكن أن تساهم بها، بما يتجاوز كتابة الكود.
 
+يمكنك المساهمة على النحو التالي:
+- انضم إلى الترجمات وعدّلها في [ مشروع Crowdin للترجمة ](https://crowdin.com/project/apitablecode/invite?h=f48bc26f9eb188dcd92d5eb4a66f2c1f1555185)
+- https://github.com/apitable/apitable/issues/new/choose
+- تابعنا على [ Twitter ](https://twitter.com/apitable_com)
+- Create [Documentation](./docs)
+- [رمز المساهمة](./docs/contribute/developer-guide.md)
+
+
+من قبيل ما يلي:
+- Join [Crowdin Translation Project](https://crowdin.com/project/apitablecom/invite?h=4a985ea532a01d973acc03f2f1c960951693577)
+- إنشاء [مشكلات](https://github.com/apitable/apitable/issues/new/choose)
+- تابعنا على [ Twitter ](https://twitter.com/apitable_com)
+- إنشاء [مستندات](./docs)
+- [رمز المساهمة](./docs/contribute/developer-guide.md)
+
+
 يمكنك قراءة هذا المستودع [إرشادات المساهمة](./CONTRIBUTING.md) لتعلم كيفية المساهمة.
 
 إليك دليل سريع لمساعدتك في المساهمة في APITable
 
+
 ### البيئة الإنمائية
 
-تعلم كيفية إعداد بيئتك المحلية، في [دليل المطور](./docs/contribute/developer-guide.md) لدينا.
+تعرف على كيفية إعداد بيئتك المحلية ، انتقل إلى [ دليل المطور ](./docs/contribute/developer-guide.md).
 
 ### سير عمل Git الأساسي
 
-إليك سير عمل بوابة عامة:
+Here's a general APITable git workflow:
 
 1. إنشاء مشكلة ووصف الميزات التي تريدها -> [مشاكل APITable](https://github.com/apitable/apitable/issues)
 2. اشترك في هذا المشروع -> [مشروع Fork APITable](https://github.com/apitable/apitable/fork)
@@ -285,36 +317,42 @@ APITable يوفر مجموعة من الميزات المذهلة، من الش�
 - كيفية الإصدار و الوسم؟ [الإصدار السامي](https://semver.org/)
 - ما هو دليل برمجة جافا؟ [Java Coding Guidelin](https://github.com/alibaba/Alibaba-Java-Coding-Guidelines)
 - ما هو دليل برمجة TypeScript Ccolining؟ -> [دليل نمط النص النصي](https://google.github.io/styleguide/tsguide.html)
+- ما هو دليل برمجة الروستين؟ -> [تطبيق إرشادات API](https://rust-lang.github.io/api-guidelines/about.html)
 
 ### الوثائق
 
 - [مركز المساعدة](https://help.apitable.com/)
 - [👩‍💻 مركز المطور](https://developers.apitable.com/)
   - [<unk> مستندات REST API](https://developers.apitable.com/api/introduction/)
-  - أداة SDK (قريباً...)
-  - سكريبت (قريبًا...)
+  - [أداة SDK](https://developers.apitable.com/widget/introduction/)
+  - [Scripting Widget](https://developers.apitable.com/script/introduction/)
+- [Design System](https://figma.com/@apitable)
 
 ## 🛣 خارطة الطريق
+
+يرجى الرجوع إلى [خريطة الطريق لـ APITable](https://apitable.com/roadmap)
 
 ### ميزات المستقبل
 
 - منشئ الواجهة برموز ثقيلة
 - مكونات توثيق الطرف الثالث القابلة للنسر
-- لغات شبيهة بنطاق محدد
-- كهوية شخصية
+- SQL-like Domain-Specific Languages
+- As an IdP
+- روبوت أتمتة متقدم
 - ميزات ويب 3
 - ...
 
 ### الإصدارات المستضافة والمؤسسة تقدم ميزات متقدمة
 
-- كهوية شخصية؛
+- As an IdP;
 - SAML
 - تسجيل دخول أحادي
 - مراجعة
 - النسخ الاحتياطي لقاعدة البيانات
+- تكامل مع ChatGPT و Zapier و Slack و Google Workspace ……
 - العلامة المائية
 
-لمزيد من المعلومات، يرجى الاتصال بنا على <support@apitable.com>.
+For more information on our product, including enterprise self-hosted license, please contact us at <support@apitable.com> or [book a demo](https://apitable.com/share/shrdaGGppsfg3pjQLXALG?fldy5ZmHYGZx2=salesteam@apitable.com).
 
 ## 👫 اشترك
 
@@ -324,21 +362,17 @@ APITable يوفر مجموعة من الميزات المذهلة، من الش�
 - نعتقد أن إنشاء `قاعدة بيانات مرئية مع واجهة مستخدم غنية وسهلة للجميع` يمكن أن يقلل من صعوبة صناعة البرمجيات ويزيد من اعتماد رقمنة العالم.
 - نحن نعتقد أن استخدام المصدر المفتوح `APITable` يمكن `دفع البشر إلى الأمام`.
 
-### نحن نستخدم عن بعد!
+### We are hiring remotely!
 
 نحن دائما نبحث عن مواهب جيدة لتطبيق APITable:
 
-- **المطور الخلفي**: لديك تجربة مع NestJS, TypeScript, Spring Boot, Java, SQL, Kubernetes, Terraform. وتحب كتابة كود عالي الجودة مع وثائق واضحة واختبارات وحدة
-- **مطور المكدس الكامل**: لديك تجربة مع React. NestJS, TypeScript, Spring Boot, Java, Terraform. وتحب كتابة كود عالي الجودة مع وثائق واضحة واختبارات وحدة
-- **مطور النهاية الأمامية**: لديك تجربة مع React. NextJS, TypeScript, WebPack. وتحب كتابة كود عالي الجودة مع وثائق واضحة واختبارات وحدة
+- **المطور الخلفي**: لديك تجربة مع NestJS, TypeScript, Spring Boot, Java, SQL, Kubernetes, Terraform. وتحب كتابة كود عالي الجودة مع وثائق واضحة واختبارات وحدة.
+- **مطور المكدس الكامل**: لديك تجربة مع React. NestJS, TypeScript, Spring Boot, Java, Terraform. And you like to write high quality code with clear documentation and unit tests.
+- **مطور النهاية الأمامية**: لديك تجربة مع React. NextJS, TypeScript, WebPack. And you like to write high quality code with clear documentation and unit tests.
 
-بغض النظر عن الوقت والشروط، إذا كنت ترغب في المشاركة في فريق APITable، لا تتردد في إرسال السيرة الذاتية الخاصة بك إلى
+بغض النظر عن الوقت والشروط، إذا كنت ترغب في المشاركة في فريق APITable، لا تتردد في إرسال السيرة الذاتية الخاصة بك إلى talent@apitable .
 
-talent@apitable .</p> 
-
-
-
-## :التلفزيون: لقطة الشاشة
+## 📺 Screenshot
 
 <p align="center">
     <img src="docs/static/screenshot-realtime.png" alt="صورة لقطة شاشة APITable" />
@@ -368,12 +402,10 @@ talent@apitable .</p>
     <img src="docs/static/screenshot-it.png" alt="صورة لقطة شاشة APITable" />
 </p>
 <p align="center">
-    <img src="docs/static/screenshot-sales.png" alt="صورة لقطة شاشة APITable" />
+    <img src="docs/static/screenshot-sales.png" alt="APITable Screenshot Image" />
 </p>
 
 ## 🥰 ترخيص
-
-
 
 > يحتوي هذا المستودع على رمز مصدر الطبعة المفتوحة المصدر من APITabl، التي صدرت تحت AGPL.
 > 
@@ -385,7 +417,4 @@ talent@apitable .</p>
 
 <br/>
 
-
-
-[^info]:    
-    مرخص بواسطة AGPL-3.0. مصممة بواسطة [APITable Ltd](https://apitable.com).
+[^info]: مرخص بواسطة AGPL-3.0. مصممة بواسطة [APITable Ltd](https://apitable.com).

@@ -11,6 +11,12 @@
   font-size: 13px;
   color: var(--firstLevelText);
   z-index: 0;
+  transition: opacity 0.3s;
+  opacity: 0;
+
+  &.toolbarVisible {
+    opacity: 1;
+  }
 
   svg {
     fill: currentColor;
@@ -132,6 +138,7 @@
 }
 
 .toolbarOnlyIcon {
+  display: flex;
   &:last-child {
     & > div,
     & > span {
@@ -144,6 +151,7 @@
   }
 
   .onlyIcon {
+    display: flex;
     width: 24px;
     height: 24px;
   }

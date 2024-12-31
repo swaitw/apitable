@@ -16,45 +16,58 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import { ContextMenu, Message, useThemeColors } from '@apitable/components';
-import {
-  CollaCommandName, Events, IWidget, Navigation, PermissionType, Player, Selectors, StoreActions, Strings, SystemConfig, t, WidgetApi,
-  WidgetPackageStatus,
-  WidgetReleaseType,
-} from '@apitable/core';
-import { AddOutlined, CodeFilled, DeleteOutlined, EditOutlined, GotoLargeOutlined, SettingOutlined } from '@apitable/icons';
 import { useLocalStorageState, useMount, useUpdateEffect } from 'ahooks';
 import { Drawer } from 'antd';
 import classNames from 'classnames';
-// @ts-ignore
-import { isDingtalkSkuPage } from 'enterprise';
 import { keyBy } from 'lodash';
 import { EmitterEventName } from 'modules/shared/simple_emitter';
-import { Modal } from 'pc/components/common';
+import React, { useEffect, useRef, useState } from 'react';
+import { Responsive, WidthProvider } from 'react-grid-layout';
+import { ContextMenu, Message, useThemeColors } from '@apitable/components';
+import {
+  CollaCommandName,
+  Events,
+  IWidget,
+  Navigation,
+  PermissionType,
+  Player,
+  Selectors,
+  StoreActions,
+  Strings,
+  t,
+  WidgetApi,
+  WidgetPackageStatus,
+  WidgetReleaseType,
+} from '@apitable/core';
+import { AddOutlined, CodeFilled, DeleteOutlined, DuplicateOutlined, EditOutlined, GotoOutlined, SettingOutlined } from '@apitable/icons';
 import { ScreenSize } from 'pc/components/common/component_display';
+import { Modal } from 'pc/components/common/modal/modal/modal';
 import { simpleEmitter as panelSimpleEmitter } from 'pc/components/common/vika_split_panel';
 import { Router } from 'pc/components/route_manager/router';
-import { simpleEmitter, WIDGET_MENU, WidgetItem } from 'pc/components/widget';
+import { WidgetContextProvider } from 'pc/components/widget/context';
 import { expandWidgetRoute } from 'pc/components/widget/expand_widget';
 import { expandWidgetCenter, InstallPosition } from 'pc/components/widget/widget_center';
+import { simpleEmitter, WidgetItem } from 'pc/components/widget/widget_panel/widget_item';
+import { WIDGET_MENU } from 'pc/components/widget/widget_panel/widget_list';
 import { installedWidgetHandle } from 'pc/components/widget/widget_panel/widget_panel_header';
-import { useQuery } from 'pc/hooks';
 import { useExpandWidget } from 'pc/hooks/use_expand_widget';
+import { useQuery } from 'pc/hooks/use_home';
 import { useResponsive } from 'pc/hooks/use_responsive';
 import { resourceService } from 'pc/resource_service';
 import { store } from 'pc/store';
 import { flatContextData } from 'pc/utils';
-import * as React from 'react';
-import { useEffect, useRef, useState } from 'react';
-import { Responsive, WidthProvider } from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
-import { useSelector } from 'react-redux';
+import { getEnvVariables } from '../../../utils/env';
 import { useTrackMissWidgetAndDep } from '../hooks';
 import { RecommendWidgetPanel } from '../recommend_widget_panel';
 import { TabBar } from '../tab_bar';
+import { createWidgetByExistWidgetId } from '../utils';
+import { DASHBOARD_PANEL_ID } from './id';
+// @ts-ignore
+import { isDingtalkSkuPage } from 'enterprise/home/social_platform/utils';
 import styles from './style.module.less';
-
-export const DASHBOARD_PANEL_ID = 'DASHBOARD_PANEL_ID';
+import { useAppSelector } from 'pc/store/react-redux';
+export { DASHBOARD_PANEL_ID };
 
 const ResponsiveGridLayout: any = WidthProvider(Responsive);
 
@@ -64,15 +77,20 @@ export const Dashboard = () => {
   const [allowChangeLayout, setAllowChangeLayout] = useState(false);
   const [activeMenuWidget, setActiveMenuWidget] = useState<IWidget>();
   const [dragging, setDragging] = useState<boolean>(false);
+  const [disabledDraggle, setDisabledDraggle] = useState<boolean>(false);
 
-  const dashboardPack = useSelector(Selectors.getDashboardPack);
-  const dashboardLayout = useSelector(Selectors.getDashboardLayout);
-  const { dashboardId, templateId, shareId, widgetId, embedId } = useSelector(state => state.pageParams);
-  const { editable, manageable } = useSelector(Selectors.getDashboardPermission);
-  const spaceId = useSelector(state => state.space.activeId);
-  const widgetMap = useSelector(state => state.widgetMap);
-  const isShowWidget = useSelector(state => Selectors.labsFeatureOpen(state, SystemConfig.test_function.widget_center.feature_key));
-  const embedInfo = useSelector(state => Selectors.getEmbedInfo(state));
+  const dashboardPack = useAppSelector(Selectors.getDashboardPack);
+  const dashboardLayout = useAppSelector(Selectors.getDashboardLayout);
+  const { dashboardId, templateId, shareId, widgetId, embedId } = useAppSelector((state) => state.pageParams);
+  const { editable, manageable } = useAppSelector(Selectors.getDashboardPermission);
+  const spaceId = useAppSelector((state) => state.space.activeId);
+  const widgetMap = useAppSelector((state) => state.widgetMap);
+  const embedInfo = useAppSelector((state) => Selectors.getEmbedInfo(state));
+  const linkId = useAppSelector(Selectors.getLinkId);
+  const installedWidgetIds = useAppSelector(Selectors.getInstalledWidgetInDashboard);
+  const reachInstalledLimit = installedWidgetIds && installedWidgetIds.length >= Number(getEnvVariables().DASHBOARD_WIDGET_MAX_NUM);
+
+  const dashboardLayoutContainer = useRef<null | HTMLDivElement>(null);
 
   // Custom hooks start
   const colors = useThemeColors();
@@ -88,12 +106,13 @@ export const Dashboard = () => {
   const dashboard = dashboardPack?.dashboard;
   const isMobile = screenIsAtMost(ScreenSize.md);
   const hideReadonlyEmbedItem = !!(embedInfo && embedInfo.permissionType === PermissionType.READONLY);
-  const readonly = isMobile || !editable || hideReadonlyEmbedItem;
+  const readonly = isMobile || !editable || hideReadonlyEmbedItem || disabledDraggle;
   const connect = dashboardPack?.connected;
   const hasOpenRecommend = useRef(false);
   const purchaseToken = query.get('purchaseToken') || '';
   const isSkuPage = isDingtalkSkuPage?.(purchaseToken);
-  const installedWidgetInDashboard = Boolean(containerRef.current?.offsetWidth && dashboardLayout && dashboardLayout.length);
+
+  const installedWidgetInDashboard = Boolean(dashboardLayout && dashboardLayout.length);
 
   const decisionOpenRecommend = () => {
     if (hasOpenRecommend.current) {
@@ -104,7 +123,7 @@ export const Dashboard = () => {
     if (!dashboardIsEmpty || !manageable) {
       return;
     }
-    WidgetApi.getRecentInstalledWidgets(spaceId!).then(res => {
+    WidgetApi.getRecentInstalledWidgets(spaceId!).then((res) => {
       const { data, success } = res.data;
       if (success) {
         store.getState();
@@ -125,14 +144,18 @@ export const Dashboard = () => {
   };
 
   useEffect(() => {
-    simpleEmitter.bind(EmitterEventName.ToggleWidgetDevMode, widgetId => {
+    window.dispatchEvent(new Event('resize'));
+  }, [embedInfo]);
+
+  useEffect(() => {
+    simpleEmitter.bind(EmitterEventName.ToggleWidgetDevMode, (widgetId) => {
       setDevWidgetId(widgetId);
     });
     return () => simpleEmitter.unbind(EmitterEventName.ToggleWidgetDevMode);
   }, [setDevWidgetId]);
 
   useEffect(() => {
-    panelSimpleEmitter.bind(EmitterEventName.PanelDragging, panelDragging => {
+    panelSimpleEmitter.bind(EmitterEventName.PanelDragging, (panelDragging) => {
       setDragging(panelDragging);
     });
     return () => panelSimpleEmitter.unbind(EmitterEventName.PanelDragging);
@@ -148,6 +171,24 @@ export const Dashboard = () => {
     }
     decisionOpenRecommend();
   }, [connect]);
+
+  useEffect(() => {
+    const dom = dashboardLayoutContainer.current;
+
+    if (!dom) return;
+
+    const resizeObserver = new ResizeObserver((entries) => {
+      const { width } = entries[0].contentRect;
+
+      if (width <= 576) {
+        setDisabledDraggle(true);
+      } else {
+        setDisabledDraggle(false);
+      }
+    });
+
+    resizeObserver.observe(dom);
+  }, []);
 
   const renameWidget = (arg: any) => {
     const {
@@ -216,6 +257,21 @@ export const Dashboard = () => {
     });
   };
 
+  const _copyWidget = async (widgetId: string) => {
+    try {
+      await createWidgetByExistWidgetId(widgetId, dashboardId!);
+    } catch (e: any) {
+      Message.error({
+        content: typeof e === 'string' ? e : e?.message,
+      });
+      return;
+    }
+
+    Message.success({
+      content: t(Strings.copy_widget_success),
+    });
+  };
+
   const isWidgetBan = () => WidgetPackageStatus.Ban === activeMenuWidget?.status;
   const isWidgetDev = () => activeMenuWidget?.id === devWidgetId;
   const hadWidgetExpanding = Boolean(widgetId);
@@ -235,7 +291,7 @@ export const Dashboard = () => {
       {
         icon: <CodeFilled color={colors.thirdLevelText} />,
         text: t(Strings.widget_operate_enter_dev),
-        hidden: readonly || !isShowWidget || isWidgetBan() || isWidgetDev() || isWidgetGlobal(),
+        hidden: readonly || isWidgetBan() || isWidgetDev() || isWidgetGlobal(),
         onClick: ({ props }: { props?: any }) => {
           props?.toggleWidgetDevMode(devWidgetId, setDevWidgetId);
         },
@@ -249,7 +305,7 @@ export const Dashboard = () => {
       {
         icon: <CodeFilled color={colors.thirdLevelText} />,
         text: t(Strings.widget_operate_exit_dev),
-        hidden: readonly || !isShowWidget || isWidgetBan() || !isWidgetDev(),
+        hidden: readonly || isWidgetBan() || !isWidgetDev(),
         onClick: ({ props }: { props?: any }) => {
           props?.toggleWidgetDevMode(devWidgetId, setDevWidgetId);
         },
@@ -261,22 +317,32 @@ export const Dashboard = () => {
         hidden: readonly,
       },
       {
-        icon: <GotoLargeOutlined color={colors.thirdLevelText} />,
+        icon: <GotoOutlined color={colors.thirdLevelText} />,
         text: t(Strings.jump_link_url),
         onClick: jumpToDatasheet,
         hidden: embedId,
         disabled: (arg: any) => {
           const {
-            props: { widgetId },
+            props: { widgetId }
           } = arg;
+
           return !widgetHasBindDstId(widgetId);
         },
+      },
+      {
+        icon: <DuplicateOutlined color={colors.thirdLevelText} />,
+        text: t(Strings.copy_widget),
+        onClick: ({ props }: { props?: any }) => {
+          const { widgetId } = props;
+          _copyWidget(widgetId);
+        },
+        hidden: Boolean(linkId) || isWidgetDev() || !manageable || reachInstalledLimit,
       },
       {
         icon: <DeleteOutlined color={colors.thirdLevelText} />,
         text: t(Strings.widget_operate_delete),
         onClick: deleteWidget,
-        hidden: isMobile || (embedId ? embedInfo?.permissionType === PermissionType.READONLY : !manageable),
+        hidden: isMobile || !manageable,
       },
     ],
   ];
@@ -285,7 +351,7 @@ export const Dashboard = () => {
     expandWidgetCenter(InstallPosition.Dashboard);
   };
 
-  const onLayout = (__currentLayout: any, allLayouts: { [x: string]: any; }) => {
+  const onLayout = (_currLayout: any, allLayouts: { [x: string]: any }) => {
     if (!dashboardLayout || readonly) {
       return;
     }
@@ -317,7 +383,7 @@ export const Dashboard = () => {
 
     const layoutMap = keyBy(_currentLayout, 'i');
 
-    const _layout = dashboardLayout.map(item => {
+    const _layout = dashboardLayout.map((item) => {
       const widgetPosition = layoutMap[item.id];
       return {
         id: widgetPosition.i,
@@ -342,7 +408,7 @@ export const Dashboard = () => {
   return (
     <div
       style={{
-        padding: (isMobile || templateId || shareId || embedId) ? 0 : 16,
+        padding: isMobile || templateId || shareId || embedId ? 0 : 16,
         height: '100%',
         width: '100%',
         position: 'relative',
@@ -350,8 +416,8 @@ export const Dashboard = () => {
       id={DASHBOARD_PANEL_ID}
     >
       <div className={styles.dashboardPanel} ref={containerRef}>
-        {
-          (!embedId || embedInfo.viewControl?.tabBar) && <TabBar
+        {(!embedId || embedInfo.viewControl?.tabBar) && (
+          <TabBar
             dashboardId={dashboardId!}
             containerRef={containerRef}
             setVisibleRecommend={setVisibleRecommend}
@@ -361,92 +427,106 @@ export const Dashboard = () => {
             canImportWidget={manageable}
             setIsFullScreen={setIsFullScreen}
             installedWidgetHandle={installedWidgetHandle}
+            reachInstalledLimit={reachInstalledLimit}
           />
-        }
-
-        <div className={styles.widgetArea} style={{ pointerEvents: 'auto', height: embedInfo ? '100%' : '' }}>
-          {installedWidgetInDashboard && (
-            <ResponsiveGridLayout
-              isDroppable={!readonly}
-              isResizable={!readonly}
-              isBounded
-              isDraggable={!readonly}
-              cols={{
-                lg: 12,
-                md: 12,
-                sm: 12,
-                xs: 1,
-                xxs: 1,
-                // lg: 12, md: 8, sm: 4, xs: 4, xxs: 4,
-              }}
-              breakpoints={{
-                lg: 992,
-                md: 768,
-                sm: 576,
-                xs: 400,
-              }}
-              layouts={{
-                lg: dashboardLayout!.map(item => {
-                  return { w: item.widthInColumns, h: item.heightInRoes, x: item.column, y: item.row, minH: 6, minW: 3, i: item.id };
-                }),
-                xs: dashboardLayout!.map(item => {
-                  return { w: 1, h: item.heightInRoes, x: item.column, y: item.row, minH: 6, maxW: 1, i: item.id };
-                }),
-              }}
-              preventCollision={false}
-              rowHeight={16}
-              onLayoutChange={onLayout}
-              useCSSTransforms
-              draggableHandle={'.dragHandle'}
-              draggableCancel={'.dragHandleDisabled'}
-              margin={[24, 24]}
-              containerPadding={[24, 24]}
-              onDrag={() => setDragging(true)}
-              onDragStart={() => {
-                setAllowChangeLayout(true);
-              }}
-              onResizeStart={() => {
-                setDragging(true);
-                setAllowChangeLayout(true);
-              }}
-              style={{ pointerEvents: isSkuPage ? 'none' : 'auto' }}
-              onDragStop={() => setDragging(false)}
-              onResizeStop={() => setDragging(false)}
-            >
-              {dashboardLayout!.map(item => {
-                const isDevMode = widgetMap?.[item.id]?.widget?.status !== WidgetPackageStatus.Ban &&
-                  devWidgetId === item.id && !hideReadonlyEmbedItem;
-                return (
-                  <div key={item.id} className={classNames(widgetId === item.id && styles.isFullscreen)} data-widget-id={item.id} tabIndex={-1}>
-                    <WidgetItem
-                      widgetId={item.id}
-                      readonly={readonly}
-                      isMobile={isMobile}
-                      config={{
-                        isDevMode,
-                        hideMoreOperate: isFullScreen || hideReadonlyEmbedItem || !!(isMobile && embedId),
-                        hideSetting: hideReadonlyEmbedItem,
-                        hideEditName: hideReadonlyEmbedItem,
-                      }}
-                      setDevWidgetId={setDevWidgetId}
-                      dragging={dragging}
-                      setDragging={setDragging}
-                    />
-                  </div>
-                );
-              })}
-            </ResponsiveGridLayout>
-          )}
-          {!installedWidgetInDashboard && !readonly && (
-            <div className={styles.addNewWidget} onClick={installWidget}>
-              <AddOutlined size={68} color={colors.fourthLevelText} />
-              {manageable ? t(Strings.add_widget) : t(Strings.no_permission_add_widget)}
-            </div>
-          )}
-        </div>
+        )}
+        <WidgetContextProvider>
+          <div
+            className={styles.widgetArea}
+            ref={dashboardLayoutContainer}
+            style={{ pointerEvents: 'auto', height: !embedId || embedInfo.viewControl?.tabBar ? '' : '100%' }}
+          >
+            {installedWidgetInDashboard && (
+              <ResponsiveGridLayout
+                isDroppable={!readonly}
+                isResizable={!readonly}
+                isBounded
+                isDraggable={!readonly}
+                cols={{
+                  lg: 12,
+                  md: 12,
+                  sm: 12,
+                  xs: 1,
+                  xxs: 1,
+                  // lg: 12, md: 8, sm: 4, xs: 4, xxs: 4,
+                }}
+                breakpoints={{
+                  lg: 992,
+                  md: 768,
+                  sm: 576,
+                  xs: 400,
+                }}
+                layouts={{
+                  lg: dashboardLayout!.map((item) => {
+                    return {
+                      w: item.widthInColumns,
+                      h: item.heightInRoes,
+                      x: item.column,
+                      y: item.row,
+                      minH: 6,
+                      minW: 3,
+                      i: item.id,
+                    };
+                  }),
+                  xs: dashboardLayout!.map((item) => {
+                    return { w: 1, h: item.heightInRoes, x: item.column, y: item.row, minH: 6, maxW: 1, i: item.id };
+                  }),
+                }}
+                preventCollision={false}
+                rowHeight={16}
+                onLayoutChange={onLayout}
+                useCSSTransforms
+                draggableHandle={'.dragHandle'}
+                draggableCancel={'.dragHandleDisabled'}
+                margin={[24, 24]}
+                containerPadding={[24, 24]}
+                onDrag={() => setDragging(true)}
+                onDragStart={() => {
+                  setAllowChangeLayout(true);
+                }}
+                onResizeStart={() => {
+                  setDragging(true);
+                  setAllowChangeLayout(true);
+                }}
+                style={{ pointerEvents: isSkuPage ? 'none' : 'auto' }}
+                onDragStop={() => setDragging(false)}
+                onResizeStop={() => setDragging(false)}
+              >
+                {dashboardLayout!.map((item) => {
+                  const isDevMode =
+                    widgetMap?.[item.id]?.widget?.status !== WidgetPackageStatus.Ban && devWidgetId === item.id && !hideReadonlyEmbedItem;
+                  return (
+                    <div key={item.id} className={classNames(widgetId === item.id && styles.isFullscreen)} data-widget-id={item.id} tabIndex={-1}>
+                      <WidgetItem
+                        widgetId={item.id}
+                        readonly={readonly}
+                        isMobile={isMobile}
+                        config={{
+                          isDevMode,
+                          hideMoreOperate: isFullScreen || hideReadonlyEmbedItem || !!(isMobile && embedId) || !!(embedId && readonly),
+                          hideSetting: hideReadonlyEmbedItem,
+                          hideEditName: hideReadonlyEmbedItem,
+                        }}
+                        setDevWidgetId={setDevWidgetId}
+                        dragging={dragging}
+                        setDragging={setDragging}
+                      />
+                    </div>
+                  );
+                })}
+              </ResponsiveGridLayout>
+            )}
+            {!installedWidgetInDashboard && !readonly && (
+              <div className={styles.addNewWidget} onClick={installWidget}>
+                <AddOutlined size={68} color={colors.fourthLevelText} />
+                {manageable ? t(Strings.add_widget) : t(Strings.no_permission_add_widget)}
+              </div>
+            )}
+          </div>
+        </WidgetContextProvider>
       </div>
-      {
-        !embedId && <Drawer
+      {!embedId && (
+        <Drawer
           placement={'bottom'}
           closable={false}
           onClose={() => {
@@ -465,14 +545,9 @@ export const Dashboard = () => {
           }}
           zIndex={11}
         >
-          <RecommendWidgetPanel
-            setVisibleRecommend={setVisibleRecommend}
-            visibleRecommend={visibleRecommend}
-            readonly={!manageable}
-            installedWidgetHandle={installedWidgetHandle}
-          />
+          <RecommendWidgetPanel setVisibleRecommend={setVisibleRecommend} visibleRecommend={visibleRecommend} readonly={!manageable} />
         </Drawer>
-      }
+      )}
 
       <ContextMenu overlay={flatContextData(menuData, true)} menuId={WIDGET_MENU} onShown={({ props }) => setActiveMenuWidget(props?.widget)} />
     </div>

@@ -16,10 +16,11 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import { Strings, t } from '../../../exports/i18n';
+import { Strings, t } from 'exports/i18n';
 import { FieldType, IField } from 'types';
+import { IPermissions } from 'exports/store/interfaces';
 
-export const DEFAULT_PERMISSION = {
+export const DEFAULT_PERMISSION: IPermissions = {
   allowEditConfigurable: false,
   allowSaveConfigurable: false,
   childCreatable: false,
@@ -56,6 +57,8 @@ export const DEFAULT_PERMISSION = {
   fieldRemovable: false,
   rowCreatable: false,
   rowRemovable: false,
+  rowArchivable: false,
+  rowUnarchivable: false,
   cellEditable: false,
   rowSortable: false,
   fieldPermissionManageable: false,
@@ -70,7 +73,7 @@ export const DEFAULT_PERMISSION = {
 /**
  * manageable manager's permissions
  */
-export const DEFAULT_MANAGER_PERMISSION = {
+export const DEFAULT_MANAGER_PERMISSION: IPermissions = {
   allowEditConfigurable: true,
   allowSaveConfigurable: true,
   childCreatable: true,
@@ -108,6 +111,8 @@ export const DEFAULT_MANAGER_PERMISSION = {
   fieldRemovable: true,
   rowCreatable: true,
   rowRemovable: true,
+  rowArchivable: true,
+  rowUnarchivable: true,
   cellEditable: true,
   fieldPermissionManageable: true,
   viewLayoutEditable: true,
@@ -121,7 +126,7 @@ export const DEFAULT_MANAGER_PERMISSION = {
 /**
  * editor's permissions
  */
-export const DEFAULT_EDITOR_PERMISSION = {
+export const DEFAULT_EDITOR_PERMISSION: IPermissions = {
   allowEditConfigurable: false,
   allowSaveConfigurable: false,
   childCreatable: false,
@@ -159,6 +164,8 @@ export const DEFAULT_EDITOR_PERMISSION = {
   fieldRemovable: false,
   rowCreatable: true,
   rowRemovable: true,
+  rowArchivable: false,
+  rowUnarchivable: false,
   cellEditable: true,
   fieldPermissionManageable: false,
   viewLayoutEditable: true,
@@ -172,7 +179,7 @@ export const DEFAULT_EDITOR_PERMISSION = {
 /**
  * default readonly permissions
  */
-export const DEFAULT_READ_ONLY_PERMISSION = {
+export const DEFAULT_READ_ONLY_PERMISSION: IPermissions = {
   allowEditConfigurable: false,
   allowSaveConfigurable: false,
   childCreatable: false,
@@ -209,6 +216,8 @@ export const DEFAULT_READ_ONLY_PERMISSION = {
   fieldRemovable: false,
   rowCreatable: false,
   rowRemovable: false,
+  rowArchivable: false,
+  rowUnarchivable: false,
   cellEditable: false,
   rowSortable: false,
   fieldPermissionManageable: false,
@@ -239,7 +248,7 @@ export enum ToolBarMenuCardOpenState {
   OrgChartSetting = 'OrgChartSetting',
 
   // special: this is a component in the toolbar, just clean for "display" component, so place it here to control.by @mayne
-  ViewSwitcher = 'ViewSwitcher', 
+  ViewSwitcher = 'ViewSwitcher',
   KanbanFieldHidden = 'KanbanFieldHidden',
   Share = 'Share',
 }
@@ -428,6 +437,8 @@ export const DEFAULT_FIELD_PERMISSION = {
 };
 
 export const PREVIEW_DATASHEET_ID = 'previewDatasheet';
+
+export const PREVIEW_DATASHEET_BACKUP = 'previewDatasheetBackup';
 
 export enum DispatchToStore {
   Local = 'local',

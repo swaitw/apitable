@@ -19,14 +19,11 @@
 import * as ConfigConstant from './constant';
 import { Navigation, SpacePathType } from './router';
 import * as StatusCode from './status_code';
-import {
-  ApiTipConfig,
-  ApiTipConstant,
-  NoticeTemplatesConstant,
-  Settings,
-  SystemConfig,
-} from './system_config';
+import { ApiTipConfig, ApiTipConstant, NoticeTemplatesConstant, Settings, SystemConfig } from './system_config';
 import { TrackEvents } from './track_events';
+
+export { SystemConfigInterfacePlayer, SystemConfigInterfaceGuide } from './system_config.interface';
+import BillingConfig from './billing.auto.json';
 
 export {
   ConfigConstant,
@@ -39,6 +36,7 @@ export {
   NoticeTemplatesConstant,
   ApiTipConfig,
   ApiTipConstant,
+  BillingConfig
 };
 
 export * from './emojis_config';

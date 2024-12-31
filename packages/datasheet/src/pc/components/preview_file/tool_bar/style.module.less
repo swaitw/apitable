@@ -38,7 +38,6 @@
 
 .group {
   display: flex;
-  margin-right: 24px;
   &.borderRight {
     border-right: 1px solid var(--thirdLevelText);
   }
@@ -49,7 +48,11 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  margin-right: 24px;
+  margin-right: 16px;
+  height: 16px;
+  & > span {
+    display: flex;
+  }
 }
 
 .zoomText {
@@ -67,10 +70,10 @@
   width: 24px;
   height: 24px;
   &:hover {
-    background-color: var(--bgOnmaskHover);
+    background-color: var(--bgBglessHover);
   }
   &:active {
-    background-color: var(--bgOnmaskActive);
+    background-color: var(--bgBglessActive);
   }
 }
 .iconClose {

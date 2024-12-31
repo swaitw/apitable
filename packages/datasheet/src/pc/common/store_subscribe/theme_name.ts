@@ -24,11 +24,11 @@ let preTheme: ThemeName;
 store.subscribe(() => {
   const state = store.getState();
   const theme = state.theme;
-  if (theme !== preTheme){
+  if (theme !== preTheme) {
     preTheme = theme;
     const iframeList = Array.from(document.getElementsByTagName('iframe'));
-    iframeList.forEach(v => {
-      v.contentWindow?.postMessage({ type: 'vika_theme', vika_theme: theme }, '*');
+    iframeList.forEach((v) => {
+      v.contentWindow?.postMessage({ type: 'apitable_theme', apitable_theme: theme }, '*');
     });
   }
 });

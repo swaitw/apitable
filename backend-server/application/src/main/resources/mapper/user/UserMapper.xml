@@ -32,6 +32,13 @@
         WHERE id = #{userId}
     </select>
 
+    <select id="selectAvatarById" resultType="java.lang.String">
+        SELECT avatar
+        FROM ${tablePrefix}user
+        WHERE id = #{userId}
+          AND is_deleted = 0
+    </select>
+
     <select id="selectIdByMobile" resultType="java.lang.Long">
         SELECT id
         FROM ${tablePrefix}user
@@ -104,13 +111,12 @@
     </select>
 
     <select id="selectByIds" resultType="com.apitable.user.entity.UserEntity">
-        SELECT vu.avatar, vu.email, vu.id, vu.nick_name, vu.uuid
+        SELECT vu.avatar, vu.email, vu.id, vu.nick_name, vu.uuid, vu.color
         FROM ${tablePrefix}user vu
         WHERE vu.id IN
         <foreach collection="userIds" index="index" item="item" open="(" close=")" separator=",">
             #{item}
         </foreach>
-        AND is_deleted = 0
     </select>
 
     <select id="selectByUuIds" resultType="com.apitable.user.entity.UserEntity">
@@ -195,7 +201,7 @@
     </select>
 
     <select id="selectLocaleAndEmailByIds" resultType="com.apitable.user.dto.UserLangDTO">
-        SELECT id, locale, email FROM ${tablePrefix}user
+        SELECT id, locale, email, time_zone FROM ${tablePrefix}user
         WHERE id IN
         <foreach collection="ids" item="id" index="index" open="(" close=")" separator=",">
             #{id}
@@ -217,5 +223,14 @@
         FROM ${tablePrefix}user
         WHERE id = #{userId}
           AND is_deleted = 0
+    </select>
+
+    <select id="selectEmailAndMobilePhoneByIds" resultType="com.apitable.user.dto.UserSensitiveDTO">
+        SELECT id, code, mobile_phone, email, avatar FROM ${tablePrefix}user
+        WHERE id IN
+        <foreach item="item" index="index" collection="userIds" open="(" separator="," close=")">
+            #{item}
+        </foreach>
+        AND is_deleted = 0
     </select>
 </mapper>

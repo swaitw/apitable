@@ -16,6 +16,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+import { FC } from 'react';
+import { colorVars } from '@apitable/components';
 import {
   Headline1Filled,
   Headline2Filled,
@@ -30,35 +32,36 @@ import {
   ItalicsFilled,
   QuoteFilled,
   HighlightFilled,
-  ColumnUrlOutlined,
+  LinkOutlined,
   TextLeftFilled,
   TextMiddleFilled,
   TextRightFilled,
   TaskListFilled,
   DividingLineFilled,
-  CoverOutlined,
-  GotoLargeOutlined,
-  Brokenlink1Outlined,
-  SelectOutlined,
+  ImageOutlined,
+  GotoOutlined,
+  LinkDisconnectOutlined,
+  CheckOutlined,
   IIconProps,
 } from '@apitable/icons';
-import { colorVars } from '@apitable/components';
 
 import { ElementType, MarkType, ALIGN } from '../../constant';
 
 import styles from './style.module.less';
-import { FC } from 'react';
 
 const HeadingIcon = ({ depth = 1 }) => {
-  return <i className={styles.iconWrap}>
-    H<sub>{depth}</sub>
-  </i>;
+  return (
+    <i className={styles.iconWrap}>
+      H<sub>{depth}</sub>
+    </i>
+  );
 };
 
 const IconFactor = (Icon: FC<React.PropsWithChildren<IIconProps>>) => {
   return ({ color = colorVars.secondLevelText, ...others }: IIconProps) => <Icon color={color} {...others} />;
 };
 
+// eslint-disable-next-line import/no-anonymous-default-export
 export default {
   [ElementType.PARAGRAPH]: IconFactor(BodyFilled),
   [ElementType.HEADING_ONE]: IconFactor(Headline1Filled),
@@ -69,14 +72,14 @@ export default {
   [ElementType.HEADING_SIX]: IconFactor(() => <HeadingIcon depth={6} />),
   [ElementType.ORDERED_LIST]: IconFactor(OrderedFilled),
   [ElementType.UNORDERED_LIST]: IconFactor(UnorderedFilled),
-  [ElementType.IMAGE]: IconFactor(CoverOutlined),
+  [ElementType.IMAGE]: IconFactor(ImageOutlined),
   [ElementType.TASK_LIST]: IconFactor(TaskListFilled),
   [ElementType.QUOTE]: IconFactor(QuoteFilled),
   [ElementType.DIVIDER]: IconFactor(DividingLineFilled),
   [ElementType.CODE_BLOCK_WRAP]: IconFactor(CodeFilled),
   // table: '',
   // Inline elements
-  [ElementType.LINK]: IconFactor(ColumnUrlOutlined),
+  [ElementType.LINK]: IconFactor(LinkOutlined),
   [ElementType.MENTION]: IconFactor(() => <i className={styles.iconWrap}>@</i>),
   [MarkType.ITALIC]: IconFactor(ItalicsFilled),
   [MarkType.UNDERLINE]: IconFactor(UnderlineFilled),
@@ -88,7 +91,7 @@ export default {
   [ALIGN.LEFT]: IconFactor(TextLeftFilled),
   [ALIGN.CENTER]: IconFactor(TextMiddleFilled),
   [ALIGN.RIGHT]: IconFactor(TextRightFilled),
-  visit: IconFactor(GotoLargeOutlined),
-  unlink: IconFactor(Brokenlink1Outlined),
-  ok: IconFactor(SelectOutlined)
+  visit: IconFactor(GotoOutlined),
+  unlink: IconFactor(LinkDisconnectOutlined),
+  ok: IconFactor(CheckOutlined),
 };

@@ -16,14 +16,13 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import { ApiTipConstant, Field, ICollaCommandOptions } from '@apitable/core';
+import { ApiTipConstant, Field, ICollaCommandOptions, IRemoteChangeset } from '@apitable/core';
 import {
   Body,
   CacheTTL,
   Controller,
   Delete,
   Get,
-  HttpStatus,
   Param,
   Patch,
   Post,
@@ -31,33 +30,46 @@ import {
   Query,
   Req,
   Res,
+  SetMetadata,
   UseGuards,
-  UseInterceptors,
+  UseInterceptors
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiBody, ApiConsumes, ApiInternalServerErrorResponse, ApiOperation, ApiProduces, ApiTags } from '@nestjs/swagger';
-import { InternalCreateDatasheetVo } from 'database/interfaces';
-import { AttachmentUploadRo } from 'fusion/ros/attachment.upload.ro';
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiConsumes,
+  ApiInternalServerErrorResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiProduces,
+  ApiTags
+} from '@nestjs/swagger';
 import { AttachmentService } from 'database/attachment/services/attachment.service';
+import { DatasheetMetaService } from 'database/datasheet/services/datasheet.meta.service';
+import { InternalCreateDatasheetVo } from 'database/interfaces';
 import { FastifyReply, FastifyRequest } from 'fastify';
 import { DatasheetFieldDto } from 'fusion/dtos/datasheet.field.dto';
-import { FusionApiService } from 'fusion/services/fusion.api.service';
-import { RecordDeleteVo } from 'fusion/vos/record.delete.vo';
-import { I18nService } from 'nestjs-i18n';
-import { API_MAX_MODIFY_RECORD_COUNTS, DATASHEET_HTTP_DECORATE, NodePermissions, SwaggerConstants, USER_HTTP_DECORATE } from 'shared/common';
-import { NodePermissionEnum } from 'shared/enums/node.permission.enum';
-import { ApiException } from 'shared/exception';
-import { ApiCacheInterceptor, apiCacheTTLFactory } from 'shared/interceptor/api.cache.interceptor';
-import { ApiNotifyInterceptor } from 'shared/interceptor/api.notify.interceptor';
-import { ApiUsageInterceptor } from 'shared/interceptor/api.usage.interceptor';
-import { IFileInterface } from 'shared/interfaces/file.interface';
 import { ApiAuthGuard } from 'fusion/middleware/guard/api.auth.guard';
-import { ApiDatasheetGuard } from 'fusion/middleware/guard/api.datasheet.guard';
-import { ApiFieldGuard } from 'fusion/middleware/guard/api.field.guard';
+import { ApiDatasheetGuard, DATASHEET_OPTIONS, IApiDatasheetOptions } from 'fusion/middleware/guard/api.datasheet.guard';
+import { ApiFieldGuard, FIELD_OPTIONS, IApiFieldOptions } from 'fusion/middleware/guard/api.field.guard';
 import { ApiNodeGuard } from 'fusion/middleware/guard/api.node.guard';
 import { ApiSpaceGuard } from 'fusion/middleware/guard/api.space.guard';
 import { ApiUsageGuard } from 'fusion/middleware/guard/api.usage.guard';
 import { NodePermissionGuard } from 'fusion/middleware/guard/node.permission.guard';
+import { AttachmentParamRo, AttachmentUploadRo } from 'fusion/ros/attachment.upload.ro';
+import { FusionApiService } from 'fusion/services/fusion.api.service';
+import { RecordDeleteVo } from 'fusion/vos/record.delete.vo';
+import { API_MAX_MODIFY_RECORD_COUNTS, DATASHEET_HTTP_DECORATE, NodePermissions, SwaggerConstants } from 'shared/common';
+import { NodePermissionEnum } from 'shared/enums/node.permission.enum';
+import { ApiException, CommonException, ServerException } from 'shared/exception';
+import { ApiCacheInterceptor, apiCacheTTLFactory } from 'shared/interceptor/api.cache.interceptor';
+import { ApiNotifyInterceptor } from 'shared/interceptor/api.notify.interceptor';
+import { ApiUsageInterceptor } from 'shared/interceptor/api.usage.interceptor';
 import { RestService } from 'shared/services/rest/rest.service';
+import { CreateDatasheetPipe } from './middleware/pipe/create.datasheet.pipe';
+import { CreateFieldPipe } from './middleware/pipe/create.field.pipe';
+import { FieldPipe } from './middleware/pipe/field.pipe';
+import { QueryPipe } from './middleware/pipe/query.pipe';
 import { AssetUploadQueryRo } from './ros/asset.query';
 import { DatasheetCreateRo } from './ros/datasheet.create.ro';
 import { FieldCreateRo } from './ros/field.create.ro';
@@ -65,24 +77,21 @@ import { FieldDeleteRo } from './ros/field.delete.ro';
 import { FieldQueryRo } from './ros/field.query.ro';
 import { NodeDetailParamRo, NodeListParamRo, OldNodeDetailParamRo } from './ros/node.param.ro';
 import { RecordCreateRo } from './ros/record.create.ro';
-import { RecordDeleteRo } from './ros/record.delete.ro';
+import { DeleteRecordParamRo, RecordDeleteRo } from './ros/record.delete.ro';
 import { RecordParamRo } from './ros/record.param.ro';
 import { RecordQueryRo } from './ros/record.query.ro';
 import { RecordUpdateRo } from './ros/record.update.ro';
 import { RecordViewQueryRo } from './ros/record.view.query.ro';
 import { SpaceParamRo } from './ros/space.param.ro';
+import { ViewParamRo } from './ros/view.param.ro';
 import { ApiResponse } from './vos/api.response';
 import { AssetView, AttachmentVo } from './vos/attachment.vo';
 import { DatasheetCreateDto, DatasheetCreateVo, FieldCreateVo } from './vos/datasheet.create.vo';
 import { FieldDeleteVo } from './vos/field.delete.vo';
 import { FieldListVo } from './vos/field.list.vo';
-import { RecordListVo } from './vos/record.list.vo';
+import { RecordIdListVo, RecordListVo } from './vos/record.list.vo';
 import { RecordPageVo } from './vos/record.page.vo';
 import { ViewListVo } from './vos/view.list.vo';
-import { CreateDatasheetPipe } from './middleware/pipe/create.datasheet.pipe';
-import { CreateFieldPipe } from './middleware/pipe/create.field.pipe';
-import { FieldPipe } from './middleware/pipe/field.pipe';
-import { QueryPipe } from './middleware/pipe/query.pipe';
 
 /**
  * TODO: cache response data, send notification while member changed, should maintain the data in the same server and cache them
@@ -98,10 +107,11 @@ export class FusionApiController {
     private readonly fusionApiService: FusionApiService,
     private readonly attachService: AttachmentService,
     private readonly restService: RestService,
-    private readonly i18n: I18nService,
-  ) {}
+    private readonly datasheetMetaService: DatasheetMetaService
+  ) {
+  }
 
-  @Get('/datasheets/:datasheetId/records')
+  @Get('/datasheets/:dstId/records')
   @ApiOperation({
     summary: 'Query datasheet records',
     description: 'Get multiple records of a datasheet',
@@ -111,12 +121,17 @@ export class FusionApiController {
   @UseGuards(ApiDatasheetGuard)
   @UseInterceptors(ApiCacheInterceptor)
   @CacheTTL(apiCacheTTLFactory)
-  public async findAll(@Param() param: RecordParamRo, @Query(QueryPipe) query: RecordQueryRo, @Req() request: FastifyRequest): Promise<RecordPageVo> {
-    const pageVo = await this.fusionApiService.getRecords(param.datasheetId, query, { token: request.headers.authorization });
+  @SetMetadata(DATASHEET_OPTIONS, { requireMetadata: true, loadSingleView: true } as IApiDatasheetOptions)
+  public async getRecords(
+    @Param() param: RecordParamRo,
+    @Query(QueryPipe) query: RecordQueryRo,
+    @Req() request: FastifyRequest,
+  ): Promise<RecordPageVo> {
+    const pageVo = await this.fusionApiService.getRecords(param.dstId, query, { token: request.headers.authorization });
     return ApiResponse.success(pageVo);
   }
 
-  @Post('/datasheets/:datasheetId/records')
+  @Post('/datasheets/:dstId/records')
   @ApiOperation({
     summary: 'Add multiple rows to a specified datasheet',
     description:
@@ -136,12 +151,13 @@ export class FusionApiController {
   @ApiConsumes('application/json')
   @UseGuards(ApiDatasheetGuard)
   @UseInterceptors(ApiNotifyInterceptor)
+  @SetMetadata(DATASHEET_OPTIONS, { requireMetadata: true } as IApiDatasheetOptions)
   async addRecords(@Param() param: RecordParamRo, @Query() query: RecordViewQueryRo, @Body(FieldPipe) body: RecordCreateRo): Promise<RecordListVo> {
-    const res = await this.fusionApiService.addRecords(param.datasheetId, body, query.viewId!);
+    const res = await this.fusionApiService.addRecords(param.dstId, body, query.viewId!);
     return ApiResponse.success(res);
   }
 
-  @Get('/datasheets/:datasheetId/attachments/presignedUrl')
+  @Get('/datasheets/:dstId/attachments/presignedUrl')
   @ApiOperation({
     summary: 'Get the pre-signed URL of the datasheet attachment',
     description: '',
@@ -151,18 +167,23 @@ export class FusionApiController {
   @NodePermissions(NodePermissionEnum.EDITABLE)
   @UseGuards(ApiDatasheetGuard)
   public async getPresignedUrl(@Query() query: AssetUploadQueryRo, @Req() req: FastifyRequest): Promise<AssetView> {
-    // check space capacity
+    await this.checkSpaceCapacity(req);
+    const datasheet = req[DATASHEET_HTTP_DECORATE];
+    const results = await this.restService.getUploadPresignedUrl({ token: req.headers.authorization }, datasheet.nodeId, query.count);
+    return ApiResponse.success({ results });
+  }
+
+  private async checkSpaceCapacity(req: FastifyRequest) {
     const datasheet = req[DATASHEET_HTTP_DECORATE];
     const spaceCapacityOverLimit = await this.restService.capacityOverLimit({ token: req.headers.authorization }, datasheet.spaceId);
     if (spaceCapacityOverLimit) {
       const error = ApiException.tipError(ApiTipConstant.api_space_capacity_over_limit);
       return Promise.reject(error);
     }
-    const results = await this.restService.getUploadPresignedUrl({ token: req.headers.authorization }, datasheet.nodeId, query.count);
-    return ApiResponse.success({ results });
+    return;
   }
 
-  @Post('/datasheets/:datasheetId/attachments')
+  @Post('/datasheets/:dstId/attachments')
   @ApiOperation({
     summary: 'Upload datasheet attachment',
     description:
@@ -182,57 +203,22 @@ export class FusionApiController {
   @NodePermissions(NodePermissionEnum.EDITABLE)
   @UseGuards(ApiDatasheetGuard)
   // TODO: Waiting for nestjs official inheritance multi and fastify
-  public async addAttachment(@Param() param: RecordParamRo, @Req() req: FastifyRequest, @Res() reply: FastifyReply): Promise<AttachmentVo> {
-    // check space capacity
-    const datasheet = req[DATASHEET_HTTP_DECORATE];
-    const spaceCapacityOverLimit = await this.restService.capacityOverLimit({ token: req.headers.authorization }, datasheet.spaceId);
-    if (spaceCapacityOverLimit) {
-      const error = ApiException.tipError(ApiTipConstant.api_space_capacity_over_limit);
-      return Promise.reject(error);
-    }
-    const service = this.attachService;
-    const i18nService = this.i18n;
-    const newFiles: IFileInterface[] = [];
-    const handler = this.attachService.getFileUploadHandler(param.datasheetId, newFiles, req, reply);
-    await req.multipart(handler, onEnd);
-
-    // Uploading finished
-    async function onEnd(err: any) {
-      let localError;
+  public async addAttachment(@Param() param: AttachmentParamRo, @Req() req: FastifyRequest, @Res() reply: FastifyReply): Promise<AttachmentVo> {
+    await this.checkSpaceCapacity(req);
+    const handler = await this.attachService.getFileUploadHandler(param.dstId, req, reply);
+    await req.multipart(handler as (...args: Parameters<typeof handler>) => void, function (err: Error) {
+      if (err instanceof ServerException) {
+        reply.statusCode = err.getStatusCode();
+        void reply.send(ApiResponse.error(err.getMessage(), err.getCode()));
+      }
       if (err) {
-        if (err instanceof ApiException) {
-          localError = err;
-        } else {
-          localError = ApiException.tipError(ApiTipConstant.api_upload_attachment_error);
-        }
+        void reply.send(ApiResponse.error(CommonException.SERVER_ERROR.message, CommonException.SERVER_ERROR.code));
       }
-      if (newFiles.length > 1) {
-        localError = ApiException.tipError(ApiTipConstant.api_upload_attachment_exceed_limit);
-      }
-      if (localError) {
-        reply.statusCode = localError.getTip().statusCode;
-        const errMsg = await i18nService.translate(localError.message, {
-          lang: req[USER_HTTP_DECORATE]?.locale,
-        });
-        return reply.send(ApiResponse.error(errMsg, localError.getTip().code));
-      }
-      try {
-        const dto = await service.uploadAttachment(param.datasheetId, newFiles[0]!, { token: req.headers.authorization });
-        return reply.send(ApiResponse.success(dto));
-      } catch (e) {
-        reply.statusCode = HttpStatus.OK;
-        const errMsg = await i18nService.translate((e as Error).message, {
-          lang: req[USER_HTTP_DECORATE]?.locale,
-          args: (e as ApiException).getExtra(),
-        });
-        return reply.send(ApiResponse.error(errMsg, (e as ApiException).getTip().code));
-      }
-    }
-
+    });
     return ApiResponse.success({} as any);
   }
 
-  @Patch('/datasheets/:datasheetId/records')
+  @Patch('/datasheets/:dstId/records')
   @ApiOperation({
     summary: 'Update Records',
     description:
@@ -249,16 +235,17 @@ export class FusionApiController {
   @ApiConsumes('application/json')
   @UseGuards(ApiDatasheetGuard)
   @UseInterceptors(ApiNotifyInterceptor)
-  public async updateRecord(
+  @SetMetadata(DATASHEET_OPTIONS, { requireMetadata: true } as IApiDatasheetOptions)
+  public async updateRecords(
     @Param() param: RecordParamRo,
     @Query() query: RecordViewQueryRo,
     @Body(FieldPipe) body: RecordUpdateRo,
   ): Promise<RecordListVo> {
-    const listVo = await this.fusionApiService.updateRecords(param.datasheetId, body, query.viewId!);
+    const listVo = await this.fusionApiService.updateRecords(param.dstId, body, query.viewId!);
     return ApiResponse.success(listVo);
   }
 
-  @Put('/datasheets/:datasheetId/records')
+  @Put('/datasheets/:dstId/records')
   @ApiOperation({
     summary: 'Update Records',
     description:
@@ -275,16 +262,16 @@ export class FusionApiController {
   @ApiConsumes('application/json')
   @UseGuards(ApiDatasheetGuard)
   @UseInterceptors(ApiNotifyInterceptor)
-  public async updateRecordOfPut(
+  @SetMetadata(DATASHEET_OPTIONS, { requireMetadata: true } as IApiDatasheetOptions)
+  public updateRecordsByPut(
     @Param() param: RecordParamRo,
     @Query() query: RecordViewQueryRo,
     @Body(FieldPipe) body: RecordUpdateRo,
   ): Promise<RecordListVo> {
-    const listVo = await this.fusionApiService.updateRecords(param.datasheetId, body, query.viewId!);
-    return ApiResponse.success(listVo);
+    return this.updateRecords(param, query, body);
   }
 
-  @Delete('/datasheets/:datasheetId/records')
+  @Delete('/datasheets/:dstId/records')
   @ApiOperation({
     summary: 'Delete records',
     description: 'Delete a number of records from a datasheet',
@@ -292,38 +279,41 @@ export class FusionApiController {
   })
   @ApiProduces('application/json')
   @UseGuards(ApiDatasheetGuard)
-  public async deleteRecord(@Param() param: RecordParamRo, @Query(QueryPipe) query: RecordDeleteRo): Promise<RecordDeleteVo> {
+  public async deleteRecords(@Param() param: DeleteRecordParamRo, @Query(QueryPipe) query: RecordDeleteRo): Promise<RecordDeleteVo> {
     if (!query.recordIds) {
       throw ApiException.tipError(ApiTipConstant.api_params_empty_error, { property: 'recordIds' });
     }
     if (query.recordIds.length > API_MAX_MODIFY_RECORD_COUNTS) {
       throw ApiException.tipError(ApiTipConstant.api_params_records_max_count_error, { count: API_MAX_MODIFY_RECORD_COUNTS });
     }
-    const result = await this.fusionApiService.deleteRecord(param.datasheetId, Array.from(new Set(query.recordIds)));
+    const result = await this.fusionApiService.deleteRecord(param.dstId, Array.from(new Set(query.recordIds)));
     if (result) {
       return ApiResponse.success(undefined);
     }
     throw ApiException.tipError(ApiTipConstant.api_delete_error);
   }
 
-  @Get('/datasheets/:datasheetId/fields')
+  @Get('/datasheets/:dstId/fields')
   @ApiOperation({
     summary: 'Query all fields of a datasheet',
     description: 'All fields of the datasheet, without paging',
     deprecated: false,
   })
+  @ApiOkResponse({
+    description: 'Get successful',
+    type: FieldListVo,
+  })
   @ApiProduces('application/json')
   @UseGuards(ApiDatasheetGuard)
-  public async datasheetFields(@Param() param: RecordParamRo, @Query() query: FieldQueryRo): Promise<FieldListVo> {
-    const fields = await this.fusionApiService.getFieldList(param.datasheetId, query);
-    return ApiResponse.success({
-      fields: fields.map(field =>
-        field.getViewObject((f, { state }) => Field.bindContext(f, state).getApiMeta(param.datasheetId) as DatasheetFieldDto),
-      ),
-    });
+  public async getFields(@Param() param: RecordParamRo, @Query() query: FieldQueryRo): Promise<FieldListVo> {
+    const fields = await this.fusionApiService.getFieldList(param.dstId, query);
+    const fieldDtos = fields.map((field) =>
+      field.getViewObject((f, { state }) => Field.bindContext(f, state).getApiMeta(param.dstId) as DatasheetFieldDto),
+    );
+    return ApiResponse.success({ fields: fieldDtos });
   }
 
-  @Get('/datasheets/:datasheetId/views')
+  @Get('/datasheets/:dstId/views')
   @ApiOperation({
     summary: 'Query all views of a datasheet',
     description: 'A datasheet can create up to 30 views and return them all at once when requesting a view, without paging.',
@@ -331,8 +321,8 @@ export class FusionApiController {
   })
   @ApiProduces('application/json')
   @UseGuards(ApiDatasheetGuard)
-  public async datasheetViews(@Param() param: RecordParamRo): Promise<ViewListVo> {
-    const metaViews = await this.fusionApiService.getViewList(param.datasheetId);
+  public async getViews(@Param() param: ViewParamRo): Promise<ViewListVo> {
+    const metaViews = await this.fusionApiService.getViewList(param.dstId);
     if (metaViews) {
       return ApiResponse.success({ views: metaViews });
     }
@@ -346,7 +336,7 @@ export class FusionApiController {
     deprecated: false,
   })
   @ApiProduces('application/json')
-  public async spaceList() {
+  public async getSpaces() {
     // This interface does not count API usage for now
     const spaceList = await this.fusionApiService.getSpaceList();
     return ApiResponse.success({
@@ -354,7 +344,7 @@ export class FusionApiController {
     });
   }
 
-  @Post('/spaces/:spaceId/datasheets/:datasheetId/fields')
+  @Post('/spaces/:spaceId/datasheets/:dstId/fields')
   @ApiOperation({
     summary: 'New field',
     description: 'New field',
@@ -367,22 +357,20 @@ export class FusionApiController {
   @ApiProduces('application/json')
   @ApiConsumes('application/json')
   @UseGuards(ApiFieldGuard)
+  @SetMetadata(FIELD_OPTIONS, { requireFieldMap: true } as IApiFieldOptions)
   public async createField(
     @Param('spaceId') _spaceId: string,
-    @Param('datasheetId') datasheetId: string,
+    @Param('dstId') datasheetId: string,
     @Body(CreateFieldPipe) createRo: FieldCreateRo,
   ): Promise<FieldCreateVo> {
-    // TODO only fetch field names
-    const fields = await this.fusionApiService.getFieldList(datasheetId, { viewId: '' });
-    const duplicatedName = fields.filter(field => field.name === createRo.name);
-    if (duplicatedName.length > 0) {
+    if (await this.datasheetMetaService.isFieldNameExist(datasheetId, createRo.name)) {
       throw ApiException.tipError(ApiTipConstant.api_params_must_unique, { property: 'name' });
     }
     const fieldCreateDto = await this.fusionApiService.addField(datasheetId, createRo);
     return ApiResponse.success(fieldCreateDto);
   }
 
-  @Delete('/spaces/:spaceId/datasheets/:datasheetId/fields/:fieldId')
+  @Delete('/spaces/:spaceId/datasheets/:dstId/fields/:fieldId')
   @ApiOperation({
     summary: 'Delete field',
     description: 'Delete field',
@@ -397,13 +385,13 @@ export class FusionApiController {
   @UseGuards(ApiFieldGuard)
   public async deleteField(
     @Param('spaceId') _spaceId: string,
-    @Param('datasheetId') datasheetId: string,
+    @Param('dstId') datasheetId: string,
     @Param('fieldId') fieldId: string,
     @Body() fieldDeleteRo: FieldDeleteRo,
   ): Promise<FieldDeleteVo> {
     // TODO only fetch field ids
     const fields = await this.fusionApiService.getFieldList(datasheetId, { viewId: '' });
-    const existFieldId = fields.filter(field => field.id === fieldId);
+    const existFieldId = fields.filter((field) => field.id === fieldId);
     if (existFieldId.length === 0) {
       throw ApiException.tipError(ApiTipConstant.api_params_not_exists, { property: 'fieldId', value: fieldId });
     }
@@ -458,7 +446,7 @@ export class FusionApiController {
   })
   @ApiProduces('application/json')
   @UseGuards(ApiSpaceGuard)
-  public async nodeList(@Param() param: NodeListParamRo) {
+  public async getNodes(@Param() param: NodeListParamRo) {
     const { spaceId } = param;
     const nodeList = await this.fusionApiService.getNodeList(spaceId);
     return ApiResponse.success({
@@ -477,10 +465,8 @@ export class FusionApiController {
   })
   @ApiProduces('application/json')
   @UseGuards(ApiSpaceGuard)
-  public async _nodeDetail(@Param() param: OldNodeDetailParamRo) {
-    const { nodeId } = param;
-    const nodeInfo = await this.fusionApiService.getNodeDetail(nodeId);
-    return ApiResponse.success(nodeInfo);
+  public _nodeDetail(@Param() param: OldNodeDetailParamRo) {
+    return this.nodeDetail(param);
   }
 
   @Get('/nodes/:nodeId')
@@ -497,19 +483,53 @@ export class FusionApiController {
     return ApiResponse.success(nodeInfo);
   }
 
+  @Get('/timemachine/:dstId')
+  @ApiOperation({
+    summary: 'get all deleted record by time machine',
+    description: 'via time machine api',
+    deprecated: false,
+  })
+  @ApiProduces('application/json')
+  @UseGuards(ApiDatasheetGuard)
+  @UseInterceptors(ApiCacheInterceptor)
+  @CacheTTL(apiCacheTTLFactory)
+  @SetMetadata(DATASHEET_OPTIONS, { requireMetadata: true, loadSingleView: true } as IApiDatasheetOptions)
+  public async getDeletedRecords(
+      @Param() param: RecordParamRo,
+  ): Promise<RecordIdListVo> {
+    const pageVo = await this.fusionApiService.getDeletedRecords(param.dstId);
+    return ApiResponse.success(pageVo);
+  }
+
   /**
    * Hidden Interface
    */
-  @Post('datasheets/:datasheetId/executeCommand')
+  @Post('datasheets/:dstId/executeCommand')
   @ApiOperation({
     summary: 'Create the op of the resource',
     description: 'For flexibility reasons and for internal automation testing, provide an interface to freely create commands',
     deprecated: false,
   })
   @ApiProduces('application/json')
-  public async executeCommand(@Body() body: ICollaCommandOptions, @Param('datasheetId') datasheetId: string, @Req() request: FastifyRequest) {
+  public async executeCommand(@Body() body: ICollaCommandOptions, @Param('dstId') datasheetId: string, @Req() request: FastifyRequest) {
     const commandBody = body;
     const token = request.headers.authorization;
     return await this.fusionApiService.executeCommand(datasheetId, commandBody, { token });
+  }
+
+  /**
+   * Hidden Interface
+   */
+  @Post('datasheets/:dstId/executeCommandFromRust')
+  @ApiOperation({
+    summary: 'Create the op of the resource',
+    description: 'For flexibility reasons and for internal automation testing, provide an interface to freely create commands',
+    deprecated: false,
+  })
+  @ApiProduces('application/json')
+  public async executeCommandFromRust(@Body() body: IRemoteChangeset[], @Param('dstId') datasheetId: string, @Req() request: FastifyRequest) {
+    const commandBody = body;
+    const token = request.headers.authorization;
+    return await this.fusionApiService.executeCommandFromRust(datasheetId, commandBody, { token });
   }
 }

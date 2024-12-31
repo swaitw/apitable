@@ -34,6 +34,7 @@ services:
       - "8081"
     environment:
       - TZ=${TIMEZONE}
+      - DEFAULT_TIME_ZONE=${TIMEZONE}
     networks:
       - apitable
     depends_on:
@@ -61,11 +62,28 @@ services:
     env_file:
       - "${ENV_FILE:-.env}"
     environment:
+      - TZ=${TIMEZONE}
       - NODE_ENV=${ENV}
       - NODE_OPTIONS=--max-old-space-size=2048 --max-http-header-size=80000
       - API_MAX_MODIFY_RECORD_COUNTS=${API_MAX_MODIFY_RECORD_COUNTS:-30}
       - INSTANCE_MAX_MEMORY=4096M
       - ENABLE_SOCKET=true
+    networks:
+      - apitable
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  databus-server:
+    image: ${IMAGE_REGISTRY}/${IMAGE_DATABUS_SERVER}
+    pull_policy: ${IMAGE_PULL_POLICY:-if_not_present}
+    restart: always
+    expose:
+      - "8625"
+    env_file:
+      - "${ENV_FILE:-.env}"
+    environment:
+      - TZ=${TIMEZONE}
     networks:
       - apitable
     depends_on:
@@ -97,18 +115,22 @@ services:
         condition: service_completed_successfully
 
   minio:
+    container_name: minio
     image: ${IMAGE_MINIO}
     pull_policy: ${IMAGE_PULL_POLICY:-if_not_present}
     restart: always
-    command: server /data
+    command: server --console-address ":9001" /data
     expose:
       - "9000"
+      - "9001"
     volumes:
       - ${DATA_PATH}/.data/minio/data:/data
       - ${DATA_PATH}/.data/minio/config:/root/.minio
     environment:
       - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
       - MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
+      - MINIO_ROOT_USER=${MINIO_ACCESS_KEY}
+      - MINIO_ROOT_PASSWORD=${MINIO_SECRET_KEY}
       - TZ=${TIMEZONE}
     networks:
       - apitable
@@ -119,6 +141,7 @@ services:
       retries: 30
 
   redis:
+    container_name: redis
     image: ${IMAGE_REDIS}
     pull_policy: ${IMAGE_PULL_POLICY:-if_not_present}
     restart: always
@@ -140,6 +163,7 @@ services:
       - apitable
 
   mysql:
+    container_name: mysql
     image: ${IMAGE_MYSQL}
     pull_policy: ${IMAGE_PULL_POLICY:-if_not_present}
     restart: always
@@ -166,6 +190,7 @@ services:
       - apitable
 
   rabbitmq:
+    container_name: rabbitmq
     image: ${IMAGE_RABBITMQ}
     pull_policy: ${IMAGE_PULL_POLICY:-if_not_present}
     restart: always
@@ -182,24 +207,6 @@ services:
       - apitable
 
   # init data
-  pre-init-db:
-    image: ${IMAGE_REGISTRY}/${IMAGE_INIT_DB}
-    pull_policy: ${IMAGE_PULL_POLICY:-if_not_present}
-    environment:
-      - TZ=${TIMEZONE}
-      - DB_HOST=${MYSQL_HOST}
-      - DB_PORT=${MYSQL_PORT}
-      - DB_NAME=${MYSQL_DATABASE}
-      - DB_USERNAME=${MYSQL_USERNAME}
-      - DB_PASSWORD=${MYSQL_PASSWORD}
-      - DATABASE_TABLE_PREFIX=${DATABASE_TABLE_PREFIX}
-      - ACTION=releaseLocks
-    networks:
-      - apitable
-    depends_on:
-      mysql:
-        condition: service_healthy
-  
   init-db:
     image: ${IMAGE_REGISTRY}/${IMAGE_INIT_DB}
     pull_policy: ${IMAGE_PULL_POLICY:-if_not_present}
@@ -215,8 +222,8 @@ services:
     networks:
       - apitable
     depends_on:
-      pre-init-db:
-        condition: service_completed_successfully
+      mysql:
+        condition: service_healthy
 
   # init-appdata
   init-appdata:
@@ -234,4 +241,5 @@ services:
 
 networks:
   apitable:
+    name: apitable_default
     driver: bridge

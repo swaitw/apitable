@@ -18,25 +18,24 @@
 
 package com.apitable.workspace.ro;
 
-import io.swagger.annotations.ApiModel;
-import io.swagger.annotations.ApiModelProperty;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
+import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
-
-import javax.validation.constraints.NotBlank;
 
 /**
  * <p>
- * Node recovery request parameters
+ * Node recovery request parameters.
  * </p>
  */
 @Data
-@ApiModel("Node recovery request parameters")
+@Schema(description = "Node recovery request parameters")
 public class NodeRecoverRo {
 
-    @ApiModelProperty(value = "Node Id", example = "nod10", position = 1, required = true)
+    @Schema(description = "Node Id", requiredMode = RequiredMode.REQUIRED, example = "nod10")
     @NotBlank(message = "Node Id cannot be empty")
     private String nodeId;
 
-    @ApiModelProperty(value = "Parent Node Id of the target location", example = "nod10", position = 2)
+    @Schema(description = "Parent Node Id of the target location", example = "nod10")
     private String parentId;
 }

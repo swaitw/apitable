@@ -22,9 +22,8 @@ import lombok.Data;
 
 /**
  * <p>
- * member information
+ * member information.
  * </p>
- *
  */
 @Data
 public class MemberInfoDTO {
@@ -32,4 +31,6 @@ public class MemberInfoDTO {
     private Long id;
 
     private Boolean isDeleted;
+
+    private String uuid;
 }

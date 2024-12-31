@@ -17,21 +17,33 @@
  */
 
 import { FC, useState } from 'react';
+// eslint-disable-next-line no-restricted-imports
 import { Select, Typography } from '@apitable/components';
-import { Message } from 'pc/components/common';
-import { useRequest } from 'pc/hooks';
+import { getLanguage, Strings, t } from '@apitable/core';
+import { Message } from 'pc/components/common/message/message';
+import { useRequest } from 'pc/hooks/use_request';
+import { useUserRequest } from 'pc/hooks/use_user_request';
+import { getEnvVariables } from 'pc/utils/env';
 import styles from './style.module.less';
-import { getLanguage, Strings, t, TrackEvents } from '@apitable/core';
-import { useUserRequest } from 'pc/hooks';
-import { tracker } from 'pc/utils/tracker';
 
-const options = [{
-  label: '简体中文',
-  value: 'zh-CN'
-}, {
-  label: 'English',
-  value: 'en-US' 
-}];
+/**
+ * read Settings in config
+ */
+declare const window: any;
+declare const global: any;
+
+const _global = global || window;
+
+const options: any[] = [];
+
+Object.keys(_global.languageManifest || {}).forEach((item) => {
+  if (item.indexOf('-') !== -1) {
+    options.push({
+      label: _global.languageManifest[item],
+      value: item,
+    });
+  }
+});
 
 export const LanguageSetting: FC<React.PropsWithChildren<unknown>> = () => {
   const lang = getLanguage();
@@ -40,12 +52,12 @@ export const LanguageSetting: FC<React.PropsWithChildren<unknown>> = () => {
   const { updateLangReq } = useUserRequest();
   const { run: updateLang } = useRequest(updateLangReq, { manual: true });
 
-  const handleSelected = async(option: any) => {
+  const handleSelected = async (option: any) => {
     const newValue: string = option.value;
     if (newValue === value) {
       return;
     }
-    
+
     const { success, message } = await updateLang(newValue);
 
     if (!success) {
@@ -53,24 +65,31 @@ export const LanguageSetting: FC<React.PropsWithChildren<unknown>> = () => {
       return;
     }
     setValue(newValue);
-    tracker.track(TrackEvents.Language, {
-      languageType: newValue
-    });
     // cache client locale
-    window.document.cookie = `client-lang=${newValue}`;
+    localStorage.setItem('client-lang', newValue);
     window.location.reload();
   };
 
   return (
     <div className={styles.languageSetting}>
-      <Typography variant="h7" className={styles.title}>{t(Strings.language_setting)}</Typography>
+      <Typography variant="h7" className={styles.title}>
+        {t(Strings.language_setting)}
+      </Typography>
+      <div className={styles.tip}>
+        {t(Strings.give_feedback_to_translation)}
+        <a className={styles.learnMore} href={getEnvVariables().TRANSLATION_FEEDBACK_HELP_URL} rel="noopener noreferrer" target="_blank">
+          {t(Strings.give_feedback_to_translation_learn_more)}
+        </a>
+      </div>
       <Select
         options={options}
         value={value}
         onSelected={handleSelected}
         dropdownMatchSelectWidth
         triggerStyle={{ width: 200 }}
+        searchPlaceholder={t(Strings.search)}
+        openSearch
       />
-    </div >
+    </div>
   );
 };

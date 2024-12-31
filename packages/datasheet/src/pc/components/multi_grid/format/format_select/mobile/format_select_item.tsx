@@ -16,19 +16,18 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import { ISelectFieldOption } from '@apitable/core';
 import { Input } from 'antd';
 import classNames from 'classnames';
-import { ColorPicker, OptionSetting } from 'pc/components/common/color_picker';
-import { useThemeColors } from '@apitable/components';
-import { stopPropagation } from 'pc/utils';
 import * as React from 'react';
-import IconDelete from 'static/icon/common/common_icon_close_small.svg';
-import IconMove from 'static/icon/common/common_icon_drag_internal.svg';
-import styles from '../../styles.module.less';
 import { Draggable } from 'react-beautiful-dnd';
-import { ComponentDisplay, ScreenSize } from 'pc/components/common/component_display';
 import { shallowEqual } from 'react-redux';
+import { useThemeColors } from '@apitable/components';
+import { ISelectFieldOption } from '@apitable/core';
+import { CloseOutlined, DragOutlined } from '@apitable/icons';
+import { ColorPicker, OptionSetting } from 'pc/components/common/color_picker';
+import { ComponentDisplay, ScreenSize } from 'pc/components/common/component_display';
+import { stopPropagation } from 'pc/utils';
+import styles from '../../styles.module.less';
 
 export interface IFormatSelectItem {
   option: ISelectFieldOption;
@@ -40,7 +39,7 @@ export interface IFormatSelectItem {
   onChange(type: OptionSetting, id: string, value: number | string): void;
 }
 
-const FormatSelectItemBase: React.FC<React.PropsWithChildren<IFormatSelectItem>> = props => {
+const FormatSelectItemBase: React.FC<React.PropsWithChildren<IFormatSelectItem>> = (props) => {
   const { option, index, draggingId, optionsLength, setDraggingId, addNewItem, onChange } = props;
   const colors = useThemeColors();
   const pressEnter = (e: React.KeyboardEvent) => {
@@ -68,20 +67,20 @@ const FormatSelectItemBase: React.FC<React.PropsWithChildren<IFormatSelectItem>>
           onMouseDown={onDrag}
           onMouseUp={onDrop}
         >
-          <IconMove width={10} height={14} />
+          <DragOutlined size={14} />
         </div>
         <ColorPicker onChange={onChange} option={option} mask />
         <div style={{ flex: 1 }}>
           <Input
             size="small"
-            onChange={e => onChange(OptionSetting.RENAME, option.id, e.target.value)}
+            onChange={(e) => onChange(OptionSetting.RENAME, option.id, e.target.value)}
             value={option.name}
             onPressEnter={pressEnter}
             autoFocus={index === optionsLength - 1}
           />
         </div>
         <div className={styles.iconDelete} onClick={() => onChange(OptionSetting.DELETE, option.id, '')}>
-          <IconDelete width={15} height={15} fill={colors.thirdLevelText} />
+          <CloseOutlined size={15} color={colors.thirdLevelText} />
         </div>
       </ComponentDisplay>
 
@@ -94,7 +93,7 @@ const FormatSelectItemBase: React.FC<React.PropsWithChildren<IFormatSelectItem>>
             onTouchStart={onDrag}
             onTouchEnd={onDrop}
           >
-            <IconMove width={10} height={14} />
+            <DragOutlined size={14} />
           </div>
           <ColorPicker onChange={onChange} option={option} showRenameInput mask />
           <div className={styles.optName}>{option.name}</div>
@@ -105,7 +104,7 @@ const FormatSelectItemBase: React.FC<React.PropsWithChildren<IFormatSelectItem>>
 
   return (
     <Draggable draggableId={option.id} index={index} key={option.id}>
-      {provided => (
+      {(provided) => (
         <div className={styles.selectionItem} ref={provided.innerRef} {...provided.draggableProps} {...provided.dragHandleProps}>
           {DraggableChild}
         </div>

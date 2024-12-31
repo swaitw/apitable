@@ -17,7 +17,8 @@
  */
 
 import { ErrorCode, ErrorType, IError } from 'types/error_types';
-import { COLLA_COMMAND_MAP, CollaCommandName, ICollaCommandOptions } from '../commands';
+import { COLLA_COMMAND_MAP, ICollaCommandOptions } from '../commands';
+import { CollaCommandName } from '../commands/enum';
 import { CollaCommand, ICollaCommandDef, ICollaCommandDefExecuteResult, ICollaCommandDefExecuteSuccessResult } from './command';
 import {
   ExecuteFailReason,
@@ -28,9 +29,12 @@ import {
   ICollaCommandOptionsBase,
 } from './types';
 import { IOperation } from 'engine/ot/interface';
-import { IReduxState, Selectors } from '../exports/store';
+import { IReduxState } from '../exports/store/interfaces';
+import { getActiveDatasheetId } from 'modules/database/store/selectors/resource/datasheet/base';
+
 import { AnyAction, Store } from 'redux';
-import { LinkedDataConformanceMaintainer, MemberFieldMaintainer } from 'model';
+import { LinkedDataConformanceMaintainer } from 'model/linked_data_conformance_maintainer';
+import { MemberFieldMaintainer } from 'model/member_maintainer';
 import { FieldType, ResourceType } from 'types';
 import { CellFormatChecker } from 'cell_format_checker';
 import { LinkIntegrityChecker } from 'link_integrity_checker/link_integrity_checker';
@@ -47,14 +51,13 @@ export type IResourceOpsCollect = {
 
 export interface ICollaCommandManagerListener {
   handleCommandExecuted?(resourceOpsCollects: IResourceOpsCollect[]): void;
-  getRoomId?(): string;
   handleCommandExecuteError?(error: IError, type?: 'message' | 'modal' | 'subscribeUsage'): void;
 }
 
 export class CollaCommandManager {
-  private _commands: { [name: string]: CollaCommand } = {};
-  private cellFormatChecker!: CellFormatChecker;
-  private linkIntegrityChecker!: LinkIntegrityChecker;
+  private readonly _commands: { [name: string]: CollaCommand } = {};
+  private readonly cellFormatChecker!: CellFormatChecker;
+  private readonly linkIntegrityChecker!: LinkIntegrityChecker;
 
   addUndoStack?(cmd: CollaCommandName, commandResult: ICollaCommandDefExecuteSuccessResult, executeType: ExecuteType): void;
 
@@ -86,10 +89,9 @@ export class CollaCommandManager {
   }
 
   /**
-   * @desc passes the final generated op into the callback function that executes the op
-   * @param datasheetOpsCollects
+   * passes the final generated op into the callback function that executes the op
    */
-  didExecutedHook(datasheetOpsCollects: IResourceOpsCollect[]): void {
+  private didExecutedHook(datasheetOpsCollects: IResourceOpsCollect[]): void {
     this._listener.handleCommandExecuted && this._listener.handleCommandExecuted(datasheetOpsCollects);
   }
 
@@ -124,11 +126,13 @@ export class CollaCommandManager {
 
     if ('resourceId' in options) {
       resourceId = options.resourceId;
-      resourceType = options.resourceType;
+      if(options.resourceType) {
+        resourceType = options.resourceType;
+      }
     }
 
     if (!resourceId) {
-      resourceId = Selectors.getActiveDatasheetId(this._getContext().model)!;
+      resourceId = getActiveDatasheetId(this._getContext().state)!;
     }
 
     return {
@@ -180,8 +184,8 @@ export class CollaCommandManager {
       return ret;
     }
 
-    const flushedActions = context.ldcMaintainer.flushLinkedActions(context.model);
-    const memberFieldAction = context.memberFieldMaintainer.flushMemberAction(context.model);
+    const flushedActions = context.ldcMaintainer.flushLinkedActions(context.state);
+    const memberFieldAction = context.memberFieldMaintainer.flushMemberAction(context.state);
 
     if (memberFieldAction.length) {
       ret.actions.push(...memberFieldAction);
@@ -198,7 +202,7 @@ export class CollaCommandManager {
   private _getContext(): ICollaCommandExecuteContext {
     // Each time the context is executed, a new maintainer is initialized to maintain the data consistency of the associated field cell
     return {
-      model: this.store.getState(),
+      state: this.store.getState(),
       ldcMaintainer: new LinkedDataConformanceMaintainer(),
       memberFieldMaintainer: new MemberFieldMaintainer(),
       fieldMapSnapshot: {},

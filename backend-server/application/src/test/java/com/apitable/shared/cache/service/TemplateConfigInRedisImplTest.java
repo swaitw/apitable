@@ -18,37 +18,18 @@
 
 package com.apitable.shared.cache.service;
 
-import java.util.List;
+import static org.assertj.core.api.Assertions.assertThat;
 
-import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
-import org.junit.jupiter.api.Disabled;
+import com.apitable.AbstractIntegrationTest;
 import org.junit.jupiter.api.Test;
 
-import com.apitable.AbstractIntegrationTest;
-import com.apitable.shared.cache.bean.CategoryDto;
-import com.apitable.template.service.ITemplatePropertyService;
-
-import org.springframework.boot.test.mock.mockito.SpyBean;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.BDDMockito.willReturn;
-
-/**
- * @author tao
- */
-@Disabled("no assert")
 public class TemplateConfigInRedisImplTest extends AbstractIntegrationTest {
 
     private final static String CATEGORIES_LIST_CONFIG =
-            "[{\"templateIds\":[\"tpl1\",\"tpl2\"],\"categoryCode\":\"pc1\",\"categoryName\":\"cn1\"},"
-                    + "{\"templateIds\":[\"tpl3\",\"tpl4\"],\"categoryCode\":\"pc2\",\"categoryName\":\"cn2\"}]";
-
-    @SpyBean
-    private TemplateConfigCacheService templateConfigCacheService;
-
-    @SpyBean
-    private ITemplatePropertyService templatePropertyService;
+        "[{\"templateIds\":[\"tpl1\",\"tpl2\"],\"categoryCode\":\"pc1\",\"categoryName\":\"cn1\"},"
+            +
+            "{\"templateIds\":[\"tpl3\",\"tpl4\"],\"categoryCode\":\"pc2\",\"categoryName\":\"cn2\"}]";
 
     @Test
     void testGetCategoriesListConfigCacheByLangFromCache() {
@@ -59,23 +40,4 @@ public class TemplateConfigInRedisImplTest extends AbstractIntegrationTest {
         assertThat(cache).isEqualTo(CATEGORIES_LIST_CONFIG);
         redisTemplate.delete(key);
     }
-
-    @Test
-    void testGetCategoriesListConfigCacheByLangFromDB() {
-        String lang = "zh_CN";
-        List<CategoryDto> categories = CollUtil.newArrayList(
-                CategoryDto.builder().categoryCode("pc1")
-                        .categoryName("cn1")
-                        .templateIds(CollUtil.newArrayList("tpl1", "tpl2"))
-                        .build(),
-                CategoryDto.builder().categoryCode("pc2")
-                        .categoryName("cn2")
-                        .templateIds(CollUtil.newArrayList("tpl3", "tpl4"))
-                        .build()
-        );
-        willReturn(categories).given(templatePropertyService).getCategories(lang);
-        String db = templateConfigCacheService.getCategoriesListConfigCacheByLang(lang);
-        assertThat(db).isEqualTo(CATEGORIES_LIST_CONFIG);
-    }
-
 }

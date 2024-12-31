@@ -18,6 +18,17 @@
 
 package com.apitable.control.infrastructure.request;
 
+import com.apitable.control.infrastructure.ControlRoleDict;
+import com.apitable.control.infrastructure.ControlType;
+import com.apitable.control.infrastructure.role.ControlRoleManager;
+import com.apitable.control.infrastructure.role.DefaultWorkbenchRole;
+import com.apitable.control.infrastructure.role.NodeRole;
+import com.apitable.control.infrastructure.role.RoleConstants.Node;
+import com.apitable.control.mapper.ControlRoleMapper;
+import com.apitable.core.util.SpringContextHolder;
+import com.apitable.workspace.dto.ControlRoleInfo;
+import com.apitable.workspace.dto.SimpleNodeInfo;
+import com.apitable.workspace.service.INodeRoleService;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -28,24 +39,12 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.apitable.control.infrastructure.role.ControlRoleManager;
-import com.apitable.control.infrastructure.role.RoleConstants.Node;
-import com.apitable.control.infrastructure.ControlRoleDict;
-import com.apitable.control.infrastructure.ControlType;
-import com.apitable.control.infrastructure.role.NodeRole;
-import com.apitable.control.infrastructure.role.DefaultWorkbenchRole;
-import com.apitable.control.mapper.ControlRoleMapper;
-import com.apitable.workspace.mapper.NodeMapper;
-import com.apitable.workspace.dto.ControlRoleInfo;
-import com.apitable.workspace.dto.SimpleNodeInfo;
-import com.apitable.core.util.SpringContextHolder;
-
 /**
- * node control executor
+ * node control executor.
+ *
  * @author Shawn Deng
  */
 public class NodeControlRequest extends AbstractControlRequest {
@@ -155,10 +154,10 @@ public class NodeControlRequest extends AbstractControlRequest {
                 parentNodeRoleMap.put(controlId, orderParentNodeIds);
                 roleNodeIds.addAll(orderParentNodeIds);
                 if (logger.isTraceEnabled()) {
-                    logger.trace("find node [{}] has parent node role [{}]", controlId, orderParentNodeIds);
+                    logger.trace("find node [{}] has parent node role [{}]", controlId,
+                        orderParentNodeIds);
                 }
-            }
-            else {
+            } else {
                 // The current node has set permissions, and directly obtains the permissions of the current node
                 roleNodeIds.add(controlId);
             }
@@ -168,14 +167,16 @@ public class NodeControlRequest extends AbstractControlRequest {
             // The parent nodes of all nodes have no permissions, or have no role permissions, return to the default permissions
             // This is generally the case in new space
             ControlRoleDict roleDict = ControlRoleDict.create();
-            getControlIds().forEach(controlId -> roleDict.put(controlId, new DefaultWorkbenchRole()));
+            getControlIds().forEach(
+                controlId -> roleDict.put(controlId, new DefaultWorkbenchRole()));
             return roleDict;
         }
 
         // Find the role corresponding to the parent node at one time,
         // and use the algorithm to traverse to calculate the role configuration of each node
-        List<ControlRoleInfo> controlRoleInfos = SpringContextHolder.getBean(ControlRoleMapper.class)
-            .selectControlRoleInfoByControlIds(roleNodeIds);
+        List<ControlRoleInfo> controlRoleInfos =
+            SpringContextHolder.getBean(ControlRoleMapper.class)
+                .selectControlRoleInfoByControlIds(roleNodeIds);
         // group by node
         Map<String, List<ControlRoleInfo>> nodeRoleMap = controlRoleInfos.stream()
             .collect(Collectors.groupingBy(ControlRoleInfo::getControlId));
@@ -227,8 +228,7 @@ public class NodeControlRequest extends AbstractControlRequest {
                             accessDeniedNode.addAll(children);
                             break;
                         }
-                    }
-                    else {
+                    } else {
                         if (i == parentNodeIds.size() - 1) {
                             // Find the closest parent node
                             nodeRoles.put(controlId, roles);
@@ -236,14 +236,12 @@ public class NodeControlRequest extends AbstractControlRequest {
                     }
                     i++;
                 }
-            }
-            else {
+            } else {
                 // If the node has set permissions, get the node permissions directly
                 Set<String> roles = calNodeRoles(nodeRoleMap, controlId, getUnits());
                 if (!roles.isEmpty()) {
                     nodeRoles.put(controlId, roles);
-                }
-                else if (treeBuilding) {
+                } else if (treeBuilding) {
                     // When building node tree, directly filter out the following nodes
                     accessDeniedNode.add(controlId);
                     List<String> children = findAllChildren(nodeList, controlId);
@@ -253,44 +251,52 @@ public class NodeControlRequest extends AbstractControlRequest {
         }
         ControlRoleDict roleDict = ControlRoleDict.create();
         // Get the most privileged role
-        nodeRoles.forEach((nodeId, roleCodes) -> roleDict.put(nodeId, ControlRoleManager.getTopNodeRole(roleCodes)));
+        nodeRoles.forEach((nodeId, roleCodes) -> roleDict.put(nodeId,
+            ControlRoleManager.getTopNodeRole(roleCodes)));
         return roleDict;
     }
 
-    public ControlRoleDict getRubbishNodeRoles() {
+    private ControlRoleDict getRubbishNodeRoles() {
         ControlRoleDict roleDict = ControlRoleDict.create();
         // Query the permissions view of a node
-        List<ControlRoleInfo> controlRoleInfos = SpringContextHolder.getBean(ControlRoleMapper.class)
-            .selectControlRoleInfoByControlIds(nodeIds);
+        List<ControlRoleInfo> controlRoleInfos =
+            SpringContextHolder.getBean(ControlRoleMapper.class)
+                .selectControlRoleInfoByControlIds(nodeIds);
         if (controlRoleInfos.isEmpty()) {
             // All nodes have no permissions. The node was previously inherited from the root node and returns to the default permissions.
             nodeIds.forEach(controlId -> roleDict.put(controlId, new DefaultWorkbenchRole()));
             return roleDict;
         }
         // Get the node that has enabled permissions
-        Set<String> enabledPermissionNodeIds = controlRoleInfos.stream().map(ControlRoleInfo::getControlId).collect(Collectors.toSet());
+        Set<String> enabledPermissionNodeIds =
+            controlRoleInfos.stream().map(ControlRoleInfo::getControlId)
+                .collect(Collectors.toSet());
         // Nodes without permissions, return to default permissions
         nodeIds.stream().filter(nodeId -> !enabledPermissionNodeIds.contains(nodeId))
-                .forEach(controlId -> roleDict.put(controlId, new DefaultWorkbenchRole()));
+            .forEach(controlId -> roleDict.put(controlId, new DefaultWorkbenchRole()));
         // Filter organizational units and get role sets by node grouping
         Map<String, Set<String>> nodeRoles = controlRoleInfos.stream()
             .filter(permission -> units.contains(permission.getUnitId()))
-            .collect(Collectors.groupingBy(ControlRoleInfo::getControlId, Collectors.mapping(ControlRoleInfo::getRole, Collectors.toSet())));
+            .collect(Collectors.groupingBy(ControlRoleInfo::getControlId,
+                Collectors.mapping(ControlRoleInfo::getRole, Collectors.toSet())));
         if (nodeRoles.isEmpty()) {
             return roleDict;
         }
         // Get the most privileged role
-        nodeRoles.forEach((nodeId, roleCodes) -> roleDict.put(nodeId, ControlRoleManager.getTopNodeRole(roleCodes)));
+        nodeRoles.forEach((nodeId, roleCodes) -> roleDict.put(nodeId,
+            ControlRoleManager.getTopNodeRole(roleCodes)));
         return roleDict;
     }
 
     /**
-     * For internal call，Need to determine whether the node belongs to the ghost node
+     * For internal call，Need to determine whether the node belongs to the ghost node.
+     *
      * @param nodeList simple node list
      */
     private ControlRoleDict getInternalNodeRoles(List<SimpleNodeInfo> nodeList) {
         ControlRoleDict roleDict = ControlRoleDict.create();
-        Map<String, SimpleNodeInfo> nodeToInfoMap = nodeList.stream().collect(Collectors.toMap(SimpleNodeInfo::getNodeId, v -> v));
+        Map<String, SimpleNodeInfo> nodeToInfoMap =
+            nodeList.stream().collect(Collectors.toMap(SimpleNodeInfo::getNodeId, v -> v));
 
         Map<String, List<String>> reverseParentNodeRoleMap = new LinkedHashMap<>(16);
         Set<String> roleNodeIds = new HashSet<>();
@@ -313,16 +319,18 @@ public class NodeControlRequest extends AbstractControlRequest {
         }
         // The parent nodes of all nodes have no permissions, and the current node has no permissions, returning to the default permissions
         if (roleNodeIds.isEmpty()) {
-            getControlIds().forEach(controlId -> roleDict.put(controlId, new DefaultWorkbenchRole()));
+            getControlIds().forEach(
+                controlId -> roleDict.put(controlId, new DefaultWorkbenchRole()));
             return roleDict;
         }
 
         // Find the role corresponding to the parent node at one time, and use the algorithm to traverse to calculate the role configuration of each node
-        List<ControlRoleInfo> controlRoleInfos = SpringContextHolder.getBean(ControlRoleMapper.class)
+        List<ControlRoleInfo> controlRoleInfos =
+            SpringContextHolder.getBean(ControlRoleMapper.class)
                 .selectControlRoleInfoByControlIds(roleNodeIds);
         // Group by node
         Map<String, List<ControlRoleInfo>> nodeRoleMap = controlRoleInfos.stream()
-                .collect(Collectors.groupingBy(ControlRoleInfo::getControlId));
+            .collect(Collectors.groupingBy(ControlRoleInfo::getControlId));
 
         for (String controlId : getControlIds()) {
             if (!nodeToInfoMap.containsKey(controlId)) {
@@ -368,8 +376,11 @@ public class NodeControlRequest extends AbstractControlRequest {
     }
 
     private List<SimpleNodeInfo> getSimpleNodeInfos() {
-        // Query the parent node corresponding to the node. In order to improve performance, query all parent nodes at one time to obtain all the superiors of the current node.
-        List<SimpleNodeInfo> nodeList = SpringContextHolder.getBean(NodeMapper.class).selectAllParentNodeIdsByNodeIds(nodeIds, false);
+        // Query the parent node corresponding to the node.
+        // In order to improve performance,
+        // query all parent nodes at one time to obtain all the superiors of the current node.
+        INodeRoleService nodeRoleService = SpringContextHolder.getBean(INodeRoleService.class);
+        List<SimpleNodeInfo> nodeList = nodeRoleService.getNodeInfoWithPermissionStatus(nodeIds);
         // is not generating a share tree, or the share node is at the first level
         if (!shareTreeBuilding || nodeList.size() == getControlIds().size()) {
             return nodeList;
@@ -396,17 +407,17 @@ public class NodeControlRequest extends AbstractControlRequest {
                 i++;
             }
             return nodeList.subList(i, nodeList.size());
-        }
-        else {
+        } else {
             // The shared node has set permissions, truncating all upper-level nodes
             return nodeList.subList(nodeList.size() - getControlIds().size(), nodeList.size());
         }
     }
 
     /**
-     * find node
+     * find node.
+     *
      * @param simpleNodeInfos node list
-     * @param nodeId node id
+     * @param nodeId          node id
      * @return node info
      */
     private static SimpleNodeInfo findNode(List<SimpleNodeInfo> simpleNodeInfos, String nodeId) {
@@ -421,12 +432,14 @@ public class NodeControlRequest extends AbstractControlRequest {
     }
 
     /**
-     * Recursively get the list of parent nodes of a node
+     * Recursively get the list of parent nodes of a node.
+     *
      * @param simpleNodeInfos node list
-     * @param node node
-     * @return List of parent nodes from bottom to top
+     * @param node            node
+     * @return set of parent nodes from bottom to top
      */
-    private static Set<String> findParentNodeIdFromTop2Bottom(List<SimpleNodeInfo> simpleNodeInfos, SimpleNodeInfo node) {
+    private static Set<String> findParentNodeIdFromTop2Bottom(List<SimpleNodeInfo> simpleNodeInfos,
+                                                              SimpleNodeInfo node) {
         // Find parent node from bottom to top
         List<String> parentNodeIds = findParentNodeIdFromBottom2Top(simpleNodeInfos, node);
         // Reverse the order, because the acquisition is from bottom to top, for permission control, the order must be reversed, from top to bottom
@@ -435,12 +448,14 @@ public class NodeControlRequest extends AbstractControlRequest {
     }
 
     /**
-     * Query the parent node in reverse order
+     * Query the parent node in reverse order.
+     *
      * @param simpleNodeInfos node info list
-     * @param node node
+     * @param node            node
      * @return list of node id
      */
-    private static List<String> findParentNodeIdFromBottom2Top(List<SimpleNodeInfo> simpleNodeInfos, SimpleNodeInfo node) {
+    private static List<String> findParentNodeIdFromBottom2Top(List<SimpleNodeInfo> simpleNodeInfos,
+                                                               SimpleNodeInfo node) {
         // Find parent nodes in reverse order, from bottom to top
         List<String> parents = new ArrayList<>();
         // Find all parent nodes with permissions configured, from bottom to top
@@ -449,12 +464,14 @@ public class NodeControlRequest extends AbstractControlRequest {
     }
 
     /**
-     * Find the parent node that enables the role permission configuration
+     * Find the parent node that enables the role permission configuration.
+     *
      * @param simpleNodeInfos node list
-     * @param roleInfo node info
-     * @param parents parent node with permission
+     * @param roleInfo        node info
+     * @param parents         parent node with permission
      */
-    private static void findParentNodeRole(List<SimpleNodeInfo> simpleNodeInfos, SimpleNodeInfo roleInfo, Consumer<String> parents) {
+    private static void findParentNodeRole(List<SimpleNodeInfo> simpleNodeInfos,
+                                           SimpleNodeInfo roleInfo, Consumer<String> parents) {
         for (SimpleNodeInfo simpleNodeInfo : simpleNodeInfos) {
             if (roleInfo.getParentId().equals(simpleNodeInfo.getNodeId())) {
                 if (!simpleNodeInfo.getExtend()) {
@@ -466,20 +483,23 @@ public class NodeControlRequest extends AbstractControlRequest {
     }
 
     /**
-     * compute node role
-     * @param nodeRoleMap Node role key-value pair
-     * @param nodeId node id
+     * compute node role.
+     *
+     * @param nodeRoleMap   Node role key-value pair
+     * @param nodeId        node id
      * @param memberUnitIds List of organizational units to which members belong
      * @return node role
      */
-    private static Set<String> calNodeRoles(Map<String, List<ControlRoleInfo>> nodeRoleMap, String nodeId, List<Long> memberUnitIds) {
+    private static Set<String> calNodeRoles(Map<String, List<ControlRoleInfo>> nodeRoleMap,
+                                            String nodeId, List<Long> memberUnitIds) {
         List<ControlRoleInfo> permissions = nodeRoleMap.get(nodeId);
         if (permissions == null) {
             return new HashSet<>();
         }
         // The organizational unit corresponding to the node role
         Map<String, List<Long>> roleUnitMap = permissions.stream()
-            .collect(Collectors.groupingBy(ControlRoleInfo::getRole, Collectors.mapping(ControlRoleInfo::getUnitId, Collectors.toList())));
+            .collect(Collectors.groupingBy(ControlRoleInfo::getRole,
+                Collectors.mapping(ControlRoleInfo::getUnitId, Collectors.toList())));
         return roleUnitMap.entrySet()
             .stream()
             .filter(entry -> memberUnitIds.stream().anyMatch(m -> entry.getValue().contains(m)))
@@ -487,12 +507,14 @@ public class NodeControlRequest extends AbstractControlRequest {
     }
 
     /**
-     * find all child nodes
+     * find all child nodes.
+     *
      * @param simpleNodeInfos list of node info
-     * @param parentNodeId parent node id
+     * @param parentNodeId    parent node id
      * @return all child node
      */
-    private static List<String> findAllChildren(List<SimpleNodeInfo> simpleNodeInfos, String parentNodeId) {
+    private static List<String> findAllChildren(List<SimpleNodeInfo> simpleNodeInfos,
+                                                String parentNodeId) {
         List<String> allChildren = new ArrayList<>();
         List<String> children = findChildren(simpleNodeInfos, parentNodeId);
         if (!children.isEmpty()) {
@@ -506,12 +528,14 @@ public class NodeControlRequest extends AbstractControlRequest {
     }
 
     /**
-     * Find child node id
+     * Find child node id.
+     *
      * @param simpleNodeInfos list of node info
-     * @param parentNodeId parent node id
+     * @param parentNodeId    parent node id
      * @return list of child node id
      */
-    private static List<String> findChildren(List<SimpleNodeInfo> simpleNodeInfos, String parentNodeId) {
+    private static List<String> findChildren(List<SimpleNodeInfo> simpleNodeInfos,
+                                             String parentNodeId) {
         List<String> children = new ArrayList<>();
         for (SimpleNodeInfo nodeInfo : simpleNodeInfos) {
             if (nodeInfo.getParentId().equals(parentNodeId)) {

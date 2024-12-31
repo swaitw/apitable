@@ -21,19 +21,49 @@ package com.apitable.interfaces.eventbus.model;
 import com.apitable.auth.enums.LoginType;
 import com.apitable.shared.util.information.ClientOriginInfo;
 
-public class UserLoginEvent implements EventBusEvent{
+/**
+ * user login event.
+ */
+public class UserLoginEvent implements EventBusEvent {
 
-    private Long userId;
+    private final Long userId;
 
     private LoginType loginType;
 
-    private boolean register;
+    private String scene;
 
-    private ClientOriginInfo clientOriginInfo;
+    private final boolean register;
 
-    public UserLoginEvent(Long userId, LoginType loginType, boolean register, ClientOriginInfo clientOriginInfo) {
+    private final ClientOriginInfo clientOriginInfo;
+
+    /**
+     * constructs.
+     *
+     * @param userId           user id
+     * @param loginType        login type
+     * @param register         register
+     * @param clientOriginInfo client origin info
+     */
+    public UserLoginEvent(Long userId, LoginType loginType, boolean register,
+                          ClientOriginInfo clientOriginInfo) {
         this.userId = userId;
         this.loginType = loginType;
+        this.register = register;
+        this.clientOriginInfo = clientOriginInfo;
+    }
+
+    /**
+     * constructs.
+     *
+     * @param userId           user id
+     * @param scene            scene
+     * @param register         whether is register
+     * @param clientOriginInfo client origin info
+     */
+    public UserLoginEvent(Long userId, String scene, boolean register,
+                          ClientOriginInfo clientOriginInfo) {
+        this.userId = userId;
+        this.scene = scene;
         this.register = register;
         this.clientOriginInfo = clientOriginInfo;
     }
@@ -49,6 +79,10 @@ public class UserLoginEvent implements EventBusEvent{
 
     public LoginType getLoginType() {
         return loginType;
+    }
+
+    public String getScene() {
+        return scene;
     }
 
     public boolean isRegister() {

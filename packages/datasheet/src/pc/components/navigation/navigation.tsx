@@ -16,15 +16,29 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import { useThemeColors } from '@apitable/components';
-import { Events, IReduxState, NAV_ID, Player, Settings, StoreActions, Strings, t } from '@apitable/core';
-import { ManageOutlined } from '@apitable/icons';
 import { useToggle } from 'ahooks';
 import { Badge } from 'antd';
 import classNames from 'classnames';
 import { AnimationItem } from 'lottie-web/index';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
+import * as React from 'react';
+import { FC, useCallback, useEffect, useRef, useState } from 'react';
+import { shallowEqual, useDispatch } from 'react-redux';
+import { useThemeColors } from '@apitable/components';
+import { Events, IReduxState, NAV_ID, Player, Settings, StoreActions, Strings, t } from '@apitable/core';
+import {
+  ChevronDownOutlined,
+  NotificationOutlined,
+  PlanetOutlined,
+  SearchOutlined,
+  Setting2Outlined,
+  UserGroupOutlined,
+  WorkbenchOutlined,
+  LivechatFilled,
+} from '@apitable/icons';
+import { ShortcutActionManager, ShortcutActionName } from 'modules/shared/shortcut_key';
+// eslint-disable-next-line no-restricted-imports
 import { Avatar, AvatarSize, AvatarType, Message, Tooltip } from 'pc/components/common';
 import {
   IDingTalkModalType,
@@ -35,33 +49,27 @@ import {
   UpgradeInFeiShuContent,
   UpgradeInWecomContent,
 } from 'pc/components/economy/upgrade_modal';
-// @ts-ignore
-import { inSocialApp, isSocialDingTalk, isSocialFeiShu, isSocialWecom } from 'enterprise';
 import { Notification } from 'pc/components/notification';
 import { navigationToUrl } from 'pc/components/route_manager/navigation_to_url';
 import { useNotificationRequest, useRequest, useResponsive } from 'pc/hooks';
-import { isMobileApp, isHiddenIntercom } from 'pc/utils/env';
-import * as React from 'react';
-import { FC, useCallback, useEffect, useRef, useState } from 'react';
-import { shallowEqual, useDispatch, useSelector } from 'react-redux';
-import HomeDown from 'static/icon/common/common_icon_pulldown_line.svg';
-import NotificationIcon from 'static/icon/datasheet/datasheet_icon_notification.svg';
-import AddressIcon from 'static/icon/workbench/workbench_tab_icon_address_normal.svg';
-import TemplateIcon from 'static/icon/workbench/workbench_tab_icon_template_normal.svg';
-import WorkplaceIcon from 'static/icon/workbench/workbench_tab_icon_workingtable_normal.svg';
+import { useContactUs } from 'pc/hooks/use_contact_us';
+import { useAppSelector } from 'pc/store/react-redux';
+import { isMobileApp, getEnvVariables, isHiddenLivechat } from 'pc/utils/env';
 import AnimationJson from 'static/json/notification_new.json';
 import { ComponentDisplay, ScreenSize } from '../common/component_display';
 import { Popup } from '../common/mobile/popup';
 import { openEruda } from '../development/dev_tools_panel';
+import { expandSearch } from '../quick_search';
 import { CreateSpaceModal } from './create_space_modal';
 import { Help } from './help';
 import { NavigationContext } from './navigation_context';
 import { SpaceListDrawer } from './space_list_drawer';
-import styles from './style.module.less';
 import { UpgradeBtn } from './upgrade_btn';
-// import { NavigationItem } from './navigation_item';
 import { User } from './user';
-import { useIntercom } from 'react-use-intercom';
+// @ts-ignore
+import { inSocialApp, isSocialDingTalk, isSocialFeiShu, isSocialWecom } from 'enterprise/home/social_platform/utils';
+import styles from './style.module.less';
+
 enum NavKey {
   SpaceManagement = 'management',
   Org = 'org',
@@ -78,7 +86,7 @@ export const Navigation: FC<React.PropsWithChildren<unknown>> = () => {
   const [notice, { toggle: toggleNotice, set: setNotice }] = useToggle(false);
   const [upgradePopup, { set: setUpgradePopup }] = useToggle(false);
   const dispatch = useDispatch();
-  const { user, space, unReadCount, newNoticeListFromWs } = useSelector(
+  const { user, space, unReadCount, newNoticeListFromWs } = useAppSelector(
     (state: IReduxState) => ({
       user: state.user.info,
       space: state.space.curSpaceInfo,
@@ -88,7 +96,7 @@ export const Navigation: FC<React.PropsWithChildren<unknown>> = () => {
     }),
     shallowEqual,
   );
-  const { notificationStatistics, getNotificationList } = useNotificationRequest();
+  const { notificationStatistics } = useNotificationRequest();
   // const location = useLocation();
   const router = useRouter();
   const search = location.search;
@@ -98,11 +106,38 @@ export const Navigation: FC<React.PropsWithChildren<unknown>> = () => {
   const { screenIsAtMost } = useResponsive();
   const isMobile = screenIsAtMost(ScreenSize.md);
   const [clickCount, setClickCount] = useState(0);
-  const { update: updateIntercom } = useIntercom();
+  const contactUs = useContactUs();
+  const env = getEnvVariables();
+  const sidebarCustomButtonList = React.useMemo(() => {
+    const list = env.SIDEBAR_CUSTOM_BUTTON_LIST;
+    if (!list) {
+      return [];
+    } 
+    return JSON.parse(list);
+    
+  }, []);
   useRequest(notificationStatistics);
-  // Check if there is a system banner notification to be displayed
-  useRequest(getNotificationList);
 
+  useEffect(() => {
+    const eventBundle = new Map([
+      [
+        ShortcutActionName.SearchNode,
+        () => {
+          expandSearch();
+        },
+      ],
+    ]);
+
+    eventBundle.forEach((cb, key) => {
+      ShortcutActionManager.bind(key, cb);
+    });
+
+    return () => {
+      eventBundle.forEach((_cb, key) => {
+        ShortcutActionManager.unbind(key);
+      });
+    };
+  });
   // Listen to the message pushed by ws and change the number displayed on the icon
   useEffect(() => {
     if (notice) {
@@ -148,7 +183,7 @@ export const Navigation: FC<React.PropsWithChildren<unknown>> = () => {
   const renderLottie = () => {
     const noticeEle = document.querySelector('#' + NAV_ID.ICON_NOTIFICATION)!;
     if (!isMobile && noticeEle && !noticeEle.hasChildNodes()) {
-      import('lottie-web/build/player/lottie_svg').then(module => {
+      import('lottie-web/build/player/lottie_svg').then((module) => {
         const lottie = module.default;
         lottieAnimate.current = lottie.loadAnimation({
           container: noticeEle,
@@ -194,29 +229,28 @@ export const Navigation: FC<React.PropsWithChildren<unknown>> = () => {
   const navList = Player.applyFilters(Events.get_nav_list, [
     {
       routeAddress: '/workbench' + search,
-      icon: WorkplaceIcon,
+      icon: WorkbenchOutlined,
       text: t(Strings.nav_workbench),
       key: NavKey.Workbench,
       domId: NAV_ID.ICON_WORKBENCH,
     },
     {
       routeAddress: '/org' + search,
-      icon: AddressIcon,
+      icon: UserGroupOutlined,
       text: t(Strings.nav_team),
       key: NavKey.Org,
       domId: NAV_ID.ICON_ADDRESS,
     },
     {
       routeAddress: '/template' + search,
-      icon: TemplateIcon,
-      // icon: <NavigationItem animationData={TemplateAnimationJSON} style={{ width: '24px', height: '24px' }} />,
+      icon: PlanetOutlined,
       text: t(Strings.nav_templates),
       key: NavKey.Template,
       domId: NAV_ID.ICON_TEMPLATE,
     },
     {
       routeAddress: '/management' + search,
-      icon: ManageOutlined,
+      icon: Setting2Outlined,
       text: t(Strings.nav_space_settings),
       key: NavKey.SpaceManagement,
       domId: NAV_ID.ICON_SPACE_MANAGE,
@@ -232,14 +266,17 @@ export const Navigation: FC<React.PropsWithChildren<unknown>> = () => {
           [styles.navActiveItem]: notice,
         })}
       >
-        <NotificationIcon className={classNames(styles.notice, styles.navIcon)} style={{ visibility: noticeIcon ? 'visible' : 'hidden' }} />
+        <span style={{ visibility: noticeIcon ? 'visible' : 'hidden' }}>
+          <NotificationOutlined className={classNames(styles.notice, styles.navIcon)} />
+        </span>
       </Badge>
     );
     return (
       <>
         <ComponentDisplay minWidthCompatible={ScreenSize.md}>
-          <Link href={'/notify' + search} onClick={noticeIconClick}>
+          <Link href={'/notify' + search}>
             <a
+              onClick={noticeIconClick}
               className={classNames(styles.notificationNavLink, {
                 [styles.navActiveItem]: router.pathname.includes('notify'),
               })}
@@ -258,11 +295,11 @@ export const Navigation: FC<React.PropsWithChildren<unknown>> = () => {
   }, [notice, noticeIcon, unReadMsgCount, noticeIconClick, search, router.pathname]);
 
   useEffect(() => {
-    if(!isHiddenIntercom() || isMobile) {
+    if (!isHiddenLivechat() || isMobile) {
       return;
     }
-    updateIntercom({ hideDefaultLauncher: !router.pathname.includes('workbench') });
-  }, [router.pathname, isMobile, updateIntercom]);
+    !!router.pathname.includes('workbench') && window.LiveChatWidget?.call('hide');
+  }, [router.pathname, isMobile]);
 
   const onNoticeClose = () => {
     setNotice(false);
@@ -313,20 +350,23 @@ export const Navigation: FC<React.PropsWithChildren<unknown>> = () => {
       }}
     >
       <div className={classNames(styles.navigation, templateActive && styles.templateActived, notice && styles.noticeOpend)}>
-        <div className={styles.spaceLogo} onClick={openSpaceMenu} data-sensors-click>
+        <div className={styles.spaceLogo} onClick={openSpaceMenu}>
           <div className={styles.spaceImg}>
             <Avatar type={AvatarType.Space} title={user!.spaceName} id={user!.spaceId} src={user!.spaceLogo} size={AvatarSize.Size32} />
           </div>
           <div className={styles.spaceDown}>
             <Tooltip title={t(Strings.workspace_list)} placement="bottom">
               <div>
-                <HomeDown className={styles.spaceIcon} />
+                <ChevronDownOutlined className={styles.spaceIcon} />
               </div>
             </Tooltip>
           </div>
         </div>
         <div className={styles.navWrapper} onClick={hiddenUserMenu}>
           {navList.map((item: any) => {
+            if (item.component) {
+              return item.component();
+            }
             if (user && !user!.isAdmin && item.key === NavKey.SpaceManagement) {
               return null;
             }
@@ -336,7 +376,7 @@ export const Navigation: FC<React.PropsWithChildren<unknown>> = () => {
 
             let NavIcon = item.icon;
             if (typeof item.icon === 'string') {
-              NavIcon = WorkplaceIcon;
+              NavIcon = WorkbenchOutlined;
             }
             const isActive = router.pathname.split('/')[1] === item.key;
             const NavItem = (): React.ReactElement => (
@@ -377,6 +417,25 @@ export const Navigation: FC<React.PropsWithChildren<unknown>> = () => {
             </Popup>
           </ComponentDisplay>
         </div>
+        {env.IS_ENTERPRISE && !env.IS_SELFHOST && (
+          <Tooltip title={t(Strings.contact_us)} placement="right">
+            <div className={styles.iconWrap} onClick={() => contactUs()}>
+              <LivechatFilled className={styles.icon} size={32} />
+            </div>
+          </Tooltip>
+        )}
+        {sidebarCustomButtonList.map((item: any, index: number) => (
+          <Tooltip title={item.tooltip} placement="right" key={index}>
+            <a className={styles.iconWrap} href={item.link} target="_blank" rel="noreferrer">
+              <img className={styles.img} src={item.icon} alt={item.link} />
+            </a>
+          </Tooltip>
+        ))}
+        <Tooltip title={t(Strings.quick_search_title)} placement="right">
+          <div className={styles.iconWrap} onClick={() => expandSearch()}>
+            <SearchOutlined className={styles.icon} size={24} />
+          </div>
+        </Tooltip>
         <Tooltip title={t(Strings.notification_center)} placement="right" key="notification_center">
           <span className={styles.notification}>
             {NotificationNav}

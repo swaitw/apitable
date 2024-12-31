@@ -16,13 +16,14 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import { Api } from '../../../../exports/api';
+import { Api } from 'exports/api';
 import axios from 'axios';
 import { getCustomConfig } from 'config';
-import { ActionConstants } from '../../../../exports/store';
-import { IApp, IEnvs, IReduxState, ISpaceBasicInfo, ISpaceErr, ISpaceFeatures, ISpaceInfo } from '../../../../exports/store/interfaces';
+import * as ActionConstants from 'modules/shared/store/action_constants';
+import { IApp, IEnvs, IReduxState, ISpaceBasicInfo, ISpaceErr, ISpaceFeatures, ISpaceInfo } from 'exports/store/interfaces';
 import { initCatalogTree } from './catalog_tree';
 import { getUserMe } from '../../../user/store/actions/user';
+import { setLabs, updateSpaceResource } from 'exports/store/actions';
 
 /**
  * Get Space List
@@ -34,6 +35,8 @@ export const spaceList = (): any => {
       if (success) {
         dispatch(setSpaceList(data));
       }
+    }, err => {
+      console.error('API.spaceList error', err);
     });
   };
 };
@@ -45,21 +48,6 @@ export const setSpaceList = (data: ISpaceInfo[]) => {
   return {
     type: ActionConstants.SET_SPACE_LIST,
     payload: data,
-  };
-};
-
-/**
- * Remove Red dot
- * @param spaceId Space ID
- */
-export const removeRedPoint = (spaceId: string) => {
-  return (dispatch: any) => {
-    Api.removeSpaceRedPoint(spaceId).then((res) => {
-      const { success } = res.data;
-      if (success) {
-        dispatch(spaceList());
-      }
-    });
   };
 };
 
@@ -87,6 +75,8 @@ export const quitSpace = (spaceId: string) => {
         dispatch(initCatalogTree());
         dispatch(getUserMe());
       }
+    }, err => {
+      console.log('API.quitSpace error', err);
     });
   };
 };
@@ -218,7 +208,12 @@ export const getSpaceInfo = (spaceId: string, ignoreTimeLimit: boolean = false) 
       const { data, success } = res.data;
       if (success) {
         dispatch(setSpaceInfo({ ...data, lastUpdateTime: Date.now() }));
+        dispatch(setSpaceFeatures(data.feature));
+        dispatch(updateSpaceResource(data.userResource));
+        dispatch(setLabs(data.labsKeys));
       }
+    }, err => {
+      console.log('API.spaceInfo error', err);
     });
   };
 };
@@ -234,6 +229,8 @@ export const getSpaceFeatures = () => {
       if (success) {
         dispatch(setSpaceFeatures(data));
       }
+    }, err => {
+      console.log('API.getSpaceFeatures error', err);
     });
   };
 };
@@ -262,6 +259,8 @@ export const fetchMarketplaceApps = (spaceId: string) => {
       if (success) {
         dispatch(setMarketPlaceApps(data));
       }
+    }, err => {
+      console.log('API.getMarketplaceApps error', err);
     });
   };
 };

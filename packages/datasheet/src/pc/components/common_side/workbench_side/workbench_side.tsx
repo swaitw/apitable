@@ -16,63 +16,65 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import { IconButton, Typography, useContextMenu, useThemeColors } from '@apitable/components';
+import { ShortcutActionManager, ShortcutActionName } from 'modules/shared/shortcut_key';
+import { getShortcutKeyString } from 'modules/shared/shortcut_key/keybinding_config';
+import { usePostHog } from 'posthog-js/react';
+import * as React from 'react';
+import { FC, useEffect, useMemo, useState } from 'react';
+import { IconButton, LinkButton, Radio, RadioGroup, useContextMenu, useThemeColors } from '@apitable/components';
 import {
-  ConfigConstant, IReduxState, IRightClickInfo, isIdassPrivateDeployment, Navigation, Selectors, shallowEqual, StoreActions, Strings, t,
+  ConfigConstant,
+  IReduxState,
+  IRightClickInfo,
+  isIdassPrivateDeployment,
+  Navigation,
+  Selectors,
+  shallowEqual,
+  StoreActions,
+  Strings,
+  t,
+  TrackEvents,
   WORKBENCH_SIDE_ID,
 } from '@apitable/core';
-import { AddOutlined, FavoriteFilled, SearchOutlined, TitleWorkFilled } from '@apitable/icons';
-import { Collapse } from 'antd';
-import classnames from 'classnames';
-import { ShortcutActionManager, ShortcutActionName } from 'modules/shared/shortcut_key';
+import { AddOutlined, DeleteOutlined, FolderAddOutlined, ImportOutlined, PlanetOutlined, SearchOutlined, UserAddOutlined } from '@apitable/icons';
 import { GenerateTemplate } from 'pc/components/catalog/generate_template';
 import { ImportFile } from 'pc/components/catalog/import_file';
 import { MoveTo } from 'pc/components/catalog/move_to';
 import { NodeContextMenu } from 'pc/components/catalog/node_context_menu';
 import { PermissionSettingsPlus } from 'pc/components/catalog/permission_settings_plus';
-import { Search } from 'pc/components/catalog/search';
 import { Share } from 'pc/components/catalog/share';
 import { Modal } from 'pc/components/common';
 import { ScreenSize } from 'pc/components/common/component_display';
+// eslint-disable-next-line no-restricted-imports
 import { Tooltip } from 'pc/components/common/tooltip';
-import { SearchPanel, SubColumnType } from 'pc/components/datasheet_search_panel';
+import { SearchPanel } from 'pc/components/datasheet_search_panel';
 import { ShareModal as FormShare } from 'pc/components/form_panel/form_tab/tool_bar/share_modal';
 import { expandInviteModal } from 'pc/components/invite/invite_outsider';
+import { expandSearch } from 'pc/components/quick_search';
 import { Router } from 'pc/components/route_manager/router';
 import { sendRemind } from 'pc/events/notification_verification';
-import { useCatalogTreeRequest, useRequest, useResponsive, useSearchPanel, useUserRequest } from 'pc/hooks';
+import { IPanelInfo, useCatalogTreeRequest, useRequest, useResponsive, useSearchPanel, useWorkbenchSideSync } from 'pc/hooks';
 import { useAppDispatch } from 'pc/hooks/use_app_dispatch';
+import { useCatalog } from 'pc/hooks/use_catalog';
+import { useAppSelector } from 'pc/store/react-redux';
 import { stopPropagation } from 'pc/utils';
-import * as React from 'react';
-import { FC, useEffect, useMemo, useState } from 'react';
-import { useSelector } from 'react-redux';
-import InviteIcon from 'static/icon/common/common_icon_invite.svg';
-import ArrowIcon from 'static/icon/common/common_icon_up_line.svg';
-import TrashIcon from 'static/icon/workbench/catalogue/recycle_closed.svg';
-import TemplateIcon from 'static/icon/workbench/catalogue/template.svg';
 import { Catalog } from '../../catalog';
+import { Private } from '../../private/private';
 import { Favorite } from './favorite';
 import { SpaceInfo } from './space-info';
-import styles from './style.module.less';
 import { WorkbenchSideContext } from './workbench_side_context';
-
-const { Panel } = Collapse;
-
-export interface IDatasheetPanelInfo {
-  folderId: string;
-  datasheetId?: string;
-}
+import styles from './style.module.less';
 
 export const WorkbenchSide: FC<React.PropsWithChildren<unknown>> = () => {
   const colors = useThemeColors();
   const [rightClickInfo, setRightClickInfo] = useState<IRightClickInfo | null>(null);
   const { contextMenu, onSetContextMenu, onCancelContextMenu } = useContextMenu();
-  const [activeKey, setActiveKey] = useState<string[]>([]);
-  const [isSearch, setIsSearch] = useState(false);
   const { panelVisible, panelInfo, onChange, setPanelInfo, setPanelVisible } = useSearchPanel();
+  const { addTreeNode } = useCatalog();
   const {
     spaceId,
     treeNodesMap,
+    privateTreeNodesMap,
     rootId,
     activeNodeId,
     permissionModalNodeId,
@@ -81,11 +83,12 @@ export const WorkbenchSide: FC<React.PropsWithChildren<unknown>> = () => {
     importModalNodeId,
     loading,
     err,
-    moveToNodeIds
-  } = useSelector((state: IReduxState) => {
+    moveToNodeIds,
+  } = useAppSelector((state: IReduxState) => {
     return {
       spaceId: state.space.activeId,
       treeNodesMap: state.catalogTree.treeNodesMap,
+      privateTreeNodesMap: state.catalogTree.privateTreeNodesMap,
       rootId: state.catalogTree.rootId,
       activeNodeId: Selectors.getNodeId(state),
       permissionModalNodeId: state.catalogTree.permissionModalNodeId,
@@ -94,29 +97,35 @@ export const WorkbenchSide: FC<React.PropsWithChildren<unknown>> = () => {
       importModalNodeId: state.catalogTree.importModalNodeId,
       loading: state.catalogTree.loading,
       err: state.catalogTree.err,
-      moveToNodeIds: state.catalogTree.moveToNodeIds
+      moveToNodeIds: state.catalogTree.moveToNodeIds,
     };
   }, shallowEqual);
 
   const isFormShare = /fom\w+/.test(shareModalNodeId);
-  const activedNodeId = useSelector(state => Selectors.getNodeId(state));
-  const { getTreeDataReq } = useCatalogTreeRequest();
+  const activedNodeId = useAppSelector((state) => Selectors.getNodeId(state));
+  const activedNodePrivate = useAppSelector((state) => Selectors.getActiveNodePrivate(state));
+  const { getTreeDataReq, getPrivateTreeDataReq } = useCatalogTreeRequest();
   const { run: getTreeData } = useRequest(getTreeDataReq, { manual: true });
+  const { run: getPrivateTreeData } = useRequest(getPrivateTreeDataReq, { manual: true });
   const { getPositionNodeReq } = useCatalogTreeRequest();
   const { run: getPositionNode } = useRequest(getPositionNodeReq, {
     manual: true,
   });
-  const { getInviteStatus } = useUserRequest();
-  const { data: inviteStatus } = useRequest(getInviteStatus);
   const { screenIsAtMost } = useResponsive();
   const isMobile = screenIsAtMost(ScreenSize.md);
   const dispatch = useAppDispatch();
+  const posthog = usePostHog();
 
-  const userInfo = useSelector(state => state.user.info);
-  const spaceFeatures = useSelector(state => state.space.spaceFeatures);
-  const spacePermissions = useSelector(state => state.spacePermissionManage.spaceResource?.permissions);
+  const userInfo = useAppSelector((state) => state.user.info);
+  const spaceFeatures = useAppSelector((state) => state.space.spaceFeatures);
+  const spacePermissions = useAppSelector((state) => state.spacePermissionManage.spaceResource?.permissions);
   const isSpaceAdmin = spacePermissions && spacePermissions.includes('MANAGE_WORKBENCH');
   const rootManageable = userInfo?.isMainAdmin || isSpaceAdmin || spaceFeatures?.rootManageable;
+  const inviteStatus = spaceFeatures?.invitable;
+
+  const [showPrivate, setShowPrivate] = useState(false);
+
+  useWorkbenchSideSync();
 
   useEffect(() => {
     const eventBundle = new Map([
@@ -136,12 +145,6 @@ export const WorkbenchSide: FC<React.PropsWithChildren<unknown>> = () => {
         ShortcutActionName.SaveAsTemplate,
         () => {
           dispatch(StoreActions.updateSaveAsTemplateModalNodeId(activeNodeId || ''));
-        },
-      ],
-      [
-        ShortcutActionName.SearchNode,
-        () => {
-          setIsSearch(!isSearch);
         },
       ],
     ]);
@@ -175,27 +178,71 @@ export const WorkbenchSide: FC<React.PropsWithChildren<unknown>> = () => {
     // eslint-disable-next-line
   }, [err, dispatch]);
 
+  const updateActiveKey = React.useCallback(
+    (key: string = 'get') => {
+      const defaultActiveKeyString = localStorage.getItem('vika_workbench_active_key');
+      let defaultActiveKey = defaultActiveKeyString ? JSON.parse(defaultActiveKeyString) : ConfigConstant.Modules.CATALOG;
+      if ('get' === key) {
+        // Compatible with older versions, which is arrayed
+        if (typeof defaultActiveKey[0] === 'string') defaultActiveKey = ConfigConstant.Modules.CATALOG;
+        if (Array.isArray(defaultActiveKey)) {
+          defaultActiveKey = defaultActiveKey.find((i: { spaceId: string }) => i.spaceId === spaceId);
+          defaultActiveKey = defaultActiveKey ? defaultActiveKey.activeKey : ConfigConstant.Modules.CATALOG;
+        }
+        return defaultActiveKey;
+      }
+      if (typeof defaultActiveKey[0] === 'string') defaultActiveKey = [{ spaceId, activeKey: key }];
+      if (Array.isArray(defaultActiveKey)) {
+        let noSpaceId = true;
+        for (const item of defaultActiveKey) {
+          if (item.spaceId === spaceId) {
+            noSpaceId = false;
+            item.activeKey = key;
+            break;
+          }
+        }
+        if (noSpaceId) defaultActiveKey.push({ spaceId, activeKey: key });
+        localStorage.setItem('vika_workbench_active_key', JSON.stringify(defaultActiveKey));
+      }
+    },
+    [spaceId],
+  );
+
+  const activeKey = useAppSelector(state => state.catalogTree.activeType || updateActiveKey('get'));
+
   useEffect(() => {
     if (!activeNodeId || !rootId) {
       return;
     }
-    const activeNode = treeNodesMap[activeNodeId];
-    if (activeNode && treeNodesMap[activeNode.parentId]) {
+    let isPrivate = false;
+    let nodeMaps = treeNodesMap;
+    let activeNode = treeNodesMap[activeNodeId];
+    const cacheKey = updateActiveKey('get');
+    const isCurrentFavorite = cacheKey === ConfigConstant.Modules.FAVORITE || activeKey === ConfigConstant.Modules.FAVORITE;
+    isCurrentFavorite && changeHandler(ConfigConstant.Modules.FAVORITE);
+    if (!activeNode) {
+      activeNode = privateTreeNodesMap[activeNodeId];
+      if (activeNode) {
+        nodeMaps = privateTreeNodesMap;
+        isPrivate = true;
+        !isCurrentFavorite && changeHandler(ConfigConstant.Modules.PRIVATE);
+      }
+    }
+    const _module = isPrivate ? ConfigConstant.Modules.PRIVATE : undefined;
+    if (activeNode && nodeMaps[activeNode.parentId]) {
       const parentNodeId = activeNode.parentId;
-      if (treeNodesMap[parentNodeId]?.children.length) {
-        dispatch(StoreActions.collectionNodeAndExpand(activeNodeId));
+      if (nodeMaps[parentNodeId]?.children.length) {
+        dispatch(StoreActions.collectionNodeAndExpand(activeNodeId, _module));
         return;
       }
     }
-    getPositionNode(activeNodeId);
+    getPositionNode(activeNodeId).then((rlt) => {
+      if (rlt && rlt.nodePrivate) {
+        !isCurrentFavorite && changeHandler(ConfigConstant.Modules.PRIVATE);
+      }
+    });
     // eslint-disable-next-line
   }, [activeNodeId, rootId]);
-
-  useEffect(() => {
-    const defaultActiveKeyString = localStorage.getItem('vika_workbench_active_key');
-    const defaultActiveKey = defaultActiveKeyString ? JSON.parse(defaultActiveKeyString) : [ConfigConstant.Modules.CATALOG];
-    setActiveKey(defaultActiveKey);
-  }, []);
 
   useEffect(() => {
     if (activedNodeId && !treeNodesMap[activedNodeId] && !loading) {
@@ -204,13 +251,31 @@ export const WorkbenchSide: FC<React.PropsWithChildren<unknown>> = () => {
     // eslint-disable-next-line
   }, [loading, activeNodeId]);
 
-  const changeHandler = (key: string | string[]) => {
-    setActiveKey(key as string[]);
-    localStorage.setItem('vika_workbench_active_key', JSON.stringify(key));
+  const changeHandler = (key: ConfigConstant.Modules) => {
+    dispatch(StoreActions.setActiveTreeType(key));
+    updateActiveKey(key);
   };
 
+  useEffect(() => {
+    if (spaceId) {
+      getPrivateTreeData().then(rlt => {
+        if (rlt === null) {
+          changeHandler(ConfigConstant.Modules.CATALOG);
+          setShowPrivate(false);
+        } else {
+          setShowPrivate(true);
+        }
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [spaceId]);
+
+  useEffect(() => {
+    dispatch(StoreActions.setActiveTreeType(updateActiveKey()));
+  }, [dispatch, updateActiveKey]);
+
   const jumpTrash = () => {
-    Router.push(Navigation.TRASH, { params: { spaceId }});
+    Router.push(Navigation.TRASH, { params: { spaceId } });
   };
 
   const jumpSpaceTemplate = () => {
@@ -228,28 +293,27 @@ export const WorkbenchSide: FC<React.PropsWithChildren<unknown>> = () => {
       id: rootId,
       module: ConfigConstant.Modules.CATALOG,
       contextMenuType: ConfigConstant.ContextMenuType.DEFAULT,
-      level: '0', 
+      level: '0',
     });
     onSetContextMenu(e);
   };
 
-  const openDatasheetPanel = (visible: boolean, info: {
-    folderId: string;
-    datasheetId?: string;
-  }) => {
-    setPanelVisible(visible);
+  const openDatasheetPanel = (info: IPanelInfo) => {
+    setPanelVisible(true);
     setPanelInfo(info);
   };
 
   const openCatalog = () => {
-    if (!activeKey.includes(ConfigConstant.Modules.CATALOG)) {
-      changeHandler([...activeKey, ConfigConstant.Modules.CATALOG]);
-    }
+    // TODO
+    // if (!activeKey.includes(ConfigConstant.Modules.CATALOG)) {
+    //   changeHandler(ConfigConstant.Modules.CATALOG);
+    // }
   };
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const openFavorite = () => {
     if (!activeKey.includes(ConfigConstant.Modules.FAVORITE)) {
-      changeHandler([...activeKey, ConfigConstant.Modules.FAVORITE]);
+      changeHandler(ConfigConstant.Modules.FAVORITE);
     }
   };
 
@@ -261,41 +325,42 @@ export const WorkbenchSide: FC<React.PropsWithChildren<unknown>> = () => {
       onSetContextMenu,
       // eslint-disable-next-line
     }),
-    [rightClickInfo, setRightClickInfo, onSetContextMenu, activeKey, setActiveKey],
+    [rightClickInfo, openFavorite, onSetContextMenu],
   );
 
-  const permissionCommitRemindStatus = useSelector(state => state.catalogTree.permissionCommitRemindStatus);
+  const permissionCommitRemindStatus = useAppSelector((state) => state.catalogTree.permissionCommitRemindStatus);
+  const activeNodePrivate = useAppSelector((state) => Selectors.getActiveNodePrivate(state));
 
   function onClosePermissionSettingModal() {
     dispatch(StoreActions.updatePermissionModalNodeId(''));
 
-    if (permissionCommitRemindStatus) {
+    if (permissionCommitRemindStatus && !activeNodePrivate) {
       sendRemind();
       dispatch(StoreActions.setPermissionCommitRemindStatus(false));
     }
   }
 
-  const PermissionSettingsMain = PermissionSettingsPlus;
-
   return (
     <WorkbenchSideContext.Provider value={providerValue}>
       <div className={styles.workbenchSide}>
         <div className={styles.header}>
-          <SpaceInfo />
+          <div className={styles.left}>
+            <SpaceInfo />
+          </div>
           <div className={styles.search}>
-            {isSearch ? (
-              <Search closeSearch={() => setIsSearch(false)} />
-            ) : (
+            <Tooltip title={t(Strings.search_node_tip, {
+              shortcutKey: getShortcutKeyString(ShortcutActionName.SearchNode)
+            })} placement="right">
               <IconButton
-                shape='square'
+                shape="square"
                 className={styles.searchBtn}
                 icon={SearchOutlined}
-                onClick={e => {
+                onClick={(e) => {
                   stopPropagation(e);
-                  setIsSearch(true);
+                  expandSearch();
                 }}
               />
-            )}
+            </Tooltip>
           </div>
         </div>
 
@@ -306,76 +371,88 @@ export const WorkbenchSide: FC<React.PropsWithChildren<unknown>> = () => {
           }}
         >
           <div className={styles.mainContainer} id={WORKBENCH_SIDE_ID.NODE_WRAPPER}>
-            <Collapse className={styles.collapse} onChange={changeHandler} activeKey={activeKey} ghost>
-              <Panel
-                className={styles.favorite}
-                key={ConfigConstant.Modules.FAVORITE}
-                header={
-                  <div className={styles.groupName}>
-                    <FavoriteFilled color={colors.warningColor} />
-                    <Typography className={styles.text} variant='h9' color={colors.secondLevelText}>
-                      {t(Strings.favorite)}
-                    </Typography>
-                    <ArrowIcon
-                      className={classnames(styles.arrow, {
-                        [styles.active]: activeKey.includes(ConfigConstant.Modules.FAVORITE),
-                      })}
-                    />
-                  </div>
-                }
-                showArrow={false}
-              >
-                <div className={styles.scrollContainer}>
-                  <Favorite />
+            <div className={styles.btnGroup}>
+              <RadioGroup name="workbench-btn-group" isBtn block value={activeKey} onChange={(_e, value) => changeHandler(value)}>
+                <Radio value={ConfigConstant.Modules.CATALOG}>{t(Strings.catalog_team)}</Radio>
+                {showPrivate && <Radio value={ConfigConstant.Modules.PRIVATE}>{t(Strings.catalog_private)}</Radio>}
+                <Radio value={ConfigConstant.Modules.FAVORITE}>{t(Strings.favorite)}</Radio>
+              </RadioGroup>
+            </div>
+            {activeKey === ConfigConstant.Modules.FAVORITE ? (
+              <div className={styles.scrollContainer}>
+                <Favorite />
+              </div>
+            ) : (
+              <>
+                <div className={styles.catalogActions}>
+                  {rootManageable && (
+                    <>
+                      <LinkButton
+                        underline={false}
+                        component="div"
+                        prefixIcon={<AddOutlined color={colors.textCommonSecondary} size={12} />}
+                        color={colors.textCommonSecondary}
+                        onClick={openDefaultMenu}
+                        id={WORKBENCH_SIDE_ID.ADD_NODE_BTN}
+                      >
+                        <Tooltip title={t(Strings.new_node_tooltip)}>{t(Strings.new_node_btn_title)}</Tooltip>
+                      </LinkButton>
+                      <LinkButton
+                        underline={false}
+                        component="div"
+                        prefixIcon={<ImportOutlined color={colors.textCommonSecondary} size={12} />}
+                        color={colors.textCommonSecondary}
+                        onClick={() => {
+                          dispatch(StoreActions.updateImportModalNodeId(rootId));
+                        }}
+                      >
+                        <Tooltip title={t(Strings.import_from_excel_tooltip)}>{t(Strings.import_file_btn_title)}</Tooltip>
+                      </LinkButton>
+                      <LinkButton
+                        underline={false}
+                        component="div"
+                        prefixIcon={<FolderAddOutlined color={colors.textCommonSecondary} size={12} />}
+                        color={colors.textCommonSecondary}
+                        onClick={() => {
+                          addTreeNode(rootId, ConfigConstant.NodeType.FOLDER);
+                        }}
+                      >
+                        <Tooltip title={t(Strings.new_folder_tooltip)}>{t(Strings.folder)}</Tooltip>
+                      </LinkButton>
+                    </>
+                  )}
                 </div>
-              </Panel>
-              <Panel
-                className={styles.catalog}
-                key={ConfigConstant.Modules.CATALOG}
-                header={
-                  <div className={styles.groupName}>
-                    <TitleWorkFilled color={colors.primaryColor} />
-                    <Typography className={styles.text} variant='h9' color={colors.secondLevelText}>
-                      {t(Strings.catalog)}
-                    </Typography>
-                    <ArrowIcon
-                      className={classnames(styles.arrow, {
-                        [styles.active]: activeKey.includes(ConfigConstant.Modules.CATALOG),
-                      })}
-                    />
-                  </div>
-                }
-                extra={
-                  rootManageable ? (
-                    <IconButton style={{ marginRight: 10 }} onClick={openDefaultMenu} icon={AddOutlined} id={WORKBENCH_SIDE_ID.ADD_NODE_BTN} />
-                  ) : null
-                }
-                showArrow={false}
-              >
                 <div className={styles.scrollContainer}>
-                  <Catalog />
+                  {activeKey === ConfigConstant.Modules.CATALOG && <Catalog />}
+                  {showPrivate && activeKey === ConfigConstant.Modules.PRIVATE && <Private />}
                 </div>
-              </Panel>
-            </Collapse>
+              </>
+            )}
           </div>
         </div>
         <div className={styles.fixedGroup}>
           {!isMobile && (
             <Tooltip title={t(Strings.trash)}>
-              <div className={styles.groupItem} onClick={jumpTrash} data-sensors-click id={WORKBENCH_SIDE_ID.RECYCLE_BIN}>
-                <TrashIcon fill={colors.rc04} />
+              <div className={styles.groupItem} onClick={jumpTrash} id={WORKBENCH_SIDE_ID.RECYCLE_BIN}>
+                <DeleteOutlined color={colors.rc04} />
               </div>
             </Tooltip>
           )}
           <Tooltip title={t(Strings.workbench_side_space_template)}>
-            <div className={styles.groupItem} onClick={jumpSpaceTemplate} data-sensors-click id={WORKBENCH_SIDE_ID.TO_SPACE_TEMPLATE}>
-              <TemplateIcon fill={colors.rc02} />
+            <div className={styles.groupItem} onClick={jumpSpaceTemplate} id={WORKBENCH_SIDE_ID.TO_SPACE_TEMPLATE}>
+              <PlanetOutlined color={colors.rc02} />
             </div>
           </Tooltip>
           {inviteStatus && !isIdassPrivateDeployment() && (
             <Tooltip title={t(Strings.invite_friends)}>
-              <div className={styles.groupItem} onClick={() => expandInviteModal()}>
-                <InviteIcon fill={colors.primaryColor} />
+              <div
+                className={styles.groupItem}
+                onClick={() => {
+                  posthog?.capture(TrackEvents.InviteByWorkbench);
+                  expandInviteModal();
+                }}
+              >
+                <UserAddOutlined color={colors.primaryColor} />
               </div>
             </Tooltip>
           )}
@@ -392,14 +469,19 @@ export const WorkbenchSide: FC<React.PropsWithChildren<unknown>> = () => {
         {saveAsTemplateModalNodeId && (
           <GenerateTemplate nodeId={saveAsTemplateModalNodeId} onCancel={() => dispatch(StoreActions.updateSaveAsTemplateModalNodeId(''))} />
         )}
-        {importModalNodeId && <ImportFile parentId={importModalNodeId} onCancel={() => dispatch(StoreActions.updateImportModalNodeId(''))} />}
+        {importModalNodeId && <ImportFile
+          isPrivate={activeKey === ConfigConstant.Modules.PRIVATE}
+          parentId={importModalNodeId} 
+          onCancel={() => dispatch(StoreActions.updateImportModalNodeId(''))} 
+        />}
         {panelVisible && (
           <SearchPanel
             folderId={panelInfo!.folderId}
-            subColumnType={SubColumnType.View}
+            secondConfirmType={panelInfo?.secondConfirmType}
             activeDatasheetId={panelInfo?.datasheetId || ''}
             setSearchPanelVisible={setPanelVisible}
             onChange={onChange}
+            isPrivate={activeKey === ConfigConstant.Modules.PRIVATE}
           />
         )}
         {isFormShare && (
@@ -410,24 +492,25 @@ export const WorkbenchSide: FC<React.PropsWithChildren<unknown>> = () => {
           />
         )}
         {!isFormShare && <Share nodeId={shareModalNodeId} onClose={() => dispatch(StoreActions.updateShareModalNodeId(''))} />}
-        <PermissionSettingsMain
-          data={{
-            nodeId: permissionModalNodeId,
-            type: treeNodesMap[permissionModalNodeId]?.type,
-            icon: treeNodesMap[permissionModalNodeId]?.icon,
-            name: treeNodesMap[permissionModalNodeId]?.nodeName,
-          }}
-          visible={Boolean(permissionModalNodeId)}
-          onClose={onClosePermissionSettingModal}
-        />
-        {
-          moveToNodeIds && moveToNodeIds.length > 0 && (
-            <MoveTo
-              nodeIds={moveToNodeIds}
-              onClose={() => dispatch(StoreActions.updateMoveToNodeIds([]))}
-            />
-          )
-        }
+        {!activedNodePrivate && (
+          <PermissionSettingsPlus
+            data={{
+              nodeId: permissionModalNodeId,
+              type: treeNodesMap[permissionModalNodeId]?.type,
+              icon: treeNodesMap[permissionModalNodeId]?.icon,
+              name: treeNodesMap[permissionModalNodeId]?.nodeName,
+            }}
+            visible={Boolean(permissionModalNodeId)}
+            onClose={onClosePermissionSettingModal}
+          />
+        )}
+        {moveToNodeIds && moveToNodeIds.length > 0 && (
+          <MoveTo
+            nodeIds={moveToNodeIds}
+            onClose={() => dispatch(StoreActions.updateMoveToNodeIds([]))}
+            isPrivate={activeKey === ConfigConstant.Modules.PRIVATE}
+          />
+        )}
       </div>
     </WorkbenchSideContext.Provider>
   );

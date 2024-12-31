@@ -18,10 +18,13 @@
 
 package com.apitable.auth.controller;
 
+import cn.hutool.core.util.BooleanUtil;
 import com.apitable.auth.dto.UserLoginDTO;
 import com.apitable.auth.enums.LoginType;
 import com.apitable.auth.ro.LoginRo;
+import com.apitable.auth.ro.RegisterRO;
 import com.apitable.auth.service.IAuthService;
+import com.apitable.auth.vo.LoginResultVO;
 import com.apitable.auth.vo.LogoutVO;
 import com.apitable.core.support.ResponseData;
 import com.apitable.interfaces.auth.facade.AuthServiceFacade;
@@ -39,17 +42,16 @@ import com.apitable.shared.config.properties.CookieProperties;
 import com.apitable.shared.context.SessionContext;
 import com.apitable.shared.util.information.ClientOriginInfo;
 import com.apitable.shared.util.information.InformationUtil;
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.annotation.Resource;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.validation.Valid;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
-import javax.annotation.Resource;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.validation.Valid;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.MediaType;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
@@ -58,9 +60,8 @@ import org.springframework.web.bind.annotation.RestController;
  * Authorization interface.
  */
 @RestController
-@Api(tags = "Authorization related interface")
-@ApiResource(path = "/")
-@Slf4j
+@Tag(name = "Authorization")
+@ApiResource
 public class AuthController {
 
     private static final String AUTH_DESC =
@@ -84,6 +85,28 @@ public class AuthController {
     @Resource
     private AuthServiceFacade authServiceFacade;
 
+    @Value("${SKIP_REGISTER_VALIDATE:false}")
+    private Boolean skipRegisterValidate;
+
+    /**
+     * Register.
+     *
+     * @param data Request Parameters
+     * @return {@link ResponseData}
+     * @author Chambers
+     */
+    @PostResource(path = "/register", requiredLogin = false)
+    @Operation(summary = "register", description = "serving for community edition")
+    public ResponseData<Void> register(@RequestBody @Valid final RegisterRO data) {
+        if (BooleanUtil.isFalse(skipRegisterValidate)) {
+            return ResponseData.error("Validate failure");
+        }
+        Long userId =
+            iAuthService.register(data.getUsername(), data.getCredential(), data.getLang());
+        SessionContext.setUserId(userId);
+        return ResponseData.success();
+    }
+
     /**
      * login router.
      *
@@ -91,16 +114,14 @@ public class AuthController {
      * @param request request info
      * @return {@link ResponseData}
      */
-    @PostResource(name = "Login", path = "/signIn", requiredLogin = false)
-    @ApiOperation(value = "login",
-        notes = AUTH_DESC, consumes = MediaType.APPLICATION_JSON_VALUE,
-        produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseData<Void> login(@RequestBody @Valid final LoginRo data,
-                                    final HttpServletRequest request) {
+    @PostResource(path = "/signIn", requiredLogin = false)
+    @Operation(summary = "login", description = AUTH_DESC)
+    public ResponseData<LoginResultVO> login(@RequestBody @Valid final LoginRo data,
+                                             final HttpServletRequest request) {
         ClientOriginInfo origin = InformationUtil.getClientOriginInfo(request,
             false, true);
         // Login Type Routing
-        Map<LoginType, Function<LoginRo, Long>> loginActionFunc =
+        Map<LoginType, Function<LoginRo, LoginResultVO>> loginActionFunc =
             new HashMap<>();
         // password login
         loginActionFunc.put(LoginType.PASSWORD, loginRo -> {
@@ -113,7 +134,7 @@ public class AuthController {
             eventBusFacade.onEvent(
                 new UserLoginEvent(userId, LoginType.PASSWORD, false,
                     origin));
-            return userId;
+            return LoginResultVO.builder().userId(userId).build();
         });
         // SMS verification code login
         loginActionFunc.put(LoginType.SMS_CODE, loginRo -> {
@@ -128,7 +149,10 @@ public class AuthController {
                     new UserLoginEvent(result.getUserId(), LoginType.SMS_CODE,
                         false, origin));
             }
-            return result.getUserId();
+            return LoginResultVO.builder()
+                .userId(result.getUserId())
+                .isNewUser(Boolean.TRUE.equals(result.getIsSignUp()))
+                .build();
         });
         // Email verification code login
         loginActionFunc.put(LoginType.EMAIL_CODE, loginRo -> {
@@ -143,21 +167,26 @@ public class AuthController {
                     new UserLoginEvent(result.getUserId(), LoginType.EMAIL_CODE,
                         false, origin));
             }
-            return result.getUserId();
+            return LoginResultVO.builder()
+                .userId(result.getUserId())
+                .isNewUser(Boolean.TRUE.equals(result.getIsSignUp()))
+                .build();
         });
         // SSO login (private user use)
         loginActionFunc.put(LoginType.SSO_AUTH, loginRo -> {
             UserAuth userAuth = authServiceFacade.ssoLogin(
                 new AuthParam(data.getUsername(), data.getCredential()));
-            return userAuth != null ? userAuth.getUserId() : null;
+            Long userId = userAuth != null ? userAuth.getUserId() : null;
+            return LoginResultVO.builder().userId(userId).build();
         });
         // Handling login logic
-        Long userId = loginActionFunc.get(data.getType()).apply(data);
+        LoginResultVO resultVO = loginActionFunc.get(data.getType()).apply(data);
+        Long userId = resultVO.getUserId();
         // Banned account verification
         blackListServiceFacade.checkUser(userId);
         // save session
         SessionContext.setUserId(userId);
-        return ResponseData.success();
+        return ResponseData.success(resultVO);
     }
 
     /**
@@ -167,15 +196,14 @@ public class AuthController {
      * @param response HttpServletResponse
      * @return {@link LogoutVO}
      */
-    @PostResource(name = "sign out", path = "/signOut", requiredPermission = false, method = {
-        RequestMethod.GET,
-        RequestMethod.POST})
-    @ApiOperation(value = "sign out", notes = "log out of current user")
+    @PostResource(path = "/signOut", requiredLogin = false,
+        method = {RequestMethod.GET, RequestMethod.POST})
+    @Operation(summary = "sign out", description = "log out of current user")
     public ResponseData<LogoutVO> logout(final HttpServletRequest request,
                                          final HttpServletResponse response) {
         LogoutVO logoutVO = new LogoutVO();
-        UserLogout userLogout = authServiceFacade.logout(
-            new UserAuth(SessionContext.getUserId()));
+        Long userId = SessionContext.getUserIdWithoutException();
+        UserLogout userLogout = authServiceFacade.logout(new UserAuth(userId));
         if (userLogout != null) {
             logoutVO.setNeedRedirect(userLogout.isRedirect());
             logoutVO.setRedirectUri(userLogout.getRedirectUri());
@@ -185,22 +213,5 @@ public class AuthController {
             cookieProperties.getI18nCookieName(),
             cookieProperties.getDomainName());
         return ResponseData.success(logoutVO);
-    }
-
-
-    /**
-     * reset password router.
-     *
-     * @return {@link ResponseData}
-     */
-    @PostResource(path = "/resetPassword")
-    @ApiOperation(value = "reset password router", hidden = true)
-    public ResponseData<Void> resetPassword() {
-        Long userId = SessionContext.getUserId();
-        boolean result = authServiceFacade.resetPassword(new UserAuth(userId));
-        if (result) {
-            return ResponseData.success();
-        }
-        return ResponseData.error();
     }
 }

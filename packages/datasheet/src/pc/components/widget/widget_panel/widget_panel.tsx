@@ -16,27 +16,26 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import { Button, IconButton, Skeleton, ThemeName } from '@apitable/components';
-import { Events, IWidgetPanelStatus, Player, ResourceType, Selectors, Strings, t } from '@apitable/core';
-import { CloseLargeOutlined } from '@apitable/icons';
 import { useMount } from 'ahooks';
-import { ShortcutActionManager, ShortcutActionName } from 'modules/shared/shortcut_key';
 import Image from 'next/image';
+import { shallowEqual } from 'react-redux';
+import { Button, IconButton, Skeleton, ThemeName } from '@apitable/components';
+import { Events, IWidgetPanelStatus, Player, ResourceType, Selectors, Strings, t, PermissionType } from '@apitable/core';
+import { AddOutlined, CloseOutlined } from '@apitable/icons';
+import { ShortcutActionManager, ShortcutActionName } from 'modules/shared/shortcut_key';
 import { ScreenSize } from 'pc/components/common/component_display';
 import { InstallPosition } from 'pc/components/widget/widget_center/enum';
 import { useResponsive } from 'pc/hooks';
-import { shallowEqual, useSelector } from 'react-redux';
-import IconAdd from 'static/icon/common/common_icon_add_content.svg';
+import { useAppSelector } from 'pc/store/react-redux';
+import WidgetEmptyDark from 'static/icon/datasheet/widget_empty_dark.png';
+import WidgetEmptyLight from 'static/icon/datasheet/widget_empty_light.png';
 import { useManageWidgetMap } from '../hooks';
 import { expandWidgetCenter } from '../widget_center/widget_center';
-import styles from './style.module.less';
 import { WidgetList } from './widget_list';
 import { WidgetPanelHeader } from './widget_panel_header';
-import WidgetEmptyLight from 'static/icon/datasheet/widget_empty_light.png';
-import WidgetEmptyDark from 'static/icon/datasheet/widget_empty_dark.png';
+import styles from './style.module.less';
 
-const EmptyPanel = ({ onClosePanel }: { onClosePanel?: () => void }) => {
-  const linkId = useSelector(Selectors.getLinkId);
+const EmptyPanel = ({ onClosePanel }: { onClosePanel?: () => void | Promise<void> }) => {
   const { screenIsAtMost } = useResponsive();
   const isMobile = screenIsAtMost(ScreenSize.md);
   const addNewPanel = () => {
@@ -45,11 +44,16 @@ const EmptyPanel = ({ onClosePanel }: { onClosePanel?: () => void }) => {
   useMount(() => {
     Player.doTrigger(Events.datasheet_wigdet_empty_panel_shown);
   });
-  const themeName = useSelector(state => state.theme);
+  const themeName = useAppSelector((state) => state.theme);
   const widgetEmpty = themeName === ThemeName.Light ? WidgetEmptyLight : WidgetEmptyDark;
+  const { embedId, shareId, templateId } = useAppSelector((state) => state.pageParams);
+  const embedInfo = useAppSelector((state) => Selectors.getEmbedInfo(state));
+  const embedHidden = embedId && embedInfo && embedInfo.permissionType !== PermissionType.PRIVATEEDIT;
+  const hiddenAddButton = shareId || templateId || embedHidden;
+
   return (
     <div className={styles.emptyPanel}>
-      {onClosePanel && <IconButton onClick={onClosePanel} className={styles.closeIcon} icon={CloseLargeOutlined} />}
+      {onClosePanel && <IconButton onClick={onClosePanel} className={styles.closeIcon} icon={CloseOutlined} />}
       <span className={styles.ikon}>
         <Image src={widgetEmpty} alt="" width={240} height={180} />
       </span>
@@ -60,9 +64,9 @@ const EmptyPanel = ({ onClosePanel }: { onClosePanel?: () => void }) => {
           size={'middle'}
           color={'primary'}
           className={styles.buttonWrapper}
-          prefixIcon={<IconAdd width={16} height={16} fill={'white'} />}
+          prefixIcon={<AddOutlined size={16} color={'white'} />}
           onClick={addNewPanel}
-          disabled={Boolean(linkId)}
+          disabled={Boolean(hiddenAddButton)}
         >
           {t(Strings.add_widget)}
         </Button>
@@ -77,20 +81,20 @@ const EmptyPanel = ({ onClosePanel }: { onClosePanel?: () => void }) => {
 };
 
 export const WidgetPanel = () => {
-  const { datasheetId, mirrorId } = useSelector(state => state.pageParams);
+  const { datasheetId, mirrorId } = useAppSelector((state) => state.pageParams);
   const resourceType = mirrorId ? ResourceType.Mirror : ResourceType.Datasheet;
   const resourceId = mirrorId || datasheetId || '';
-  const activeWidgetPanel = useSelector(state => {
+  const activeWidgetPanel = useAppSelector((state) => {
     return Selectors.getResourceActiveWidgetPanel(state, resourceId, resourceType);
   });
-  const netWorking = useSelector(state => Selectors.getResourceNetworking(state, datasheetId!, ResourceType.Datasheet), shallowEqual);
+  const netWorking = useAppSelector((state) => Selectors.getResourceNetworking(state, datasheetId!, ResourceType.Datasheet), shallowEqual);
   const isEmptyPanel = !activeWidgetPanel;
   const isEmptyWidget = !(activeWidgetPanel && activeWidgetPanel.widgets.length);
-  const { opening: isPanelOpening } = useSelector(state => {
+  const { opening: isPanelOpening } = useAppSelector((state) => {
     return Selectors.getResourceWidgetPanelStatus(state, resourceId, resourceType) || ({} as IWidgetPanelStatus);
   });
-  const onClosePanel = () => {
-    ShortcutActionManager.trigger(ShortcutActionName.ToggleWidgetPanel);
+  const onClosePanel = async () => {
+    await ShortcutActionManager.trigger(ShortcutActionName.ToggleWidgetPanel);
   };
 
   useManageWidgetMap();

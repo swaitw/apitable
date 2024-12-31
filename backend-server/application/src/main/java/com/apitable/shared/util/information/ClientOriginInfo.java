@@ -18,12 +18,14 @@
 
 package com.apitable.shared.util.information;
 
-import javax.servlet.http.Cookie;
-
+import jakarta.servlet.http.Cookie;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+/**
+ * Client Origin Info Object.
+ */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

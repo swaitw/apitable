@@ -16,22 +16,28 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import { NodeRelEntity } from '../entities/node.rel.entity';
+import { EntityRepository, In, Repository } from 'typeorm';
 import { NodeRelInfo } from '../../database/interfaces/internal';
-import { EntityRepository, Repository } from 'typeorm';
+import { NodeRelEntity } from '../entities/node.rel.entity';
 
 @EntityRepository(NodeRelEntity)
 export class NodeRelRepository extends Repository<NodeRelEntity> {
-
-  selectMainNodeIdByRelNodeId(relNodeId: string): Promise<{ mainNodeId: string } | undefined> {
-    return this.findOne({
+  public async selectMainNodeIdByRelNodeId(relNodeId: string): Promise<{ mainNodeId: string } | undefined> {
+    return await this.findOne({
       select: ['mainNodeId'],
       where: [{ relNodeId }],
     });
   }
 
-  selectRelNodeIdByMainNodeId(mainNodeId: string): Promise<NodeRelEntity[]> {
-    return this.createQueryBuilder('vnr')
+  public async selectRelNodeIdsByMainNodeIds(mainNodeIds: string[]): Promise<string[]> {
+    return await this.find({
+      select: ['relNodeId'],
+      where: [{ mainNodeId: In(mainNodeIds) }],
+    }).then((res) => res.map((res) => res.relNodeId));
+  }
+
+  public async selectRelNodeIdByMainNodeId(mainNodeId: string): Promise<NodeRelEntity[]> {
+    return await this.createQueryBuilder('vnr')
       .select('vnr.rel_node_id', 'relNodeId')
       .innerJoin(`${this.manager.connection.options.entityPrefix}node`, 'vn', 'vnr.rel_node_id = vn.node_id')
       .where('vnr.main_node_id = :mainNodeId', { mainNodeId })
@@ -39,8 +45,8 @@ export class NodeRelRepository extends Repository<NodeRelEntity> {
       .getRawMany();
   }
 
-  selectNodeRelInfo(relNodeId: string): Promise<NodeRelInfo | undefined> {
-    return this.createQueryBuilder('vnr')
+  public async selectNodeRelInfo(relNodeId: string): Promise<NodeRelInfo | undefined> {
+    return await this.createQueryBuilder('vnr')
       .select('vnr.main_node_id', 'datasheetId')
       .addSelect("JSON_UNQUOTE(JSON_EXTRACT(vnr.extra, '$.viewId'))", 'viewId')
       .addSelect('vn.node_name', 'datasheetName')
@@ -52,8 +58,8 @@ export class NodeRelRepository extends Repository<NodeRelEntity> {
       .getRawOne<NodeRelInfo>();
   }
 
-  selectNodeRelInfoByIds(relNodeIds: string[]): Promise<NodeRelInfo[] | undefined> {
-    return this.createQueryBuilder('vnr')
+  public async selectNodeRelInfoByIds(relNodeIds: string[]): Promise<NodeRelInfo[] | undefined> {
+    return await this.createQueryBuilder('vnr')
       .select('vnr.main_node_id', 'datasheetId')
       .addSelect('vnr.rel_node_id', 'relNodeId')
       .addSelect("JSON_UNQUOTE(JSON_EXTRACT(vnr.extra, '$.viewId'))", 'viewId')
@@ -64,5 +70,9 @@ export class NodeRelRepository extends Repository<NodeRelEntity> {
       .leftJoin(`${this.manager.connection.options.entityPrefix}datasheet`, 'vd', 'vn.node_id = vd.dst_id')
       .where('vnr.rel_node_id IN(:...relNodeIds)', { relNodeIds })
       .getRawMany();
+  }
+
+  public async selectRelNodeInfoByMainNodeIds(mainNodeIds: string[]): Promise<NodeRelEntity[]> {
+    return await this.find({ where: { mainNodeId: In(mainNodeIds) }, select: ['relNodeId', 'mainNodeId'] });
   }
 }

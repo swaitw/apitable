@@ -24,30 +24,35 @@ import {
   OperandTypeEnums,
   OperatorEnums,
   TRIGGER_INPUT_FILTER_FUNCTIONS,
-  TRIGGER_INPUT_PARSER_FUNCTIONS
+  TRIGGER_INPUT_PARSER_FUNCTIONS,
 } from '@apitable/core';
 import { forwardRef, Inject, Injectable } from '@nestjs/common';
-import { getRecordUrl } from 'shared/helpers/env';
-import { AutomationTriggerEntity } from '../../entities/automation.trigger.entity';
-import { EventTypeEnums } from '../domains/event.type.enums';
-import { AutomationService } from '../../services/automation.service';
-import { Logger } from 'winston';
+import { enableAutomationWorker } from 'app.environment';
 import { InjectLogger } from 'shared/common';
+import { RunHistoryStatusEnum } from 'shared/enums/automation.enum';
+import { IdWorker } from 'shared/helpers';
+import { getRecordUrl } from 'shared/helpers/env';
+import { automationExchangeName, automationRunning } from 'shared/services/queue/queue.module';
+import { QueueSenderBaseService } from 'shared/services/queue/queue.sender.base.service';
+import { Logger } from 'winston';
+import { AutomationTriggerEntity } from '../../entities/automation.trigger.entity';
+import { AutomationService } from '../../services/automation.service';
 import { CommonEventContext, CommonEventMetaContext } from '../domains/common.event';
+import { EventTypeEnums } from '../domains/event.type.enums';
 
 export const OFFICIAL_SERVICE_SLUG = process.env.ROBOT_OFFICIAL_SERVICE_SLUG ? process.env.ROBOT_OFFICIAL_SERVICE_SLUG : 'apitable';
 
 export type IShouldFireRobot = {
   robotId: string;
   trigger: {
+    triggerId: string;
     input: any;
     output: any;
-  }
+  };
 };
 
 @Injectable()
 export class TriggerEventHelper {
-
   private _triggerInputParser: InputParser<any>;
 
   private _triggerFilterInputParser: InputParser<any>;
@@ -56,6 +61,7 @@ export class TriggerEventHelper {
     @InjectLogger() private readonly logger: Logger,
     @Inject(forwardRef(() => AutomationService))
     private readonly automationService: AutomationService,
+    private readonly queueService: QueueSenderBaseService,
   ) {
     // Convert trigger input to plain object
     this._triggerInputParser = TriggerEventHelper.MAKE_INPUT_PARSER(TRIGGER_INPUT_PARSER_FUNCTIONS);
@@ -70,15 +76,15 @@ export class TriggerEventHelper {
     return new InputParser(new MagicVariableParser<any>(functions));
   }
 
-  public recordCreatedTriggerHandler(eventContext: CommonEventContext, metaContext: CommonEventMetaContext) {
-    this._recordTriggerHandler(EventTypeEnums.RecordCreated, eventContext, metaContext);
+  public async recordCreatedTriggerHandler(eventContext: CommonEventContext, metaContext: CommonEventMetaContext) {
+    await this._recordTriggerHandler(EventTypeEnums.RecordCreated, eventContext, metaContext);
   }
 
-  public recordMatchConditionsTriggerHandler(eventContext: CommonEventContext, metaContext: CommonEventMetaContext) {
-    this._recordTriggerHandler(EventTypeEnums.RecordMatchesConditions, eventContext, metaContext);
+  public async recordMatchConditionsTriggerHandler(eventContext: CommonEventContext, metaContext: CommonEventMetaContext) {
+    await this._recordTriggerHandler(EventTypeEnums.RecordMatchesConditions, eventContext, metaContext);
   }
 
-  private _recordTriggerHandler(eventType: string, eventContext: CommonEventContext, metaContext: CommonEventMetaContext) {
+  private async _recordTriggerHandler(eventType: string, eventContext: CommonEventContext, metaContext: CommonEventMetaContext) {
     const { dstIdTriggersMap, triggerSlugTypeIdMap, msgIds } = metaContext;
 
     const triggerSlug = `${eventType}@${OFFICIAL_SERVICE_SLUG}`;
@@ -86,26 +92,48 @@ export class TriggerEventHelper {
     if (conditionalTriggers.length === 0) return;
 
     let shouldFireRobots;
-    if(eventType === EventTypeEnums.RecordCreated) {
+    if (eventType === EventTypeEnums.RecordCreated) {
       shouldFireRobots = this.getRenderTriggers(EventTypeEnums.RecordCreated, conditionalTriggers, eventContext);
     } else {
       shouldFireRobots = this.getRenderTriggers(EventTypeEnums.RecordMatchesConditions, conditionalTriggers, eventContext);
     }
 
-    this.logger.info(`messageIds: [${ msgIds }]: Execute ${ eventType } handler. `, {
-      shouldFireRobotIds: shouldFireRobots.map(robot => robot.robotId),
+    this.logger.info(`messageIds: [${msgIds}]: Execute ${eventType} handler. `, {
+      shouldFireRobotIds: shouldFireRobots.map((robot) => robot.robotId),
     });
 
-    shouldFireRobots.forEach(robot => {
-      this.automationService.handleTask(robot.robotId, robot.trigger).then(_ => {});
-    });
+    await Promise.all(
+      shouldFireRobots.map((robot) => {
+        if (enableAutomationWorker) {
+          return this.fireRoot(robot);
+        }
+        return this.automationService.handleTask(robot.robotId, robot.trigger).then((_) => {});
+      }),
+    );
   }
 
-  public getRenderTriggers(eventType: string, conditionalTriggers: AutomationTriggerEntity[], eventContext: CommonEventContext) {
+  async fireRoot(fireRobot: IShouldFireRobot) {
+    const taskId = IdWorker.nextId().toString();
+    const robot = await this.automationService.getRobotById(fireRobot.robotId);
+    await this.automationService.saveTaskContext(
+      {
+        taskId,
+        robotId: fireRobot.robotId,
+        triggerId: robot.triggerId,
+        triggerInput: fireRobot.trigger.input,
+        triggerOutput: fireRobot.trigger.output,
+        status: RunHistoryStatusEnum.PENDING,
+      },
+      robot,
+    );
+    await this.queueService.sendMessageWithId(taskId, automationExchangeName, automationRunning, { taskId: taskId, triggerId: robot.triggerId });
+  }
+
+  public getRenderTriggers(eventType: string, conditionalTriggers: AutomationTriggerEntity[], eventContext: CommonEventContext): IShouldFireRobot[] {
     const { datasheetId, datasheetName, recordId } = eventContext;
-    if(eventType == EventTypeEnums.RecordMatchesConditions) {
+    if (eventType == EventTypeEnums.RecordMatchesConditions) {
       return conditionalTriggers
-        .filter(item => Boolean(item.input))
+        .filter((item) => Boolean(item.input))
         .reduce((prev, item) => {
           const triggerInput = this.renderInput(item.input!);
           const isSameResource = triggerInput.datasheetId === datasheetId;
@@ -116,16 +144,17 @@ export class TriggerEventHelper {
             prev.push({
               robotId: item.robotId,
               trigger: {
+                triggerId: item.triggerId,
                 input: triggerInput,
-                output: triggerOutput
-              }
+                output: triggerOutput,
+              },
             });
           }
           return prev;
         }, [] as IShouldFireRobot[]);
-    } 
+    }
     return conditionalTriggers
-      .filter(item => Boolean(item.input))
+      .filter((item) => Boolean(item.input))
       .reduce((prev, item) => {
         const triggerInput = this.renderInput(item.input!);
         if (triggerInput.datasheetId === datasheetId) {
@@ -133,14 +162,14 @@ export class TriggerEventHelper {
           prev.push({
             robotId: item.robotId,
             trigger: {
+              triggerId: item.triggerId,
               input: triggerInput,
               output: triggerOutput,
-            }
+            },
           });
         }
         return prev;
       }, [] as IShouldFireRobot[]);
-    
   }
 
   public getTriggerOutput(datasheetId: string, datasheetName: string, recordId: string, eventContext: CommonEventContext) {
@@ -148,27 +177,36 @@ export class TriggerEventHelper {
       // the old structure: left for Qianfan, should delete later
       datasheet: {
         id: datasheetId,
-        name: datasheetName
+        name: datasheetName,
       },
       record: {
         id: recordId,
         url: getRecordUrl(datasheetId, recordId),
-        fields: eventContext.eventFields
+        fields: eventContext.eventFields,
       },
       // the new structure below: flat data structure
       datasheetId,
       datasheetName,
       recordId,
       recordUrl: getRecordUrl(datasheetId, recordId),
-      ...eventContext.eventFields
+      ...eventContext.eventFields,
+      clickedBy: eventContext.uuid,
     };
   }
 
-  private _getConditionalTriggers(triggers: AutomationTriggerEntity[] | undefined, triggerTypeId: string | undefined): AutomationTriggerEntity[]{
+  public getDefaultTriggerOutput(datasheetId: string, datasheetName: string) {
+    return {
+      // the new structure below: flat data structure
+      datasheetId,
+      datasheetName,
+    };
+  }
+
+  private _getConditionalTriggers(triggers: AutomationTriggerEntity[] | undefined, triggerTypeId: string | undefined): AutomationTriggerEntity[] {
     if (!triggers) {
       return [];
     }
-    return triggers.filter(item => triggerTypeId === item.triggerTypeId);
+    return triggers.filter((item) => triggerTypeId === item.triggerTypeId);
   }
 
   // Field matches condition filter
@@ -180,7 +218,7 @@ export class TriggerEventHelper {
     const getAllFilterFieldIds = (filter: IExpression) => {
       if (filter.operator === OperatorEnums.And || filter.operator === OperatorEnums.Or) {
         // When the operator is AND or OR, operands are always expressions.
-        filter.operands.forEach(operand => {
+        filter.operands.forEach((operand) => {
           if (operand.type === OperandTypeEnums.Expression) {
             getAllFilterFieldIds(operand.value);
           }
@@ -197,9 +235,8 @@ export class TriggerEventHelper {
     const filterFieldIds = Array.from(filterFieldIdsSet);
     // const filterFieldIds: string[] = filter.operands.map(item => item.value.operands[0].value);
     // If intersection exists, only when listened-on field changes, trigger
-    const isIntersect = filterFieldIds.some(item => eventContext.diffFields.includes(item));
+    const isIntersect = filterFieldIds.some((item) => eventContext.diffFields.includes(item));
     // triggerInput.filter is also an expression.
     return isIntersect && this._triggerFilterInputParser.expressionParser.exec(filter, eventContext);
   }
-
 }

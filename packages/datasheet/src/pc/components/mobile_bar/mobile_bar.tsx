@@ -16,19 +16,19 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+import { useRouter } from 'next/router';
+import * as React from 'react';
 import { useThemeColors } from '@apitable/components';
 import { Selectors, Strings, t } from '@apitable/core';
-import { useRouter } from 'next/router';
+import { ListOutlined } from '@apitable/icons';
 import { useSideBarVisible } from 'pc/hooks';
-import * as React from 'react';
-import { useSelector } from 'react-redux';
-import IconSide from 'static/icon/miniprogram/nav/nav_icon_drawer.svg';
+import { useAppSelector } from 'pc/store/react-redux';
 import styles from './style.module.less';
 
 export const MobileBar: React.FC<React.PropsWithChildren<{ title?: string }>> = ({ title }) => {
-  const { datasheetId } = useSelector(state => state.pageParams);
+  const { datasheetId } = useAppSelector((state) => state.pageParams);
   const colors = useThemeColors();
-  const currentView = useSelector(state => Selectors.getCurrentView(state))!;
+  const currentView = useAppSelector((state) => Selectors.getCurrentView(state))!;
   const { setSideBarVisible } = useSideBarVisible();
   const router = useRouter();
   const pathname = router.asPath;
@@ -41,8 +41,13 @@ export const MobileBar: React.FC<React.PropsWithChildren<{ title?: string }>> = 
 
   return (
     <div className={styles.shareMobileBar}>
-      <div onClick={() => { setSideBarVisible && setSideBarVisible(true); }} className={styles.side}>
-        <IconSide width={24} height={24} fill={colors.firstLevelText} />
+      <div
+        onClick={() => {
+          setSideBarVisible && setSideBarVisible(true);
+        }}
+        className={styles.side}
+      >
+        <ListOutlined size={24} color={colors.firstLevelText} />
       </div>
 
       <div className={styles.middle}>
@@ -52,7 +57,7 @@ export const MobileBar: React.FC<React.PropsWithChildren<{ title?: string }>> = 
           </div>
         )}
 
-        {matchedTemplateCentre && (!matchedWorkSpace) && (
+        {matchedTemplateCentre && !matchedWorkSpace && (
           <div className={styles.matchedOrganization}>
             <span>{t(Strings.nav_templates)}</span>
           </div>

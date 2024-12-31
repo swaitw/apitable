@@ -16,23 +16,32 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import { ICell, IFieldRanges, IRange, IRecordRanges, Range } from 'model';
-import { IReduxState, Selectors } from '../../../../../../exports/store';
+import { ICell, IFieldRanges, IRange, IRecordRanges } from 'model/view/range';
+import { Range } from 'model/view/range';
+import { IReduxState } from 'exports/store/interfaces';
+import { getDatasheetClient } from 'modules/database/store/selectors/resource/datasheet/base';
+import { getFillHandleStatus, getSelection } from 'modules/database/store/selectors/resource/datasheet/cell_range_calc';
 import {
-  CLEAR_SELECTION, CLEAR_SELECTION_BUT_KEEP_CHECKED_RECORD,
-  SET_ACTIVE_CELL, SET_FIELD_RANGES, SET_FILL_HANDLE_STATUS, SET_RECORD_SELECTION, SET_SELECTION,
-} from '../../../../../shared/store/action_constants';
-import { IFillHandleStatus } from '../../../../../../exports/store/interfaces';
+  CLEAR_SELECTION,
+  CLEAR_SELECTION_BUT_KEEP_CHECKED_RECORD,
+  SET_ACTIVE_CELL,
+  SET_FIELD_RANGES,
+  SET_FILL_HANDLE_STATUS,
+  SET_RECORD_SELECTION,
+  SET_SELECTION,
+
+} from 'modules/shared/store/action_constants';
+import { IFillHandleStatus } from 'exports/store/interfaces';
 
 /**
  * set the selection area
- * @param ranges 
- * @returns 
+ * @param ranges
+ * @returns
  */
 export const setSelection = (ranges: IRange | IRange[]): any => (dispatch: any, getState: () => IReduxState) => {
   const state = getState();
   const datasheetId = state.pageParams.datasheetId;
-  const selectionState = Selectors.getDatasheetClient(state)!.selection;
+  const selectionState = getDatasheetClient(state)!.selection;
   const payload = Array.isArray(ranges) ? ranges : [ranges];
   const range = payload[0]!;
 
@@ -58,9 +67,9 @@ export const setSelection = (ranges: IRange | IRange[]): any => (dispatch: any, 
 
 /**
  * set the active cell
- * @param datasheetId 
- * @param cell 
- * @returns 
+ * @param datasheetId
+ * @param cell
+ * @returns
  */
 export const setActiveCell = (datasheetId: string, cell: ICell) => {
   const payload = cell;
@@ -69,7 +78,7 @@ export const setActiveCell = (datasheetId: string, cell: ICell) => {
     datasheetId,
     payload: {
       // when activate cell, selection area equals the the vector of active cell itself
-      ranges: [{ start: cell, end: cell }], 
+      ranges: [{ start: cell, end: cell }],
       activeCell: payload,
     },
   };
@@ -77,10 +86,10 @@ export const setActiveCell = (datasheetId: string, cell: ICell) => {
 
 /**
  * set the records being selected
- * 
- * @param datasheetId 
- * @param recordRange 
- * @returns 
+ *
+ * @param datasheetId
+ * @param recordRange
+ * @returns
  */
 export const setRecordRange = (datasheetId: string, recordRange: IRecordRanges) => {
   return {
@@ -92,8 +101,8 @@ export const setRecordRange = (datasheetId: string, recordRange: IRecordRanges) 
 
 /**
  * remain checked records, but clear active cell and continuous selection area data.
- * @param datasheetId 
- * @returns 
+ * @param datasheetId
+ * @returns
  */
 export const clearSelectionButKeepCheckedRecord = (datasheetId: string) => {
   return {
@@ -104,9 +113,9 @@ export const clearSelectionButKeepCheckedRecord = (datasheetId: string) => {
 
 /**
  * clear the data in selection area
- * 
- * @param datasheetId 
- * @returns 
+ *
+ * @param datasheetId
+ * @returns
  */
 export const clearSelection = (datasheetId: string) => {
   return {
@@ -117,10 +126,10 @@ export const clearSelection = (datasheetId: string) => {
 
 /**
  * set current selected columns
- * 
- * @param datasheetId 
- * @param payload 
- * @returns 
+ *
+ * @param datasheetId
+ * @param payload
+ * @returns
  */
 export const setFieldRanges = (datasheetId: string, payload: IFieldRanges) => {
   return {
@@ -134,15 +143,15 @@ type ISetFillHandleStatus = Omit<IFillHandleStatus, 'fillRange'> & { hoverCell?:
 
 /**
  * set the Fill Handle active status
- * 
- * @param payload 
- * @returns 
+ *
+ * @param payload
+ * @returns
  */
 export const setFillHandleStatus = (payload: ISetFillHandleStatus): any => (dispatch: any, getState: () => IReduxState) => {
   const state = getState();
   const datasheetId = state.pageParams.datasheetId;
-  const selection = Selectors.getSelection(state);
-  const fillHandleStatus = Selectors.getFillHandleStatus(state);
+  const selection = getSelection(state);
+  const fillHandleStatus = getFillHandleStatus(state);
   if (!selection) return;
   if (!selection.ranges) return;
   const selectionRange = selection.ranges[0];

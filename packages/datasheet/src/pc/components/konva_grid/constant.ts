@@ -47,11 +47,14 @@ export const GRID_ICON_SMALL_SIZE = 12; // Size of small icons
 export const GRID_CELL_VALUE_PADDING = 10; // inner padding of cell
 export const GRID_CELL_MULTI_PADDING_TOP = 6; // Vertical inner padding for Member/Option/Link etc. fields
 export const GRID_CELL_MULTI_ITEM_MARGIN_TOP = 5; // Vertical margin between Option/Link and other field items
+export const GRID_CELL_MULTI_PADDING_LEFT = 4;
+export const GRID_CEL_ICON_GAP_SIZE = 8;
 export const GRID_CELL_MULTI_ITEM_MARGIN_LEFT = 8; // Horizontal margin between the Member/Option/Link field items
 export const GRID_CELL_ADD_ITEM_BUTTON_SIZE = 22; // New button size for Member/Option/Link fields
 export const GRID_CELL_DELETE_ITEM_BUTTON_SIZE = 8; // Member/Option/Link etc. field delete button size
 export const GRID_CELL_DELETE_ITEM_BUTTON_SIZE_OFFSET = 8; // Member/Option/Link fields remove the offset of the button size
 export const GRID_CELL_MULTI_ITEM_MIN_WIDTH = 36; // Minimum width of Option/Link etc. field item
+export const GRID_CELL_ABBR_MIN_WIDTH = 20; // Minimum width of time zone abbr
 
 // Member
 export const GRID_CELL_MEMBER_ITEM_HEIGHT = 24; // Member field item height

@@ -18,28 +18,29 @@
 
 package com.apitable.user.ro;
 
-import javax.validation.constraints.NotBlank;
-
-import io.swagger.annotations.ApiModel;
-import io.swagger.annotations.ApiModelProperty;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
+import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
 /**
- * Mobile verification code verification request parameters
+ * Mobile verification code verification request parameters.
  */
 @Data
-@ApiModel("Mobile phone verification code verification request parameters")
+@Schema(description = "Mobile phone verification code verification request parameters")
 public class SmsCodeValidateRo {
 
     @NotBlank(message = "Mobile phone area code cannot be empty")
-    @ApiModelProperty(value = "Area code", example = "+86", position = 1, required = true)
+    @Schema(description = "Area code", requiredMode = RequiredMode.REQUIRED, example = "+86")
     private String areaCode;
 
-    @ApiModelProperty(value = "Phone number", example = "13411112222", position = 2, required = true)
+    @Schema(description = "Phone number", requiredMode = RequiredMode.REQUIRED,
+        example = "13411112222")
     @NotBlank(message = "Mobile number cannot be empty")
     private String phone;
 
-    @ApiModelProperty(value = "Mobile phone verification code", example = "123456", position = 3, required = true)
+    @Schema(description = "Mobile phone verification code",
+        requiredMode = RequiredMode.REQUIRED, example = "123456")
     @NotBlank(message = "The verification code cannot be empty")
     private String code;
 }

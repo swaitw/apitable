@@ -18,29 +18,35 @@
 
 package com.apitable.workspace.ro;
 
-import io.swagger.annotations.ApiModel;
-import io.swagger.annotations.ApiModelProperty;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 import org.springframework.web.multipart.MultipartFile;
 
-import javax.validation.constraints.NotBlank;
-import javax.validation.constraints.NotNull;
-
 /**
- * ImportExcelOpRo
+ * ImportExcelOpRo.
  *
  * @author Chambers
  * @since 2019/11/6
  */
 @Data
-@ApiModel("Import data table request parameters")
+@Schema(description = "Import data table request parameters")
 public class ImportExcelOpRo {
 
-    @ApiModelProperty(value = "Parent Node Id", example = "nod10", position = 1, required = true)
+    @Schema(description = "Parent Node Id",
+        requiredMode = RequiredMode.REQUIRED, example = "nod10")
     @NotBlank(message = "The parent node ID cannot be empty")
     private String parentId;
 
-    @ApiModelProperty(value = "Import File", position = 3, required = true)
+    @Schema(description = "Import File", requiredMode = RequiredMode.REQUIRED)
     @NotNull(message = "The import file cannot be empty")
     private MultipartFile file;
+
+    @Schema(description = "View Name", example = "nod10")
+    private String viewName;
+
+    @Schema(description = "Unit id", example = "234566")
+    private String unitId;
 }

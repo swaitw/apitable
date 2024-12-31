@@ -16,13 +16,14 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import { CollaCommandName, FieldType, ICellValue, IField } from '@apitable/core';
 import { ShapeConfig } from 'konva/lib/Shape';
+import { FC, memo } from 'react';
+import { CollaCommandName, FieldType, ICellValue, IField } from '@apitable/core';
 import { ShortcutActionManager, ShortcutActionName } from 'modules/shared/shortcut_key';
 import { resourceService } from 'pc/resource_service';
-import { FC, memo } from 'react';
 import { CellScrollContainer } from '../cell_scroll_container';
 import { CellAttachment } from './cell_attachment';
+import { CellButton } from './cell_button';
 import { CellCheckbox } from './cell_checkbox';
 import { CellFormula } from './cell_formula';
 import { CellLink } from './cell_link';
@@ -32,6 +33,7 @@ import { CellMultiSelect } from './cell_multi_select';
 import { CellRating } from './cell_rating';
 import { CellSingleSelect } from './cell_single_select';
 import { CellText } from './cell_text';
+import { CellWorkdoc } from './cell_workdoc';
 import { IRenderData } from './interface';
 
 export interface ICellProps {
@@ -46,7 +48,7 @@ export interface ICellProps {
   isActive?: boolean;
   editable?: boolean;
   style?: ShapeConfig;
-  toggleEdit?: () => void;
+  toggleEdit?: () => Promise<void>;
   onChange?: (value: ICellValue) => void;
   disabledDownload?: boolean;
 }
@@ -68,38 +70,24 @@ export interface ICellValueProps {
 }
 
 export const CellValue: FC<React.PropsWithChildren<ICellValueProps>> = memo((props) => {
-  const {
-    x,
-    y,
-    rowHeight,
-    columnWidth,
-    field,
-    recordId,
-    isActive,
-    editable,
-    datasheetId,
-    style,
-    renderData,
-    cellValue,
-    disabledDownload
-  } = props;
-  const commandManager = resourceService.instance!.commandManager;
-
+  const { x, y, rowHeight, columnWidth, field, recordId, isActive, editable, datasheetId, style, renderData, cellValue, disabledDownload } = props;
   const onChange = (value: ICellValue) => {
     editable &&
-    commandManager.execute({
-      cmd: CollaCommandName.SetRecords,
-      datasheetId,
-      data: [{
-        recordId,
-        fieldId: field.id,
-        value,
-      }],
-    });
+      resourceService.instance!.commandManager.execute({
+        cmd: CollaCommandName.SetRecords,
+        datasheetId,
+        data: [
+          {
+            recordId,
+            fieldId: field.id,
+            value,
+          },
+        ],
+      });
   };
 
-  const toggleEdit = () => {
-    ShortcutActionManager.trigger(ShortcutActionName.ToggleEditing);
+  const toggleEdit = async () => {
+    await ShortcutActionManager.trigger(ShortcutActionName.ToggleEditing);
   };
 
   const cellProps: ICellProps = {
@@ -116,7 +104,7 @@ export const CellValue: FC<React.PropsWithChildren<ICellValueProps>> = memo((pro
     style,
     renderData,
     cellValue,
-    disabledDownload
+    disabledDownload,
   };
 
   switch (field.type) {
@@ -128,6 +116,7 @@ export const CellValue: FC<React.PropsWithChildren<ICellValueProps>> = memo((pro
     case FieldType.DateTime:
     case FieldType.CreatedTime:
     case FieldType.LastModifiedTime:
+    case FieldType.Cascader:
       return <CellText {...cellProps} />;
     case FieldType.SingleSelect:
       return <CellSingleSelect {...cellProps} />;
@@ -159,11 +148,16 @@ export const CellValue: FC<React.PropsWithChildren<ICellValueProps>> = memo((pro
     case FieldType.Formula:
       return <CellFormula {...cellProps} />;
     case FieldType.Link:
+    case FieldType.OneWayLink:
       return <CellLink {...cellProps} />;
     case FieldType.LookUp:
       return <CellLookUp {...cellProps} />;
     case FieldType.Attachment:
       return <CellAttachment {...cellProps} />;
+    case FieldType.Button:
+      return <CellButton {...cellProps} field={field} />;
+    case FieldType.WorkDoc:
+      return <CellWorkdoc {...cellProps} />;
     default:
       return null;
   }

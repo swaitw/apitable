@@ -17,6 +17,7 @@
  */
 
 export enum NotifyKey {
+  ArchiveRecord = 'archiveRecord',
   Export = 'export',
   Paste = 'paste',
   DeleteRecord = 'deleteRecord',
@@ -37,7 +38,7 @@ export enum NotifyKey {
 
 export interface ICustomNotifyConfig {
   btnText: string;
-  btnFn(): void;
+  btnFn(): void | Promise<void>;
   key: NotifyKey;
   dom?: HTMLElement | null;
 }

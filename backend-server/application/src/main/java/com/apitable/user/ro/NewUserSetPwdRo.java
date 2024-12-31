@@ -18,23 +18,26 @@
 
 package com.apitable.user.ro;
 
-import io.swagger.annotations.ApiModel;
-import io.swagger.annotations.ApiModelProperty;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
 import lombok.Data;
 
 /**
- * New user sets password request parameters
+ * New user sets password request parameters.
  */
 @Data
-@ApiModel("New user sets password request parameters")
+@Schema(description = "New user sets password request parameters")
 public class NewUserSetPwdRo {
 
-    @ApiModelProperty(value = "Phone number", example = "135...", position = 1, required = true)
+    @Schema(description = "Phone number", requiredMode = RequiredMode.REQUIRED,
+        example = "135...")
     private String phone;
 
-    @ApiModelProperty(value = "New password", example = "qwer1234", position = 2, required = true)
+    @Schema(description = "New password", requiredMode = RequiredMode.REQUIRED,
+        example = "qwer1234")
     private String newPassword;
 
-    @ApiModelProperty(value = "Confirm Password", example = "qwer1234", position = 3, required = true)
+    @Schema(description = "Confirm Password",
+        requiredMode = RequiredMode.REQUIRED, example = "qwer1234")
     private String confirmPassword;
 }

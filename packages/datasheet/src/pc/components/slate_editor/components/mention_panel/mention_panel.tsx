@@ -16,25 +16,24 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import { Api, Selectors } from '@apitable/core';
 import { useDebounceFn } from 'ahooks';
 import { Spin } from 'antd';
-import dynamic from 'next/dynamic';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Editor, Path, Range, Transforms } from 'slate';
+import { ReactEditor, useSlate } from 'slate-react';
+import { Api, Selectors } from '@apitable/core';
+import { LoadingOutlined } from '@apitable/icons';
 import { ScreenSize } from 'pc/components/common/component_display';
 import { MemberOptionList } from 'pc/components/list/member_option_list';
 import { Portal } from 'pc/components/portal';
 import { useResponsive } from 'pc/hooks';
 import { store } from 'pc/store';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { Editor, Path, Range, Transforms } from 'slate';
-import { ReactEditor, useSlate } from 'slate-react';
 import { Z_INDEX } from '../../constant';
 import { GENERATOR } from '../../elements';
 import { getValidPopupPosition, getValidSelection } from '../../helpers/utils';
 import { IVikaEditor } from '../../interface/editor';
 import styles from './mention.module.less';
 
-const LoadingOutlined = dynamic(() => import('@ant-design/icons/LoadingOutlined'), { ssr: false });
 export const MentionPanel = () => {
   const wrapRef = useRef<HTMLDivElement>(null);
   const visibleRef = useRef(false);
@@ -74,7 +73,7 @@ export const MentionPanel = () => {
   const getMembers = useCallback((keyword = '') => {
     setLoading(true);
     Api.loadOrSearch({ keyword })
-      .then(res => {
+      .then((res) => {
         setMembers(res.data?.data ?? []);
       })
       .finally(() => {
@@ -107,7 +106,7 @@ export const MentionPanel = () => {
   const handleMemberItemClick = useCallback(
     (data: any) => {
       const memberId = data && data[0];
-      const member = members.find(item => item.unitId === memberId);
+      const member = members.find((item) => item.unitId === memberId);
       if (member) {
         insertMention(member);
       }
@@ -228,13 +227,13 @@ export const MentionPanel = () => {
       <div className={styles.wrap} ref={wrapRef}>
         {loading ? (
           <div className={styles.loading}>
-            <Spin size='small' indicator={<LoadingOutlined />} />
+            <Spin size="small" indicator={<LoadingOutlined className="circle-loading" />} />
           </div>
         ) : (
           <MemberOptionList
             listData={members}
             showMoreTipButton={false}
-            uniqId='unitId'
+            uniqId="unitId"
             unitMap={unitMap}
             showSearchInput={false}
             sourceId={datasheetId}

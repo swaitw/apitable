@@ -7,6 +7,10 @@
   height: 40px;
   margin-right: 8px;
 
+  input {
+    color: var(--textCommonPrimary);
+  }
+
   .inputContainer {
     height: 100%;
 
@@ -21,8 +25,20 @@
       &:focus {
         outline: none;
         border: none;
-        box-shadow: 0px 0px 0px 1px var(--primaryColor);
-        background: var(--defaultBg);
+      }
+    }
+  }
+
+  .cascaderEditorContainer {
+    background: var(--lowestBg);
+    border-radius: 4px;
+    :global {
+      .mobileCascaderText {
+        line-height: 38px;
+        padding-left: 8px;
+      }
+      .ant-select-selector .ant-select-selection-item {
+        line-height: 38px !important;
       }
     }
   }
@@ -54,6 +70,11 @@
     justify-content: space-between;
     height: 100%;
     cursor: pointer;
+
+    &.disabled {
+      cursor: not-allowed;
+      opacity: 0.5;
+    }
 
     .content {
       flex: 1;
@@ -89,7 +110,7 @@
     left: 0;
     max-height: 500px;
     overflow-y: auto;
-    .light-scroll-bar();
+    .default-scroll-bar();
     box-shadow: 0px 1px 14px 0px var(--shadowColor);
     border-radius: 4px;
   }
@@ -181,7 +202,6 @@
   & > div {
     height: 100% !important;
     border: none !important;
-    background: var(--lowestBg) !important;
 
     &:focus {
       box-shadow: 0px 0px 0px 1px var(--primaryColor);
@@ -198,6 +218,9 @@
 }
 
 @media screen and (max-width: @w-md) {
+  .cascaderEditorContainer {
+    min-height: 48px;
+  }
   .ratingContainer {
     padding-top: 0;
   }

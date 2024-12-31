@@ -35,6 +35,13 @@ export enum IDPrefix {
   SPACE = 'spc',
   DateTimeAlarm = 'dta',
   EmbedLink = 'emb',
+  Form = 'fom',
+  Dashboard = 'dsb',
+  AutomationAction = 'aac',
+  Document = 'doc',
+  AutomationTrigger = 'atr',
+  WorkDocAonymousId = 'wda',
+  Mirror = "mir"
 }
 
 /**
@@ -104,4 +111,15 @@ export function getUniqName(newName: string, names: string[]) {
     uniqName = `${newName} ${++index}`;
   }
   return uniqName;
+}
+
+const numbers = '0123456789';
+export function generateRandomNumber(length: number): string {
+  let result = '';
+  for (let i = 0; i < length; i++) {
+    const randomIndex = Math.floor(Math.random() * numbers.length);
+    result += numbers.charAt(randomIndex);
+  }
+
+  return result;
 }

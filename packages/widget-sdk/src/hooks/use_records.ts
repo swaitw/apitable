@@ -18,24 +18,25 @@
 
 import { useContext, useMemo } from 'react';
 import { useSelector } from 'react-redux';
-import { IWidgetContext, IRecordQuery } from 'interface';
-import { Record } from '../model/record';
+import { IRecordQuery, IWidgetContext } from 'interface';
 import { WidgetContext } from '../context';
 import { useMeta } from './use_meta';
 import { Datasheet } from 'model';
-import { getViewById, getVisibleRowsCalcCache, getWidgetDatasheet } from 'store';
-import { isIframe } from 'iframe_message/utils';
-import { Selectors } from '@apitable/core';
+import { getSnapshot, getWidgetDatasheet } from 'store';
+import { IReduxState, parseInnerFilter, Selectors, validateOpenFilter, ViewFilterDerivate } from '@apitable/core';
+import { useReferenceCount } from 'view_computed';
+import { DynamicRecord } from 'model/dynamic_record';
+import { useGetSignatureAssertFunc } from 'helper/assert_signature_manager';
 
 /**
- * Gets all the records under a given view in the datasheet. 
+ * Gets all the records under a given view in the datasheet.
  * Rerendering is triggered when the value of record, view configuration, field configuration changes.
  * Get all the records may cause lag due to a sharp increase in computation, so please use caution and test well.
 
  * @param viewId The ID for the view, pass undefined to return an empty array.
  * @param query query configuration parameters.
  * @returns
- * 
+ *
  * ### Example
  * ```js
  * import { useRecords, useActiveViewId } from '@apitable/widget-sdk';
@@ -50,17 +51,17 @@ import { Selectors } from '@apitable/core';
  * }
  * ```
  */
-export function useRecords(viewId: string | undefined, query?: IRecordQuery): Record[];
+export function useRecords(viewId: string | undefined, query?: IRecordQuery): DynamicRecord[];
 
 /**
- * 
+ *
  * ## Support for loading the corresponding datasheet data records.
- * 
+ *
  * @param datasheet Datasheet instance, by {@link useDatasheet} get.
  * @param viewId View ID, passing in undefined returns an empty array.
  * @param query query configuration parameters.
  * @returns
- * 
+ *
  * ### Example
  * ```js
  * import { useRecords, useViewsMeta, useDatasheet } from '@apitable/widget-sdk';
@@ -78,47 +79,52 @@ export function useRecords(viewId: string | undefined, query?: IRecordQuery): Re
  * }
  * ```
  */
-export function useRecords(datasheet: Datasheet | undefined, viewId: string | undefined, query?: IRecordQuery): Record[];
+export function useRecords(datasheet: Datasheet | undefined, viewId: string | undefined, query?: IRecordQuery): DynamicRecord[];
 
 /**
  * @internal
  */
 export function useRecords(param1: Datasheet | string | undefined, param2?: IRecordQuery | string, param3?: IRecordQuery) {
   const context = useContext<IWidgetContext>(WidgetContext);
-  const hasDatasheet = param1 instanceof Datasheet;
-  const viewId = hasDatasheet ? param2 as string : param1 as string;
-  const query = hasDatasheet ? param3 as IRecordQuery : param2 as IRecordQuery;
+  const isDatasheet = param1 instanceof Datasheet;
+  const viewId = isDatasheet ? (param2 as string) : (param1 as string);
+  const query = isDatasheet ? (param3 as IRecordQuery) : (param2 as IRecordQuery);
   const { datasheetId: metaDatasheetId } = useMeta();
-  const datasheetId = hasDatasheet ? (param1 as Datasheet).datasheetId : metaDatasheetId;
-
-  const visibleRows = useSelector(state => {
+  const snapshot = useSelector(getSnapshot);
+  const datasheetId = isDatasheet ? (param1 as Datasheet).datasheetId : metaDatasheetId;
+  useReferenceCount(datasheetId, viewId);
+  const getSignatureUrl = useGetSignatureAssertFunc();
+  const visibleRows = useSelector((state) => {
     const snapshot = getWidgetDatasheet(state, datasheetId)?.snapshot;
-    if (!datasheetId || !snapshot || !viewId || isIframe()) {
+    if (!datasheetId || !snapshot || !viewId) {
       return null;
     }
-    const globalState = context.globalStore.getState();
-    const view = getViewById(state, datasheetId, viewId)!;
-    return Selectors.getVisibleRowsBase(globalState, snapshot, view);
-  });
-
-  const iframeVisibleRows = useSelector(state => {
-    const datasheet = getWidgetDatasheet(state, datasheetId);
-    if (!datasheetId || !viewId || !isIframe() || datasheet?.isPartOfData) {
-      return null;
-    }
-    return getVisibleRowsCalcCache(state, datasheetId, viewId);
+    return Selectors.getVisibleRowsWithoutSearch(state as any as IReduxState, datasheetId, viewId);
   });
 
   return useMemo(() => {
-    let _visibleRows = isIframe() ? iframeVisibleRows : visibleRows;
+    let _visibleRows = visibleRows;
     if (!datasheetId || !_visibleRows) return [];
     if (query && 'ids' in query) {
       if (!query.ids) {
         return [];
       }
       const idSet = new Set(query.ids);
-      _visibleRows = _visibleRows.filter(row => idSet.has(row.recordId));
+      _visibleRows = _visibleRows.filter((row) => idSet.has(row.recordId));
     }
-    return _visibleRows.map(row => new Record(datasheetId, context, row.recordId));
-  }, [datasheetId, visibleRows, iframeVisibleRows, query, context]);
+    // secondary filter
+    if (query?.filter) {
+      const { error } = validateOpenFilter(query.filter);
+      if (error) {
+        throw new Error(`filter query validate error: ${error.message}`);
+      }
+      const state = context.widgetStore.getState() as any;
+      const snapshot = getSnapshot(state, datasheetId)!;
+      const filterInfo = parseInnerFilter(query.filter, { state, fieldMap: snapshot.meta.fieldMap }) || undefined;
+      const viewFilterDerivate = new ViewFilterDerivate(state, datasheetId);
+      _visibleRows = viewFilterDerivate.getFilterRowsBase({ filterInfo, rows: _visibleRows, recordMap: snapshot.recordMap });
+    }
+    return _visibleRows.map((row) => new DynamicRecord(datasheetId, context, row.recordId, getSignatureUrl));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [datasheetId, visibleRows, query, context, snapshot]);
 }

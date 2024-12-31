@@ -16,31 +16,31 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import { Button, TextInput } from '@apitable/components';
-import { ConfigConstant, INodeRoleMap, IReduxState, StoreActions, Strings, t } from '@apitable/core';
 import { useMount } from 'ahooks';
-import { useRequest } from 'pc/hooks';
 import classnames from 'classnames';
-import { Message, Tooltip } from 'pc/components/common';
-import { ScreenSize } from 'pc/components/common/component_display';
-// @ts-ignore
-import { isSocialPlatformEnabled } from 'enterprise';
-import { useCatalogTreeRequest, useResponsive, useSpaceRequest, useUserRequest } from 'pc/hooks';
-import { NodeChangeInfoType } from 'pc/hooks/use_catalog';
-import { useInviteRequest } from 'pc/hooks/use_invite_request';
-import { execNoTraceVerification, initNoTraceVerification } from 'pc/utils';
-import { getEnvVariables } from 'pc/utils/env';
 import { FC, useEffect, useState } from 'react';
 import * as React from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import RightArrowIcon from 'static/icon/common/common_icon_right_line.svg';
-import EyeIcon from 'static/icon/signin/signin_icon_display.svg';
+import { useDispatch } from 'react-redux';
+import AutoSizer from 'react-virtualized-auto-sizer';
+import { FixedSizeList as List } from 'react-window';
+import { Button, TextInput } from '@apitable/components';
+import { ConfigConstant, INodeRoleMap, IReduxState, StoreActions, Strings, t } from '@apitable/core';
+import { ChevronRightOutlined, EyeOpenOutlined } from '@apitable/icons';
+// eslint-disable-next-line no-restricted-imports
+import { Message, Tooltip } from 'pc/components/common';
+import { ScreenSize } from 'pc/components/common/component_display';
+import { useCatalogTreeRequest, useResponsive, useSpaceRequest, useUserRequest, useRequest } from 'pc/hooks';
+import { NodeChangeInfoType } from 'pc/hooks/use_catalog';
+import { useInviteRequest } from 'pc/hooks/use_invite_request';
+import { useAppSelector } from 'pc/store/react-redux';
+import { execNoTraceVerification, initNoTraceVerification } from 'pc/utils';
+import { getEnvVariables } from 'pc/utils/env';
 import { MembersDetail } from '../../permission_settings/permission/members_detail';
 import { UnitItem } from '../../permission_settings/permission/unit_item';
 import { TeamTreeSelect } from '../team_tree_select';
+// @ts-ignore
+import { isSocialPlatformEnabled } from 'enterprise/home/social_platform/utils';
 import styles from './style.module.less';
-import { FixedSizeList as List } from 'react-window';
-import AutoSizer from 'react-virtualized-auto-sizer';
 
 export interface ITeamworkProps {
   nodeId: string;
@@ -51,8 +51,8 @@ export const Teamwork: FC<React.PropsWithChildren<ITeamworkProps>> = ({ nodeId, 
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
   const [joinTeamId, setJoinTeamId] = useState('');
-  const treeNodesMap = useSelector((state: IReduxState) => state.catalogTree.treeNodesMap);
-  const socketData = useSelector((state: IReduxState) => state.catalogTree.socketData);
+  const treeNodesMap = useAppSelector((state: IReduxState) => state.catalogTree.treeNodesMap);
+  const socketData = useAppSelector((state: IReduxState) => state.catalogTree.socketData);
   const { getNodeRoleListReq } = useCatalogTreeRequest();
   const { sendInviteReq } = useInviteRequest();
   const { getInviteStatus } = useUserRequest();
@@ -66,7 +66,8 @@ export const Teamwork: FC<React.PropsWithChildren<ITeamworkProps>> = ({ nodeId, 
   const isMobile = screenIsAtMost(ScreenSize.md);
   const dispatch = useDispatch();
   const [secondVerify, setSecondVerify] = useState<null | string>(null);
-  const spaceInfo = useSelector((state: IReduxState) => state.space.curSpaceInfo)!;
+  const spaceInfo = useAppSelector((state: IReduxState) => state.space.curSpaceInfo)!;
+  const spaceId = useAppSelector((state) => state.space.activeId)!;
 
   useMount(() => {
     initNoTraceVerification(setSecondVerify, ConfigConstant.CaptchaIds.LOGIN);
@@ -89,17 +90,17 @@ export const Teamwork: FC<React.PropsWithChildren<ITeamworkProps>> = ({ nodeId, 
     setInviteEmail(value);
   };
 
-  const sendInviteEmail = async(nvcVal?: string) => {
+  const sendInviteEmail = async (nvcVal?: string) => {
     if (secondVerify) {
       setSecondVerify(null);
     }
-    const success = await sendInvite([{ email: inviteEmail, teamId: joinTeamId }], nodeId, nvcVal);
+    const success = await sendInvite(spaceId, [{ email: inviteEmail, teamId: joinTeamId }], nvcVal);
     if (success) {
       Message.success({ content: t(Strings.invite_success) });
     }
   };
 
-  const sendInviteHandler = async() => {
+  const sendInviteHandler = async () => {
     const isExist = await checkEmail(inviteEmail);
     if (isExist) {
       Message.error({ content: t(Strings.invite_email_already_exist) });
@@ -125,13 +126,13 @@ export const Teamwork: FC<React.PropsWithChildren<ITeamworkProps>> = ({ nodeId, 
         {nodeAssignable && getEnvVariables().FILE_PERMISSION_VISIBLE ? (
           <div className={styles.permissionSettingBtn} onClick={() => dispatch(StoreActions.updatePermissionModalNodeId(nodeId))}>
             {t(Strings.permission_setting)}
-            <RightArrowIcon />
+            <ChevronRightOutlined />
           </div>
         ) : (
           <Tooltip title={t(Strings.no_permission_setting)}>
             <div className={classnames(styles.permissionSettingBtn, !nodeAssignable && styles.disable)}>
               {t(Strings.permission_setting)}
-              <RightArrowIcon />
+              <ChevronRightOutlined />
             </div>
           </Tooltip>
         )}
@@ -163,7 +164,7 @@ export const Teamwork: FC<React.PropsWithChildren<ITeamworkProps>> = ({ nodeId, 
           <div className={styles.invite}>
             <div className={styles.inputContainer}>
               <TextInput value={inviteEmail} placeholder={t(Strings.placeholder_input_member_email)} onChange={inviteEmailChange} block />
-              <TeamTreeSelect className={styles.teamTreeSelect} onChange={checkedTeamId => setJoinTeamId(checkedTeamId)} />
+              <TeamTreeSelect className={styles.teamTreeSelect} onChange={(checkedTeamId) => setJoinTeamId(checkedTeamId)} />
             </div>
             <Button
               color="primary"
@@ -178,7 +179,7 @@ export const Teamwork: FC<React.PropsWithChildren<ITeamworkProps>> = ({ nodeId, 
         </div>
       )}
       <div className={styles.jumpBtn} onClick={jumpPublicLink}>
-        <EyeIcon />
+        <EyeOpenOutlined />
         {t(Strings.teamwork_click_here)}
       </div>
       {detailModalVisible && <MembersDetail data={roleList} onCancel={() => setDetailModalVisible(false)} />}

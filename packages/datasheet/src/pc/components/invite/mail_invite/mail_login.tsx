@@ -16,23 +16,26 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import { IReduxState, Strings, t } from '@apitable/core';
 import { useMount } from 'ahooks';
 import classNames from 'classnames';
+import { FC } from 'react';
+import { shallowEqual } from 'react-redux';
+import { IReduxState, Strings, t } from '@apitable/core';
 import { Wrapper } from 'pc/components/common';
 import { ScreenSize } from 'pc/components/common/component_display';
-// @ts-ignore
-import { LoginWithoutOther } from 'enterprise';
+import { PcHome } from 'pc/components/home/pc_home';
 import { useResponsive } from 'pc/hooks';
-import { FC } from 'react';
-import { shallowEqual, useSelector } from 'react-redux';
+import { useAppSelector } from 'pc/store/react-redux';
+import { getEnvVariables } from 'pc/utils/env';
 import { InviteTitle } from '../components';
 import { useInvitePageRefreshed } from '../use_invite';
+// @ts-ignore
+import { LoginWithoutOther } from 'enterprise/home/login/login_without_other';
 import styles from './style.module.less';
 
 const MailLogin: FC<React.PropsWithChildren<unknown>> = () => {
   const { whenPageRefreshed } = useInvitePageRefreshed({ type: 'mailInvite' });
-  const { inviteEmailInfo } = useSelector(
+  const { inviteEmailInfo } = useAppSelector(
     (state: IReduxState) => ({
       inviteEmailInfo: state.invite.inviteEmailInfo,
     }),
@@ -46,7 +49,11 @@ const MailLogin: FC<React.PropsWithChildren<unknown>> = () => {
     whenPageRefreshed();
   });
 
-  return (
+  const { IS_ENTERPRISE } = getEnvVariables();
+
+  return !IS_ENTERPRISE ? (
+    <PcHome />
+  ) : (
     <Wrapper>
       <div className={classNames('invite-children-center', styles.linkInviteLogin)}>
         {inviteEmailInfo && (
@@ -61,10 +68,9 @@ const MailLogin: FC<React.PropsWithChildren<unknown>> = () => {
           />
         )}
         <div className={styles.loginContent}>
-          {
-            LoginWithoutOther &&
+          {LoginWithoutOther && (
             <LoginWithoutOther defaultEmail={inviteEmailInfo ? inviteEmailInfo.data.inviteEmail : ''} submitText={t(Strings.login)} />
-          }
+          )}
         </div>
       </div>
     </Wrapper>

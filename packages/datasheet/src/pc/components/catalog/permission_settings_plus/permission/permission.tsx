@@ -16,28 +16,45 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import { Box, IOption, Skeleton } from '@apitable/components';
-import { Api, ConfigConstant, INodePermissionData, INodeRoleMap, IReduxState, IUnitValue, StoreActions, Strings, t } from '@apitable/core';
 import { useToggle } from 'ahooks';
 import { TriggerCommands } from 'modules/shared/apphook/trigger_commands';
+import { FC, useEffect, useRef, useState } from 'react';
+import { Box, IOption, Skeleton } from '@apitable/components';
+import {
+  Api,
+  ConfigConstant,
+  INodePermissionData,
+  INodeRoleMap,
+  IReduxState,
+  IUnitValue,
+  StoreActions,
+  Strings,
+  t,
+  IRoleMember,
+  MemberType,
+} from '@apitable/core';
 import { Message } from 'pc/components/common/message/message';
 import { Modal } from 'pc/components/common/modal/modal/modal';
 import { UnitPermissionSelect } from 'pc/components/field_permission/unit_permission_select';
 import { useCatalogTreeRequest, useRequest } from 'pc/hooks';
+import { useAppSelector } from 'pc/store/react-redux';
 import { permissionMenuData } from 'pc/utils';
 import { dispatch } from 'pc/worker/store';
-import { FC, useEffect, useRef, useState } from 'react';
-import { useSelector } from 'react-redux';
 import { MembersDetail } from './members_detail';
 import { PermissionInfoSetting } from './permission_info_setting';
-import styles from './style.module.less';
 import { UnitList } from './unit_list';
 // @ts-ignore
-import { SubscribeUsageTipType, triggerUsageAlert } from 'enterprise';
+import { SubscribeUsageTipType, triggerUsageAlert } from 'enterprise/billing/trigger_usage_alert';
+import styles from './style.module.less';
 
 export interface IPermissionSettingProps {
   data: INodePermissionData;
 }
+
+export type IMemberList = IRoleMember & {
+  isWorkbenchAdmin: boolean;
+  isControlOwner: boolean;
+};
 
 type IRoleMap = INodeRoleMap & { belongRootFolder: boolean };
 
@@ -46,14 +63,19 @@ export const Permission: FC<React.PropsWithChildren<IPermissionSettingProps>> = 
   const [isAppointMode, setIsAppointMode] = useState(true);
   // Whether to display the View Member Details modal box
   const [isMemberDetail, { toggle: toggleIsMemberDetail }] = useToggle(false);
-  const ownUnitId = useSelector((state: IReduxState) => state.user.info?.unitId);
-  const { getNodeRoleListReq } = useCatalogTreeRequest();
+  const ownUnitId = useAppSelector((state: IReduxState) => state.user.info?.unitId);
+  const { getNodeRoleListReq, getCollaboratorListPageReq } = useCatalogTreeRequest();
   const { run: getNodeRoleMap, data: roleMap } = useRequest<IRoleMap>(() => getNodeRoleListReq(data.nodeId));
-  const treeNodesMap = useSelector(state => state.catalogTree.treeNodesMap);
+  const treeNodesMap = useAppSelector((state) => state.catalogTree.treeNodesMap);
   const nodeAssignable = treeNodesMap[data.nodeId]?.permissions.nodeAssignable;
   const unitListScroll = useRef<HTMLDivElement>(null);
-  const spaceId = useSelector(state => state.space.activeId)!;
-  const spaceInfo = useSelector(state => state.space.curSpaceInfo);
+  const spaceId = useAppSelector((state) => state.space.activeId)!;
+  const spaceInfo = useAppSelector((state) => state.space.curSpaceInfo);
+  const [pageNo, setPageNo] = useState<number>(1);
+  const [memberList, setMemberList] = useState<IMemberList[]>([]);
+  const { run: getCollaboratorReq, data: collaboratorInfo } = useRequest((pageNo) => getCollaboratorListPageReq(pageNo, data.nodeId), {
+    manual: true,
+  });
 
   useEffect(() => {
     if (!roleMap) {
@@ -75,6 +97,17 @@ export const Permission: FC<React.PropsWithChildren<IPermissionSettingProps>> = 
     // eslint-disable-next-line
   }, [roleMap]);
 
+  useEffect(() => {
+    getCollaboratorReq(pageNo);
+  }, [pageNo, getCollaboratorReq]);
+
+  useEffect(() => {
+    if (collaboratorInfo) {
+      setMemberList([...memberList, ...collaboratorInfo.records]);
+    }
+    // eslint-disable-next-line
+  }, [collaboratorInfo, setMemberList]);
+
   /**
    * Turn off inheritance mode of operation
    * If the permission settings are not currently enabled, you will need to manually invoke them before the following actions can be performed
@@ -84,15 +117,12 @@ export const Permission: FC<React.PropsWithChildren<IPermissionSettingProps>> = 
    * 4. Batch update roles
    * @returns
    */
-  const disableRoleExtend = async() => {
+  const disableRoleExtend = async () => {
     if (!roleMap?.extend) {
       return true;
     }
 
-    const result = triggerUsageAlert(
-      'nodePermissionNums',
-      { usage: spaceInfo!.nodeRoleNums + 1, alwaysAlert: true }, SubscribeUsageTipType.Alert,
-    );
+    const result = triggerUsageAlert('nodePermissionNums', { usage: spaceInfo!.nodeRoleNums + 1, alwaysAlert: true }, SubscribeUsageTipType.Alert);
     if (result) {
       return false;
     }
@@ -109,17 +139,32 @@ export const Permission: FC<React.PropsWithChildren<IPermissionSettingProps>> = 
   };
 
   // Select member submission events
-  const onSubmit = async(unitInfos: IUnitValue[], permission: IOption) => {
+  const onSubmit = async (unitInfos: IUnitValue[], permission: IOption) => {
     if (!unitInfos.length) {
       return;
     }
 
-    const unitIds = unitInfos.map(item => item.unitId);
+    const unitInfosNoGroup = unitInfos.filter((item) => item.type !== MemberType.Group);
+    const unitIdsNoGroup = unitInfosNoGroup.map((item) => item.unitId);
+
+    const unitInfosGroup = unitInfos.filter((item) => item.type === MemberType.Group);
+    const groupIds = unitInfosGroup.map((item) => item.unitId);
     const res = await disableRoleExtend();
     if (!res) {
       return;
     }
-    Api.addRole(data.nodeId, unitIds, permission.value + '').then(async(res) => {
+    groupIds.length > 0 && Api.yachAddRole({ nodeId: data.nodeId, unitIds: groupIds, role: permission.value + '' }).then(async (res) => {
+      const { success, message } = res.data;
+      if (success) {
+        Message.success({ content: t(Strings.permission_add_success) });
+        await getNodeRoleMap();
+        scrollBottom();
+      } else {
+        Message.error({ content: message });
+      }
+    });
+
+    unitIdsNoGroup.length > 0 && Api.addRole(data.nodeId, unitIdsNoGroup, permission.value + '').then(async (res) => {
       const { success, message } = res.data;
       if (success) {
         Message.success({ content: t(Strings.permission_add_success) });
@@ -133,12 +178,12 @@ export const Permission: FC<React.PropsWithChildren<IPermissionSettingProps>> = 
 
   const deleteUnit = (unitId: string) => {
     const isOwn = ownUnitId === unitId;
-    const onOk = async() => {
+    const onOk = async () => {
       const res = await disableRoleExtend();
       if (!res) {
         return;
       }
-      Api.deleteRole(data.nodeId, unitId).then(res => {
+      Api.deleteRole(data.nodeId, unitId).then((res) => {
         const { success } = res.data;
         if (success) {
           Message.success({ content: t(Strings.permission_delete_success) });
@@ -156,12 +201,12 @@ export const Permission: FC<React.PropsWithChildren<IPermissionSettingProps>> = 
     });
   };
 
-  const changeUnitRole = async(unitId: string, role: string) => {
+  const changeUnitRole = async (unitId: string, role: string) => {
     const res = await disableRoleExtend();
     if (!res) {
       return;
     }
-    Api.editRole(data.nodeId, unitId, role).then(res => {
+    Api.editRole(data.nodeId, unitId, role).then((res) => {
       const { success } = res.data;
       if (success) {
         getNodeRoleMap();
@@ -172,16 +217,16 @@ export const Permission: FC<React.PropsWithChildren<IPermissionSettingProps>> = 
     });
   };
 
-  const batchChangeUnitRole = async(role: string) => {
+  const batchChangeUnitRole = async (role: string) => {
     const res = await disableRoleExtend();
     if (!res) {
       return;
     }
-    const unitIds = (roleMap?.roleUnits || []).map(v => v.unitId);
+    const unitIds = (roleMap?.roleUnits || []).map((v) => v.unitId);
     if (!unitIds.length) {
       return;
     }
-    Api.batchEditRole(data.nodeId, unitIds, role).then(res => {
+    Api.batchEditRole(data.nodeId, unitIds, role).then((res) => {
       const { success } = res.data;
       if (success) {
         getNodeRoleMap();
@@ -193,7 +238,7 @@ export const Permission: FC<React.PropsWithChildren<IPermissionSettingProps>> = 
   };
 
   const resetPermission = () => {
-    Api.enableRoleExtend(data.nodeId).then(res => {
+    Api.enableRoleExtend(data.nodeId).then((res) => {
       const { success } = res.data;
       if (success) {
         Message.success({ content: t(Strings.permission_switch_succeed) });
@@ -208,16 +253,16 @@ export const Permission: FC<React.PropsWithChildren<IPermissionSettingProps>> = 
     });
   };
 
-  const batchDeleteRole = async() => {
+  const batchDeleteRole = async () => {
     const res = await disableRoleExtend();
     if (!res) {
       return;
     }
-    const unitIds = (roleMap?.roleUnits || []).map(v => v.unitId);
+    const unitIds = (roleMap?.roleUnits || []).map((v) => v.unitId);
     if (!unitIds.length) {
       return;
     }
-    Api.batchDeleteRole(data.nodeId, unitIds).then(res => {
+    Api.batchDeleteRole(data.nodeId, unitIds).then((res) => {
       const { success } = res.data;
       if (success) {
         Message.success({ content: t(Strings.permission_delete_success) });
@@ -243,39 +288,42 @@ export const Permission: FC<React.PropsWithChildren<IPermissionSettingProps>> = 
     }
   };
 
-  const adminAndOwnerUnitIds = [...roleMap.admins.map(v => v.unitId), roleMap.owner?.unitId || ''];
+  const adminAndOwnerUnitIds = [...roleMap.admins.map((v) => v.unitId), roleMap.owner?.unitId || ''];
 
   const isRootNode = roleMap.belongRootFolder;
   const optionData = permissionMenuData(data.type);
   return (
     <div className={styles.permission}>
       <div className={styles.permissionHeader}>
-        {nodeAssignable &&
+        {nodeAssignable && (
           <div className={styles.mainWrapper}>
             <UnitPermissionSelect
               classNames={styles.permissionSelect}
               permissionList={optionData}
               onSubmit={onSubmit}
               adminAndOwnerUnitIds={adminAndOwnerUnitIds}
+              showGroup
             />
           </div>
-        }
-        <PermissionInfoSetting
-          members={roleMap.members}
-          isExtend={!isAppointMode}
-          resetPermission={resetPermission}
-          toggleIsMemberDetail={toggleIsMemberDetail}
-          defaultRole={optionData}
-          batchEditRole={batchChangeUnitRole}
-          batchDeleteRole={batchDeleteRole}
-          readonly={!nodeAssignable}
-          tipOptions={{
-            extendTips: isRootNode ? t(Strings.inherit_permission_tip_root) : t(Strings.inherit_permission_tip),
-            resetPopConfirmTitle: isRootNode ? t(Strings.close_permission) : t(Strings.reset_permission),
-            resetPopConfirmContent: isRootNode ? t(Strings.close_permission_warning_content) : t(Strings.reset_permission_content),
-            resetPermissionDesc: isRootNode ? t(Strings.reset_permission_desc_root) : t(Strings.reset_permission_desc),
-          }}
-        />
+        )}
+        {collaboratorInfo && (
+          <PermissionInfoSetting
+            totalMember={collaboratorInfo.total}
+            isExtend={!isAppointMode}
+            resetPermission={resetPermission}
+            toggleIsMemberDetail={toggleIsMemberDetail}
+            defaultRole={optionData}
+            batchEditRole={batchChangeUnitRole}
+            batchDeleteRole={batchDeleteRole}
+            readonly={!nodeAssignable}
+            tipOptions={{
+              extendTips: isRootNode ? t(Strings.inherit_permission_tip_root) : t(Strings.inherit_permission_tip),
+              resetPopConfirmTitle: isRootNode ? t(Strings.close_permission) : t(Strings.reset_permission),
+              resetPopConfirmContent: isRootNode ? t(Strings.close_permission_warning_content) : t(Strings.reset_permission_content),
+              resetPermissionDesc: isRootNode ? t(Strings.reset_permission_desc_root) : t(Strings.reset_permission_desc),
+            }}
+          />
+        )}
       </div>
       <div className={styles.scrollContainer} ref={unitListScroll}>
         <UnitList
@@ -289,15 +337,9 @@ export const Permission: FC<React.PropsWithChildren<IPermissionSettingProps>> = 
           readonly={!nodeAssignable}
         />
       </div>
-      {
-        isMemberDetail &&
-        (
-          <MembersDetail
-            data={roleMap}
-            onCancel={toggleIsMemberDetail}
-          />
-        )
-      }
+      {isMemberDetail && (
+        <MembersDetail data={collaboratorInfo} memberList={memberList} setPageNo={setPageNo} onCancel={toggleIsMemberDetail} pageNo={pageNo} />
+      )}
     </div>
   );
 };

@@ -18,25 +18,23 @@
 
 package com.apitable.organization.ro;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
+import jakarta.validation.constraints.NotEmpty;
 import java.util.List;
-
-import javax.validation.constraints.NotEmpty;
-
-import io.swagger.annotations.ApiModel;
-import io.swagger.annotations.ApiModelProperty;
 import lombok.Data;
 
 /**
  * <p>
- *      Add role members request parameter
+ * Add role members request parameter.
  * </p>
  */
 @Data
-@ApiModel("Add role members request")
+@Schema(description = "Add role members request")
 public class AddRoleMemberRo {
 
     @NotEmpty
-    @ApiModelProperty(value = "team or member", required = true, position = 1)
+    @Schema(description = "team or member", requiredMode = RequiredMode.REQUIRED)
     private List<RoleMemberUnitRo> unitList;
 
 }

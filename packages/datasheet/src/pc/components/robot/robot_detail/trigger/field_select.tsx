@@ -16,57 +16,12 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import { ITheme, Select, useTheme } from '@apitable/components';
+import { ITheme, DropdownSelect as Select, useTheme } from '@apitable/components';
 import { FieldType, IField } from '@apitable/core';
-import {
-  AccountFilled, ColumnAttachmentFilled,
-  ColumnAutonumberFilled,
-  ColumnCalendarFilled, ColumnCheckboxFilled,
-  ColumnCreatedbyFilled,
-  ColumnCreatedtimeFilled,
-  ColumnCurrencyFilled,
-  ColumnEmailFilled,
-  ColumnFigureFilled, ColumnFormulaFilled,
-  ColumnLastmodifiedbyFilled, ColumnLastmodifiedtimeFilled,
-  ColumnLinktableFilled,
-  ColumnLongtextFilled,
-  ColumnLookupFilled, ColumnMultipleFilled, ColumnPercentFilled,
-  ColumnPhoneFilled,
-  ColumnRatingFilled, ColumnSingleFilled, ColumnTextFilled,
-  ColumnUrlOutlined,
-  LockFilled
-} from '@apitable/icons';
-
-const FieldIconMap = {
-  [FieldType.DeniedField]: LockFilled,
-  [FieldType.Text]: ColumnLongtextFilled,
-  [FieldType.Number]: ColumnFigureFilled,
-  [FieldType.SingleSelect]: ColumnSingleFilled,
-  [FieldType.MultiSelect]: ColumnMultipleFilled,
-  [FieldType.DateTime]: ColumnCalendarFilled,
-  [FieldType.Attachment]: ColumnAttachmentFilled,
-  [FieldType.Link]: ColumnLinktableFilled,
-  [FieldType.URL]: ColumnUrlOutlined,
-  [FieldType.Email]: ColumnEmailFilled,
-  [FieldType.Phone]: ColumnPhoneFilled,
-  [FieldType.Checkbox]: ColumnCheckboxFilled,
-  [FieldType.Rating]: ColumnRatingFilled,
-  [FieldType.Member]: AccountFilled,
-  [FieldType.LookUp]: ColumnLookupFilled,
-  [FieldType.Formula]: ColumnFormulaFilled,
-  [FieldType.Currency]: ColumnCurrencyFilled,
-  [FieldType.Percent]: ColumnPercentFilled,
-  [FieldType.SingleText]: ColumnTextFilled,
-  [FieldType.AutoNumber]: ColumnAutonumberFilled,
-  [FieldType.CreatedTime]: ColumnCreatedtimeFilled,
-  [FieldType.LastModifiedTime]: ColumnLastmodifiedtimeFilled,
-  [FieldType.CreatedBy]: ColumnCreatedbyFilled,
-  [FieldType.LastModifiedBy]: ColumnLastmodifiedbyFilled,
-};
+import { FieldIconMapFieldType as FieldIconMap } from '@apitable/widget-sdk';
 
 const transformOptions = (fields: IField[], theme: ITheme) => {
-
-  return fields.map(field => {
+  return fields.map((field) => {
     const res = {
       label: field.name,
       value: field.id,
@@ -75,7 +30,7 @@ const transformOptions = (fields: IField[], theme: ITheme) => {
     return {
       ...res,
       disabled: field.type === FieldType.DeniedField,
-      prefixIcon: <FieldIcon color={theme.palette.text.third} />,
+      prefixIcon: <FieldIcon color={theme.color.fc3} />,
     };
   });
 };
@@ -83,13 +38,15 @@ const transformOptions = (fields: IField[], theme: ITheme) => {
 interface IFieldSelectProps {
   fields: IField[];
   value: string;
+  disabled?: boolean;
   onChange?: (value: any) => void;
 }
-export const FieldSelect = ({ fields, value, onChange }: IFieldSelectProps) => {
+export const FieldSelect = ({ disabled, fields, value, onChange }: IFieldSelectProps) => {
   const theme = useTheme();
   const options = transformOptions(fields, theme);
-  return <>
+  return (
     <Select
+      disabled={disabled}
       options={options}
       value={value}
       onSelected={(option) => {
@@ -104,5 +61,5 @@ export const FieldSelect = ({ fields, value, onChange }: IFieldSelectProps) => {
       dropdownMatchSelectWidth
       openSearch={options.length > 7}
     />
-  </>;
+  );
 };

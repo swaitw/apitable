@@ -16,23 +16,33 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import { useMemo } from 'react';
 // FIXME:THEME
-import { colors } from '@apitable/components';
-import BronzeCardBg from 'static/icon/space/img_bronze.png';
-import SilverCardBg from 'static/icon/space/img_silver.png';
-import GoldenCardBg from 'static/icon/space/img_golden.png';
-import EnterpriseCardBg from 'static/icon/space/img_enterprise.png';
-import EnterpriseCardSkin from 'static/icon/space/img_enterprise_skin.png';
-import GoldenCardSkin from 'static/icon/space/img_golden_skin.png';
-import SilverCardSkin from 'static/icon/space/img_silver_skin.png';
-import BronzeCardSkin from 'static/icon/space/img_bronze_skin.png';
 import cx from 'classnames';
+import { useMemo } from 'react';
+import { colors } from '@apitable/components';
+import { Strings, t } from '@apitable/core';
 // import { showSeatsUpgrading, showLevelCompare, showLevelRenewing } from 'pc/components/subscription';
-import { BronzeFilled, SilverFilled, GoldFilled, EnterpriseFilled } from '@apitable/icons';
+import {
+  BronzeDarkFilled,
+  BronzeLightFilled,
+  EnterpriseDarkFilled,
+  EnterpriseLightFilled,
+  GoldDarkFilled,
+  GoldLightFilled,
+  SilverDarkFilled,
+  SilverLightFilled,
+} from '@apitable/icons';
+import { ThemeIcon } from 'pc/components/common/theme_icon/theme_icon';
+import BronzeCardBg from 'static/icon/space/bronze_card_bg.png';
+import BronzeCardSkin from 'static/icon/space/bronze_card_medal.png';
+import EnterpriseCardBg from 'static/icon/space/enterprise_card_bg.png';
+import EnterpriseCardSkin from 'static/icon/space/enterprise_card_medal.png';
+import GoldenCardBg from 'static/icon/space/gold_card_bg.png';
+import GoldenCardSkin from 'static/icon/space/gold_card_medal.png';
+import SilverCardBg from 'static/icon/space/silver_card_bg.png';
+import SilverCardSkin from 'static/icon/space/silver_card_medal.png';
 import { ISpaceLevelInfo, ISpaceLevelInfoValue, ISpaceLevelType, Position } from './interface';
 import styles from './style.module.less';
-import { Strings, t } from '@apitable/core';
 
 export const DELETE_SPACE_CONTEXT_MENU_ID = 'DELETE_SPACE_CONTEXT_MENU_ID';
 
@@ -58,7 +68,7 @@ const bronzeAndFree = {
   secondTextColor: `${colors.bronzeFg}CC`,
   skinStyle: {
     right: 16,
-    top: 0,
+    top: 16,
     width: '68px',
     height: '82px',
   },
@@ -67,15 +77,14 @@ const bronzeAndFree = {
   cardSkin: BronzeCardSkin,
   upgradeBtnColor: undefined,
   expirationColor: undefined,
-  logo: <BronzeFilled size={24} />,
+  logo: <ThemeIcon darkIcon={<BronzeDarkFilled size={20} />} lightIcon={<BronzeLightFilled size={20} />} />,
   getLabel: (text: string) => {
-    return <span className={cx(styles.spaceLevelTag, styles.bronzeTag)}>
-    <span className={styles.icon}>
-      <BronzeFilled size={16} />
-    </span>
-    <span className={styles.text}>{text}</span>
-  </span>;
-  }
+    return (
+      <span className={cx(styles.spaceLevelTag, styles.bronzeTag)}>
+        <span className={styles.text}>{text}</span>
+      </span>
+    );
+  },
 };
 
 const silverAndPlus = {
@@ -92,17 +101,16 @@ const silverAndPlus = {
   expirationColor: undefined,
   skinStyle: {
     right: 16,
-    top: 0,
+    top: 16,
     width: '68px',
     height: '82px',
   },
-  logo: <SilverFilled size={24} />,
-  getLabel: (text: string) => <span className={cx(styles.spaceLevelTag, styles.silverTag)}>
-    <span className={styles.icon}>
-      <SilverFilled size={16} />
+  logo: <ThemeIcon darkIcon={<SilverDarkFilled size={20} />} lightIcon={<SilverLightFilled size={20} />} />,
+  getLabel: (text: string) => (
+    <span className={cx(styles.spaceLevelTag, styles.silverTag)}>
+      <span className={styles.text}>{text}</span>
     </span>
-    <span className={styles.text}>{text}</span>
-  </span>,
+  ),
 };
 
 const goldenAndPro = {
@@ -119,23 +127,23 @@ const goldenAndPro = {
   upgradeBtnColor: undefined,
   skinStyle: {
     right: 16,
-    top: 0,
+    top: 16,
     width: '68px',
     height: '82px',
   },
-  logo: <GoldFilled size={24} />,
-  getLabel: (text: string) => <span className={cx(styles.spaceLevelTag, styles.goldTag)}>
-    <span className={styles.icon}>
-      <GoldFilled size={16} />
+  logo: <ThemeIcon darkIcon={<GoldDarkFilled size={20} />} lightIcon={<GoldLightFilled size={20} />} />,
+  getLabel: (text: string) => (
+    <span className={cx(styles.spaceLevelTag, styles.goldTag)}>
+      <span className={styles.text}>{text}</span>
     </span>
-    <span className={styles.text}>{text}</span>
-  </span>,
+  ),
 };
 const LevelConfigMap = {
   bronze: bronzeAndFree,
   free: bronzeAndFree,
   silver: silverAndPlus,
   plus: silverAndPlus,
+  starter: silverAndPlus,
   golden: goldenAndPro,
   pro: goldenAndPro,
   enterprise: {
@@ -153,23 +161,22 @@ const LevelConfigMap = {
     expirationColor: undefined,
     skinStyle: {
       right: 16,
-      top: 16,
-      height: 80,
-      width: 80,
+      top: 0,
+      width: '68px',
+      height: '82px',
     },
-    logo: <EnterpriseFilled size={24} />,
-    getLabel: (text: string) => <span className={cx(styles.spaceLevelTag, styles.enterpriseTag)}>
-      <span className={styles.icon}>
-        <EnterpriseFilled size={16} />
+    logo: <ThemeIcon darkIcon={<EnterpriseDarkFilled size={20} />} lightIcon={<EnterpriseLightFilled size={20} />} />,
+    getLabel: (text: string) => (
+      <span className={cx(styles.spaceLevelTag, styles.enterpriseTag)}>
+        <span className={styles.text}>{text}</span>
       </span>
-      <span className={styles.text}>{text}</span>
-    </span>,
+    ),
   },
 };
 
 const getSpaceConfig = (
   spaceLevel: keyof typeof LevelConfigMap,
-  texts: { title: string, titleTip: string, tagText: string, buttonText: string },
+  texts: { title: string; titleTip: string; tagText: string; buttonText: string },
 ): ISpaceLevelInfoValue => {
   const config = LevelConfigMap[spaceLevel];
   const { title, titleTip, tagText, buttonText } = texts;
@@ -217,6 +224,12 @@ export const SpaceLevelInfo: ISpaceLevelInfo = {
   }),
   plus: getSpaceConfig('plus', {
     title: t(Strings.subscribe_grade_plus),
+    titleTip: t(Strings.grade_desc),
+    buttonText: t(Strings.upgrade),
+    tagText: t(Strings.paid_edition),
+  }),
+  starter: getSpaceConfig('starter', {
+    title: t(Strings.subscribe_grade_starter),
     titleTip: t(Strings.grade_desc),
     buttonText: t(Strings.upgrade),
     tagText: t(Strings.paid_edition),
@@ -276,6 +289,12 @@ export const SpaceLevelInfo: ISpaceLevelInfo = {
     buttonText: t(Strings.renew),
     tagText: t(Strings.paid_edition),
   }),
+  business: getSpaceConfig('enterprise', {
+    title: t(Strings.subscribe_grade_business),
+    titleTip: t(Strings.grade_desc),
+    buttonText: t(Strings.renew),
+    tagText: t(Strings.paid_edition),
+  }),
   dingtalk_enterprise: getSpaceConfig('enterprise', {
     title: t(Strings.dingtalk_enterprise),
     titleTip: t(Strings.dingtalk_grade_desc),
@@ -327,6 +346,66 @@ export const SpaceLevelInfo: ISpaceLevelInfo = {
     buttonText: t(Strings.renew),
     tagText: t(Strings.paid_edition),
   }),
+  appsumo_tier1: getSpaceConfig('enterprise', {
+    title: 'AppSumo Tier 1',
+    titleTip: t(Strings.app_sumo_plan_desc),
+    buttonText: t(Strings.renew),
+    tagText: t(Strings.paid_edition),
+  }),
+  appsumo_tier2: getSpaceConfig('enterprise', {
+    title: 'AppSumo Tier 2',
+    titleTip: t(Strings.app_sumo_plan_desc),
+    buttonText: t(Strings.renew),
+    tagText: t(Strings.paid_edition),
+  }),
+  appsumo_tier3: getSpaceConfig('enterprise', {
+    title: 'AppSumo Tier 3',
+    titleTip: t(Strings.app_sumo_plan_desc),
+    buttonText: t(Strings.renew),
+    tagText: t(Strings.paid_edition),
+  }),
+  appsumo_tier4: getSpaceConfig('enterprise', {
+    title: 'AppSumo Tier 4',
+    titleTip: t(Strings.app_sumo_plan_desc),
+    buttonText: t(Strings.renew),
+    tagText: t(Strings.paid_edition),
+  }),
+  appsumo_tier5: getSpaceConfig('enterprise', {
+    title: 'AppSumo Tier 5',
+    titleTip: t(Strings.app_sumo_plan_desc),
+    buttonText: t(Strings.renew),
+    tagText: t(Strings.paid_edition),
+  }),
+  'exclusive limited tier 1': getSpaceConfig('enterprise', {
+    title: 'Exclusive Limited Tier 1',
+    titleTip: t(Strings.exclusive_limit_plan_desc),
+    buttonText: t(Strings.renew),
+    tagText: t(Strings.paid_edition),
+  }),
+  'exclusive limited tier 2': getSpaceConfig('enterprise', {
+    title: 'Exclusive Limited Tier 2',
+    titleTip: t(Strings.exclusive_limit_plan_desc),
+    buttonText: t(Strings.renew),
+    tagText: t(Strings.paid_edition),
+  }),
+  'exclusive limited tier 3': getSpaceConfig('enterprise', {
+    title: 'Exclusive Limited Tier 3',
+    titleTip: t(Strings.exclusive_limit_plan_desc),
+    buttonText: t(Strings.renew),
+    tagText: t(Strings.paid_edition),
+  }),
+  'exclusive limited tier 4': getSpaceConfig('enterprise', {
+    title: 'Exclusive Limited Tier 4',
+    titleTip: t(Strings.exclusive_limit_plan_desc),
+    buttonText: t(Strings.renew),
+    tagText: t(Strings.paid_edition),
+  }),
+  'exclusive limited tier 5': getSpaceConfig('enterprise', {
+    title: 'Exclusive Limited Tier 5',
+    titleTip: t(Strings.exclusive_limit_plan_desc),
+    buttonText: t(Strings.renew),
+    tagText: t(Strings.paid_edition),
+  }),
   atlas: getSpaceConfig('golden', {
     title: t(Strings.atlas),
     titleTip: t(Strings.atlas_grade_desc),
@@ -344,3 +423,7 @@ export const useLevelInfo = (level: ISpaceLevelType, expiration?: string | null)
   }, [level, expiration]);
 };
 
+export const isExclusiveLimitedProduct = (plan: string | undefined) => {
+  if (typeof plan !== 'string') return false;
+  return plan.toLowerCase().includes('exclusive limited tier');
+};

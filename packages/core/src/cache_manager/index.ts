@@ -17,24 +17,25 @@
  */
 
 import { computeCache } from 'compute_manager/compute_cache_manager';
-import { ExpCache } from 'formula_parser';
-import { IReduxState, ISnapshot, Selectors } from '../exports/store';
-import { getCurrentView, getFilterInfoBase, getFilterInfo, getFieldMap, getFieldMapIgnorePermission, getPureVisibleRows, getVisibleColumns
-  , getCalendarVisibleColumns, getOrgChartVisibleColumns, getGanttVisibleColumns } from '../exports/store/selectors';
+import { ExpCache } from 'formula_parser/evaluate';
+import type { IReduxState, ISnapshot } from 'exports/store/interfaces';
+import { calcCellValueAndString } from 'modules/database/store/selectors/resource/datasheet/cell_calc';
+import { getFilterInfo } from 'modules/database/store/selectors/resource/datasheet/rows_calc';
+import { getCurrentView, getFieldMap, getFieldMapIgnorePermission, getVisibleColumns
+  , getCalendarVisibleColumns, getOrgChartVisibleColumns, getGanttVisibleColumns } from 'modules/database/store/selectors/resource/datasheet/calc';
 import { cache, ICellValueData } from './cache';
 
 export { NO_CACHE } from './cache';
-export { visibleRowsBaseCacheManage } from './rows_cache';
 
 export const CacheManager = {
   calcDsCache: (state: IReduxState, snapshot: ISnapshot) => {
-    const { datasheetId, recordMap, meta: { fieldMap }} = snapshot;
+    const { datasheetId, recordMap, meta: { fieldMap } } = snapshot;
     if (!datasheetId) {
       return;
     }
     for (const fieldId in fieldMap) {
       for (const recordId in recordMap) {
-        const cellCache = Selectors.calcCellValueAndString({
+        const cellCache = calcCellValueAndString({
           state,
           snapshot,
           fieldId,
@@ -88,11 +89,9 @@ export const clearComputeCache = (dstId?: string) => {
  */
 export const clearCachedSelectors = ():void => {
   getCurrentView.clearCache();
-  getFilterInfoBase.clearCache();
   getFilterInfo.clearCache();
   getFieldMap.clearCache();
   getFieldMapIgnorePermission.clearCache();
-  getPureVisibleRows.clearCache();
   getVisibleColumns.clearCache();
   getCalendarVisibleColumns.clearCache();
   getOrgChartVisibleColumns.clearCache();

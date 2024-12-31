@@ -16,18 +16,20 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import { IAttachmentValue, ILinkIds, IMultiSelectedIds, ISegment, ITimestamp, IUnitIds } from 'types/field_types';
+import { IAttachmentValue, ILinkIds, IMultiSelectedIds, ISegment, ITimestamp, IUnitIds, IWorkDocValue } from 'types/field_types';
 
-export type ICellValueBase = null |
-  number |
-  string |
-  boolean |
-  ISegment[] |
-  IMultiSelectedIds |
-  ITimestamp |
-  IAttachmentValue[] |
-  ILinkIds |
-  IUnitIds;
+export type ICellValueBase =
+  | null
+  | number
+  | string
+  | boolean
+  | ISegment[]
+  | IMultiSelectedIds
+  | ITimestamp
+  | IAttachmentValue[]
+  | IWorkDocValue[]
+  | ILinkIds
+  | IUnitIds;
 
 // LookUp value is another entity field cell value flat array
 export type ILookUpValue = ICellValueBase[];

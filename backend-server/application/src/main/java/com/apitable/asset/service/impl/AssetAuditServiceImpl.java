@@ -18,21 +18,11 @@
 
 package com.apitable.asset.service.impl;
 
-import java.net.URL;
-import java.util.List;
-import java.util.concurrent.TimeUnit;
-
-import javax.annotation.Resource;
+import static com.apitable.user.enums.UserException.DING_USER_UNKNOWN;
 
 import cn.hutool.core.util.BooleanUtil;
 import cn.hutool.core.util.ObjectUtil;
 import cn.hutool.core.util.StrUtil;
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
-import com.baomidou.mybatisplus.core.metadata.IPage;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import lombok.extern.slf4j.Slf4j;
-
 import com.apitable.asset.entity.AssetAuditEntity;
 import com.apitable.asset.enums.AssetAuditType;
 import com.apitable.asset.mapper.AssetAuditMapper;
@@ -49,19 +39,26 @@ import com.apitable.shared.config.properties.ConstProperties;
 import com.apitable.shared.config.properties.ConstProperties.OssBucketInfo;
 import com.apitable.shared.context.SessionContext;
 import com.apitable.starter.oss.core.OssClientTemplate;
-
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import jakarta.annotation.Resource;
+import java.net.URL;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
-import static com.apitable.user.enums.UserException.DING_USER_UNKNOWN;
-
 /**
- * Basics-Attachment Audit Form Service Implementation Class
+ * Basics-Attachment Audit Form Service Implementation Class.
  */
 @Service
 @Slf4j
-public class AssetAuditServiceImpl extends ServiceImpl<AssetAuditMapper, AssetAuditEntity> implements IAssetAuditService {
+public class AssetAuditServiceImpl extends ServiceImpl<AssetAuditMapper, AssetAuditEntity>
+    implements IAssetAuditService {
 
     @Autowired(required = false)
     private OssClientTemplate ossTemplate;
@@ -76,16 +73,16 @@ public class AssetAuditServiceImpl extends ServiceImpl<AssetAuditMapper, AssetAu
     private RedisTemplate<String, Object> redisTemplate;
 
     /**
-     * illegal asset placeholder png
+     * illegal asset placeholder png.
      */
     private static final String ASSETS_PUBLIC_PLACEHOLDER = "/public/placeholder.png";
 
     @Override
     public void create(Long assetId, String checksum, String uploadPath) {
         AssetAuditEntity assetAudit = AssetAuditEntity.builder()
-                .assetId(assetId)
-                .assetChecksum(checksum)
-                .assetFileUrl(uploadPath).build();
+            .assetId(assetId)
+            .assetChecksum(checksum)
+            .assetFileUrl(uploadPath).build();
         boolean createFlag = save(assetAudit);
         ExceptionUtil.isTrue(createFlag, DatabaseException.INSERT_ERROR);
     }
@@ -97,19 +94,21 @@ public class AssetAuditServiceImpl extends ServiceImpl<AssetAuditMapper, AssetAu
             String fileUrl = result.getInputKey();
             // Query the image record of the asset according to the Key
             QueryWrapper<AssetAuditEntity> wrapper = new QueryWrapper<AssetAuditEntity>()
-                    .eq("asset_file_url", fileUrl);
+                .eq("asset_file_url", fileUrl);
             AssetAuditEntity assetAudit = this.getOne(wrapper);
             List<AttachAuditItemsRo> itemList = result.getItems();
             for (AttachAuditItemsRo items : itemList) {
                 // get the audit results and save the database
-                AttachAuditPulpResultRo attachAuditPulpResult = items.getResult().getResult().getScenes().getPulp();
+                AttachAuditPulpResultRo attachAuditPulpResult =
+                    items.getResult().getResult().getScenes().getPulp();
                 if (ObjectUtil.isNotNull(assetAudit)) {
                     assetAudit.setAuditResultSuggestion(attachAuditPulpResult.getSuggestion())
-                            .setAuditScenes(attachAuditPulpResult.getResult().getLabel())
-                            .setAuditResultScore(attachAuditPulpResult.getResult().getScore());
+                        .setAuditScenes(attachAuditPulpResult.getResult().getLabel())
+                        .setAuditResultScore(attachAuditPulpResult.getResult().getScore());
                     this.updateById(assetAudit);
                 }
-                // Process block type images, and replace the images stored in the OSS cloud with [placeholder image]
+                // Process block type images,
+                // and replace the images stored in the OSS cloud with [placeholder image]
                 replaceOssImage(attachAuditPulpResult.getSuggestion(), fileUrl);
             }
         }
@@ -118,8 +117,7 @@ public class AssetAuditServiceImpl extends ServiceImpl<AssetAuditMapper, AssetAu
     @Override
     public IPage<AssetsAuditVo> readReviews(Page page) {
         log.info("query the list of pictures that need manual review");
-        IPage<AssetsAuditVo> assetsAuditList = assetAuditMapper.getArtificialAssetsAuditList(page);
-        return assetsAuditList;
+        return assetAuditMapper.getArtificialAssetsAuditList(page);
     }
 
     @Override
@@ -130,36 +128,31 @@ public class AssetAuditServiceImpl extends ServiceImpl<AssetAuditMapper, AssetAu
         String auditorName = SessionContext.getDingtalkUserName();
         ExceptionUtil.isNotNull(auditorUserId, DING_USER_UNKNOWN);
         List<AssetsAuditOpRo> assetlist = results.getAssetlist();
-        String[] urls = new String[assetlist.size()];
-        String resourceUrl = constProperties.getOssBucketByAsset().getResourceUrl();
-        int i = 0;
         if (ObjectUtil.isAllNotEmpty(assetlist)) {
             for (AssetsAuditOpRo op : assetlist) {
                 // Update database manual review results
-                boolean flag = assetAuditMapper.updateByAssetId(op.getAssetFileUrl(), op.getAuditResultSuggestion(), auditorName, auditorUserId);
+                boolean flag = assetAuditMapper.updateByAssetId(op.getAssetFileUrl(),
+                    op.getAuditResultSuggestion(), auditorName, auditorUserId);
                 ExceptionUtil.isTrue(flag, DatabaseException.EDIT_ERROR);
-                // If the manual review result fails, replace the image stored in the OSS cloud with [placeholder image]
+                // If the manual review result fails,
+                // replace the image stored in the OSS cloud with [placeholder image]
                 replaceOssImage(op.getAuditResultSuggestion(), op.getAssetFileUrl());
-                urls[i] = resourceUrl + "/" + op.getAssetFileUrl();
-                i++;
             }
-            // flush cdn cache
-            // String bucketName = constProperties.getOssBucketName();
-            // ossTemplate.refreshCdn(bucketName, urls);
         }
     }
 
-    public void replaceOssImage(String suggestion, String fileUrl) {
+    private void replaceOssImage(String suggestion, String fileUrl) {
         // process the result of the image machine review
         if (StrUtil.equals(suggestion, AssetAuditType.BLOCK.getValue())) {
-            // Prevent multiple callbacks for abnormal image review, resulting in repeated overwriting and uploading
+            // Prevent multiple callbacks for abnormal image review,
+            // resulting in repeated overwriting and uploading
             Boolean lock = redisTemplate.opsForValue().setIfAbsent(fileUrl, 1, 2, TimeUnit.HOURS);
             if (BooleanUtil.isFalse(lock)) {
                 return;
             }
             OssBucketInfo asset = constProperties.getOssBucketByAsset();
-            // For block type images, the images stored in the OSS cloud storage are replaced with [placeholder
-            // images], which are illegal images.
+            // For block type images, the images stored in the OSS cloud storage are replaced
+            // with [placeholder images], which are illegal images.
             String unNameImage = asset.getResourceUrl() + ASSETS_PUBLIC_PLACEHOLDER;
             try {
                 URL url = new URL(unNameImage);
@@ -167,11 +160,10 @@ public class AssetAuditServiceImpl extends ServiceImpl<AssetAuditMapper, AssetAu
                 ossTemplate.upload(bucketName, url.openStream(), fileUrl);
                 // flush cdn cache
                 String fullFileUrl = asset.getResourceUrl() + "/" + fileUrl;
-                String[] urls = { fullFileUrl };
+                String[] urls = {fullFileUrl};
                 ossTemplate.refreshCdn(bucketName, urls);
-            }
-            catch (Exception e) {
-                e.printStackTrace();
+            } catch (Exception e) {
+                log.error("upload placeholder image error", e);
             }
         }
     }

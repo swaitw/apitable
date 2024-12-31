@@ -16,40 +16,42 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import { Box, LinkButton, TextButton, Typography, useThemeColors } from '@apitable/components';
-import { IRoleMember, Strings, t } from '@apitable/core';
-import { ChevronDownOutlined, ChevronUpOutlined, LockOutlined, MultiplemembersFilled } from '@apitable/icons';
 import { Dropdown } from 'antd';
 import classNames from 'classnames';
+import { useState } from 'react';
+import { Box, LinkButton, TextButton, Typography, useThemeColors } from '@apitable/components';
+import { Strings, t } from '@apitable/core';
+import { ChevronDownOutlined, ChevronUpOutlined, LockOutlined, UserGroupOutlined } from '@apitable/icons';
 import { ScreenSize } from 'pc/components/common/component_display';
 import { Popconfirm } from 'pc/components/common/popconfirm';
 import { useResponsive } from 'pc/hooks';
-import { useState } from 'react';
 import { Menu, MenuItem } from './menu';
-import styles from './style.module.less';
 import { IRoleOption } from './unit_item/interface';
 import { PermissionSelectMobile } from './unit_item/permission_select_mobile';
+import styles from './style.module.less';
 
-export const PermissionInfoSetting: React.FC<React.PropsWithChildren<{
-  isExtend?: boolean;
-  members: IRoleMember[];
-  defaultRole: IRoleOption[];
-  className?: string;
-  readonly?: boolean;
-  tipOptions: {
-    extendTips: string;
-    resetPopConfirmTitle: string;
-    resetPopConfirmContent: string;
-    resetPermissionDesc: string;
-  };
-  resetPermission: () => void;
-  toggleIsMemberDetail: () => void;
-  batchEditRole?: (role: string) => void;
-  batchDeleteRole?: () => void;
-}>> = props => {
+export const PermissionInfoSetting: React.FC<
+  React.PropsWithChildren<{
+    isExtend?: boolean;
+    totalMember: number;
+    defaultRole: IRoleOption[];
+    className?: string;
+    readonly?: boolean;
+    tipOptions: {
+      extendTips: string;
+      resetPopConfirmTitle: string;
+      resetPopConfirmContent: string;
+      resetPermissionDesc: string;
+    };
+    resetPermission: () => void;
+    toggleIsMemberDetail: () => void;
+    batchEditRole?: (role: string) => void;
+    batchDeleteRole?: () => void;
+  }>
+> = (props) => {
   const {
     isExtend,
-    members,
+    totalMember,
     defaultRole,
     className,
     tipOptions,
@@ -70,7 +72,7 @@ export const PermissionInfoSetting: React.FC<React.PropsWithChildren<{
       <div className={styles.tipContainer}>
         {isExtend ? (
           <Box>
-            <MultiplemembersFilled className={styles.tipIcon} color={colors.textCommonTertiary} />
+            <UserGroupOutlined className={styles.tipIcon} color={colors.textCommonTertiary} />
             <Typography variant="body3" className={styles.tip} color={colors.textCommonSecondary}>
               {extendTips}
             </Typography>
@@ -108,7 +110,7 @@ export const PermissionInfoSetting: React.FC<React.PropsWithChildren<{
         <div className={styles.viewByPersonBtn} onClick={() => toggleIsMemberDetail()}>
           <Typography variant="body3" color={colors.textCommonSecondary}>
             {t(Strings.share_and_permission_member_detail, {
-              count: members.length,
+              count: totalMember,
             })}
           </Typography>
         </div>
@@ -155,7 +157,7 @@ const BatchSetting = (props: { defaultRole: IRoleOption[]; onClick?: (role: stri
       overlay={
         <div style={{ maxWidth: '240px' }}>
           <Menu onClick={() => setBatchSelectVisible(false)}>
-            {defaultRole.map(v => (
+            {defaultRole.map((v) => (
               <MenuItem key={v.value} item={v} onClick={onClick} />
             ))}
             {onRemove && (
@@ -174,7 +176,13 @@ const BatchSetting = (props: { defaultRole: IRoleOption[]; onClick?: (role: stri
       visible={batchSelectVisible}
       onVisibleChange={setBatchSelectVisible}
     >
-      <TextButton size="small" suffixIcon={batchSelectVisible ? <ChevronUpOutlined /> : <ChevronDownOutlined />}>
+      <TextButton
+        size="small"
+        suffixIcon={batchSelectVisible ? <ChevronUpOutlined size={12} /> : <ChevronDownOutlined size={12} />}
+        style={{
+          fontSize: 13,
+        }}
+      >
         {t(Strings.batch_edit_permission)}
       </TextButton>
     </Dropdown>

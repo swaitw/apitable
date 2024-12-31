@@ -16,11 +16,11 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+import { batchActions } from 'redux-batched-actions';
 import { ResourceType, StoreActions } from '@apitable/core';
 import { resourceService } from 'pc/resource_service';
 import { store } from 'pc/store';
 import { getStorage, StorageName } from 'pc/utils/storage';
-import { batchActions } from 'redux-batched-actions';
 import { expandRecordManager } from '../../../modules/database/expand_record_manager';
 
 let mirrorId: string | undefined;
@@ -28,14 +28,22 @@ let mirrorId: string | undefined;
 store.subscribe(function datasheetIdChange() {
   const state = store.getState();
   const spaceId = state.space.activeId || state.share.spaceId;
-  const { shareId, templateId } = state.pageParams;
-  if (!spaceId && !shareId && !templateId) {
+  const { shareId, templateId, embedId } = state.pageParams;
+
+  if (!spaceId && !shareId && !templateId && !embedId) {
     return;
   }
-  if ((shareId && (!spaceId || !resourceService.instance?.initialized))) {
+
+  if (shareId && (!spaceId || !resourceService.instance?.initialized)) {
     return;
   }
+
+  if (embedId && (!resourceService.instance?.initialized || !state.embedInfo?.spaceId)) {
+    return;
+  }
+
   const previousMirrorId = mirrorId;
+
   mirrorId = state.pageParams.mirrorId;
 
   if (!mirrorId || previousMirrorId === mirrorId) {
@@ -58,7 +66,10 @@ store.subscribe(function datasheetIdChange() {
 
   expandRecordManager.destroy();
 
-  resourceService.instance?.initialized && resourceService.instance!.switchResource({
-    from: previousMirrorId, to: mirrorId, resourceType: ResourceType.Mirror,
-  });
+  resourceService.instance?.initialized &&
+    resourceService.instance!.switchResource({
+      from: previousMirrorId,
+      to: mirrorId,
+      resourceType: ResourceType.Mirror,
+    });
 });

@@ -33,7 +33,6 @@ import dayOfYear from 'dayjs/plugin/dayOfYear';
 import customParseFormat from 'dayjs/plugin/customParseFormat';
 import localizedFormat from 'dayjs/plugin/localizedFormat';
 import isoWeek from 'dayjs/plugin/isoWeek';
-
 import utc from 'dayjs/plugin/utc';
 
 // list of supported internationalization (i18n)
@@ -82,6 +81,8 @@ enum WeekdayUnits {
   saturday,
 }
 
+type Tuple2Or3<T> = [T, T] | [T, T, T];
+
 const UnitMapBase = new Map([
   [Units.milliseconds, [Units.milliseconds, 'ms']],
   [Units.seconds, [Units.seconds, 's']],
@@ -107,6 +108,7 @@ const getPureUnit = (unitStr: string) => {
   }
   return UnitMapBase.get(unit)![1] as QUnitType;
 };
+
 export const getDayjs = (timeStamp: any) => {
   // TODO follow-up and lookup synchronous transformation (the timeStamp of string should not be passed in)
   if (timeStamp == null) {
@@ -126,6 +128,11 @@ export const getDayjs = (timeStamp: any) => {
   }
   return date;
 };
+
+const getStartOfDay = (timeStamp: string | number) => {
+  return getDayjs(timeStamp).hour(0).minute(0).second(0).millisecond(0);
+};
+
 // Convert the day of the week and the first letter of the month in the date string to uppercase,
 // This is compatible with the localization of dayjs
 const formatDateTimeStr = (dateStr: string | number) => {
@@ -468,11 +475,11 @@ export class WorkDay extends DateFunc {
 
     /**
       * Ideas:
-      * Take WORKDAY('2021-10-15',8) as an example, 2021-10-15 is Friday, add 8 days to get 2021-10-23, 
+      * Take WORKDAY('2021-10-15',8) as an example, 2021-10-15 is Friday, add 8 days to get 2021-10-23,
       * and check the difference between the two dates through the dayjs.diff method One week, that is to say on 2021-10-23
       * Add 2 days to the base (with two days off a week) to get 2021-10-25
-      * At this time, take 2021-10-23 as the start date and the revised 2021-10-25 as the end date to do a diff check, 
-      * you will find that there is another week, repeat the above process, 
+      * At this time, take 2021-10-23 as the start date and the revised 2021-10-25 as the end date to do a diff check,
+      * you will find that there is another week, repeat the above process,
       * until the start date and end date are in the same week , and the end date is not in
       * The calculation ends on Saturday and Sunday
       */
@@ -531,13 +538,13 @@ export class WorkDayDiff extends DateFunc {
     return BasicValueType.Number;
   }
 
-  static override func(params: IFormulaParam<number | string>[]): number {
-    let startDate = getDayjs(params[0]!.value);
-    let endDate = getDayjs(params[1]!.value);
+  static override func(params: Tuple2Or3<IFormulaParam<number | string>>): number {
+    let startDate = getStartOfDay(params[0].value);
+    let endDate = getStartOfDay(params[1].value);
     const isMinus = startDate.valueOf() > endDate.valueOf(); // Whether with a negative sign
     isMinus && ([startDate, endDate] = [endDate, startDate]);
     const holidayStrList = params.length > 2 ? String(params[2]!.value).split(',') : [];
-    const holidays = holidayStrList.filter(v => v !== 'null').map(v => getDayjs(v.trim()));
+    const holidays = holidayStrList.filter(v => v !== 'null').map(v => getStartOfDay(v.trim()));
     const weekends = [0, 6]; // specify which days are the weekends
 
     const startDay = startDate.day();
@@ -565,12 +572,10 @@ export class WorkDayDiff extends DateFunc {
       const holiday = holidays[i]!;
       const holidayDay = holiday.day();
       if (
-        endDate.isAfter(holiday, 'date') &&
-        (
-          startDate.isBefore(holiday, 'date') ||
-          startDate.isSame(holiday, 'date')
-        ) &&
-        !weekends.includes(holidayDay)
+        ((endDate.isAfter(holiday, 'date') && startDate.isBefore(holiday, 'date')) // holiday is between start and end date
+        || endDate.isSame(holiday, 'date') // holiday is the same as the end date
+        || startDate.isSame(holiday, 'date')) // holiday is the same as the start date
+         && !weekends.includes(holidayDay)
       ) {
         finalCount--;
       }
@@ -694,7 +699,7 @@ export class DateTimeParse extends DateFunc {
   static override func(params: [IFormulaParam<string | number>, IFormulaParam<string>]): number {
     const dateStr = formatDateTimeStr(params[0].value);
     // If it is a timestamp, don't pass this parameter directly, let dayjs convert it by itself
-    const formatStr = typeof dateStr === 'number' ? '' : String(params[1]?.value); 
+    const formatStr = typeof dateStr === 'number' ? '' : String(params[1]?.value);
     const length = params.length;
 
     if (length >= 2) {

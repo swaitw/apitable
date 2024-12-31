@@ -19,19 +19,15 @@
   overflow-x: auto;
   overflow-y: hidden;
   display: flex;
-  .light-scroll-bar();
+  .default-scroll-bar();
   :global {
     .ant-table {
       line-height: 1;
       color: var(--secondLevelText);
       .antdTable();
       .ant-table-body {
-        overflow-y: hidden !important;
-        .light-scroll-bar();
-        &:hover {
-          overflow-y: auto !important; // Firefox compatible, the second overflow in chrome can override the first overflow
-          overflow-y: overlay !important;
-        }
+        overflow-y: auto !important;
+        .default-scroll-bar();
       }
       td,
       th {

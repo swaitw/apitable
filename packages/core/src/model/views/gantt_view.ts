@@ -17,24 +17,23 @@
  */
 
 import { Settings } from 'config';
-import { IJOTAction, OTActionName } from 'engine';
 import { Field } from 'model/field';
 import { BasicValueType } from 'types';
 import { integrateCdnHost } from 'utils';
 import { Strings, t } from '../../exports/i18n';
 import {
-  GanttColorType,
   IFieldMap,
   IGanttViewColumn,
   IGanttViewProperty,
   IReduxState,
-  ISetGanttStyle,
   ISnapshot,
   IViewProperty,
+} from '../../exports/store/interfaces';
+import { GanttColorType,
   ViewType
-} from '../../exports/store';
-import { getViewIndex } from '../../exports/store/selectors';
-import { DatasheetActions } from '../datasheet';
+} from 'modules/shared/store/constants';
+
+import { DatasheetActions } from '../../commands_actions/datasheet';
 import { View } from './views';
 
 export const DEFAULT_WORK_DAYS = [1, 2, 3, 4, 5];
@@ -112,26 +111,9 @@ export class GanttView extends View {
       rows: this.defaultRows(srcView),
       frozenColumnCount: 1,
       style: this.defaultStyle(snapshot, activeViewId, state),
+      displayHiddenColumnWithinMirror: true
     };
   }
 
-  static setGanttStyle2Action = (snapshot: ISnapshot, payload: { viewId: string, data: ISetGanttStyle[] }): IJOTAction[] => {
-    const { viewId, data } = payload;
-    const viewIndex = getViewIndex(snapshot, viewId);
-    if (viewIndex < 0) return [];
-    const view = snapshot.meta.views[viewIndex] as IGanttViewProperty;
-    if (view.type !== ViewType.Gantt) return [];
-
-    return data.filter(({ styleKey, styleValue }) => {
-      return styleValue !== view.style[styleKey];
-    }).map(({ styleKey, styleValue }) => {
-      return {
-        n: OTActionName.ObjectReplace,
-        p: ['meta', 'views', viewIndex, 'style', styleKey],
-        oi: styleValue,
-        od: view.style[styleKey],
-      };
-    });
-  };
 }
 

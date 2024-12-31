@@ -29,20 +29,40 @@ import { keyBy, throttle } from 'lodash';
 import { Events, Player } from '../modules/shared/player';
 import { AnyAction, Store } from 'redux';
 import 'socket.io-client';
-import { DEFAULT_FIELD_PERMISSION, IResourceRevision, Selectors, StoreActions } from '../exports/store';
-import {
-  changeResourceSyncingStatus, resetFieldPermissionMap, roomInfoSync, setResourceConnect, updateFieldPermissionMap, updateFieldPermissionSetting,
-} from '../exports/store/actions';
+import { DEFAULT_FIELD_PERMISSION } from 'modules/shared/store/constants';
+import { IResourceRevision } from '../exports/store/interfaces';
+import { getDatasheet } from 'modules/database/store/selectors/resource/datasheet/base';
 import { ICollaborator, IReduxState } from '../exports/store/interfaces';
 import { EnhanceError } from 'sync/enhance_error';
 import { ErrorCode, IError, ModalType, OnOkType, ResourceType } from 'types';
 import { errorCapture, numbersBetween } from 'utils';
 import { socketGuard } from 'utils/socket_guard';
 import {
-  BroadcastTypes, IClientRoomMessage, IEngagementCursorData, IFieldPermissionMessage, INewChangesData, INodeShareDisabledData, ISocketResponseData,
-  IWatchResponse, OtErrorCode, SyncRequestTypes,
+  BroadcastTypes,
+  IClientRoomMessage,
+  IEngagementCursorData,
+  IFieldPermissionMessage,
+  INewChangesData,
+  INodeShareDisabledData,
+  ISocketResponseData,
+  IWatchResponse,
+  OtErrorCode,
+  SyncRequestTypes,
 } from './types';
-
+import {
+  fetchFieldPermission,
+  cursorMove,
+  deactivateCollaborator,
+  resetResource,
+  activeCollaborator,
+  changeResourceSyncingStatus,
+  resetFieldPermissionMap,
+  roomInfoSync,
+  setResourceConnect,
+  updateFieldPermissionMap,
+  updateFieldPermissionSetting,
+} from 'modules/database/store/actions/resource';
+import { isClient } from 'utils/env';
 // The maximum number of data retransmission actions is online, beyond this value, no timeout retry operation will be performed
 const MAX_RETRY_LENGTH = 5000;
 const VIKA_OP_BACKUP = 'VIKA_OP_BACKUP';
@@ -71,7 +91,7 @@ export class RoomService {
 
   /**
    * Create a roomId based on the resource main resource ID
-   * What is a resource resource, a resource is a summary of data entities, 
+   * What is a resource resource, a resource is a summary of data entities,
    * such as a datasheet, a widget, and a dashboard. Their data are collectively referred to as resources
    * The main resource ID generally refers to the node page that the current user mainly accesses, such as the datasheet, dashboard, etc.
    * The main resource may come with multiple other resources, such as an associated table of a table, a widget on a dashboard
@@ -97,7 +117,7 @@ export class RoomService {
     if (!collaEngineMap) {
       return;
     }
-    collaEngineMap.forEach(engine => {
+    collaEngineMap.forEach((engine) => {
       this.addCollaEngine(engine);
     });
   }
@@ -119,7 +139,7 @@ export class RoomService {
   }
 
   private async nextTick() {
-    await new Promise(resolve => {
+    await new Promise((resolve) => {
       setTimeout(resolve, 10);
     });
   }
@@ -134,10 +154,12 @@ export class RoomService {
     } while (!hasCollaEngine());
     firstRoomInit && this.sendLocalChangesetWithInit();
     // Initialize the collaboration engine first
-    await Promise.all(Array.from(this.collaEngineMap.keys()).map(resourceId => {
-      const collaEngine = this.collaEngineMap.get(resourceId)!;
-      return collaEngine.waitPrepareComplete();
-    }));
+    await Promise.all(
+      Array.from(this.collaEngineMap.keys()).map((resourceId) => {
+        const collaEngine = this.collaEngineMap.get(resourceId)!;
+        return collaEngine.waitPrepareComplete();
+      })
+    );
 
     await this.watch();
   }
@@ -165,38 +187,39 @@ export class RoomService {
       try {
         await this.backupDB.setItem(String(Date.now()), {
           changesetMap,
-          opBufferMap
+          opBufferMap,
         });
       } catch (e) {
         if ((e as any).name === 'QuotaExceededError') {
           await this.backupDB.clear();
-          this.backupDB.setItem(String(Date.now()), { changesetMap, opBufferMap });
+          await this.backupDB.setItem(String(Date.now()), { changesetMap, opBufferMap });
         }
       }
 
       const timestamps = await this.backupDB.keys();
-      timestamps.map(timestamp => {
-        // Clean up data whose backup time is greater than two weeks
-        if (dayjs().diff(Date.now(), 'day') > 14) {
-          this.backupDB.removeItem(timestamp);
-        }
-      });
+      await Promise.all(
+        timestamps.map(async (timestamp) => {
+          // Clean up data whose backup time is greater than two weeks
+          if (dayjs().diff(Date.now(), 'day') > 14) {
+            await this.backupDB.removeItem(timestamp);
+          }
+        })
+      );
 
       Player.doTrigger(Events.app_error_logger, {
         error: new Error(`Failed to initialize applyChangeset: ${(e as any).message}`),
         metaData: {
           roomId: this.roomId,
           changesetMap: JSON.stringify(changesetMap),
-          opBufferMap: JSON.stringify(opBufferMap)
+          opBufferMap: JSON.stringify(opBufferMap),
         },
       });
 
       throw new EnhanceError({
         code: ErrorCode.CollaModalError,
         message: t(Strings.initialization_failed_message),
-        modalType: ModalType.Warning
+        modalType: ModalType.Warning,
       });
-
     }
 
     this.event.setRoomIOClear(true);
@@ -229,7 +252,7 @@ export class RoomService {
         const resourceType = opBuffer[0]!.resourceType;
         const changeset = BufferStorage.ops2Changeset(opBuffer, revision as number, resourceId, resourceType as ResourceType);
 
-        if (opBuffer.every(operation => !operation.mainLinkDstId)) {
+        if (opBuffer.every((operation) => !operation.mainLinkDstId)) {
           const res = await Api.applyResourceChangesets([changeset], this.roomId);
           const { success, message } = res.data;
           if (!success) {
@@ -260,17 +283,14 @@ export class RoomService {
    */
   @errorCapture<RoomService>()
   handleNewChanges(data: INewChangesData) {
-    data.changesets.forEach(cs => {
+    data.changesets.forEach((cs) => {
       const resourceId = cs.resourceId;
       const collaEngine = this.collaEngineMap.get(resourceId);
       if (collaEngine) {
-        collaEngine.handleNewChanges(cs);
-      } else if (
-        resourceId.startsWith(NodeTypeReg.DATASHEET) &&
-        !Selectors.getDatasheet(this.store.getState(), resourceId)
-      ) {
+        void collaEngine.handleNewChanges(cs);
+      } else if (resourceId.startsWith(NodeTypeReg.DATASHEET) && !getDatasheet(this.store.getState(), resourceId)) {
         // The data obtained at this time is the latest version, no need to apply cs anymore
-        this.fetchResource(resourceId, ResourceType.Datasheet);
+        void this.fetchResource(resourceId, ResourceType.Datasheet);
       }
     });
   }
@@ -280,8 +300,8 @@ export class RoomService {
    * 1. Create a room on the client side and add it to the service
    * 2. Register listening events for various sockets
    * 3. Start the event coordination monitor on the client to ensure that blocked messages will be processed at intervals
-   * Originally considered to compensate for the missing version in watch, 
-   * but the compensation behavior is already in init, handled by each engine itself, 
+   * Originally considered to compensate for the missing version in watch,
+   * but the compensation behavior is already in init, handled by each engine itself,
    * so watch does not need to pay attention to version compensation anymore
    * @returns
    */
@@ -290,7 +310,7 @@ export class RoomService {
     const state = this.store.getState();
     const shareId = state.pageParams.shareId;
     const embedId = state.pageParams.embedId;
-    const watchResponse = await this.io.watch<IWatchResponse, any>(this.roomId, shareId, embedId).catch(e => {
+    const watchResponse = await this.io.watch<IWatchResponse, any>(this.roomId, shareId, embedId).catch((e) => {
       throw new EnhanceError(e);
     });
 
@@ -299,7 +319,7 @@ export class RoomService {
       return;
     }
     const { resourceRevisions, collaborators } = watchResponse.data!;
-    console.log('resourceRevisions:', resourceRevisions);
+    // console.log('resourceRevisions:', resourceRevisions);
     const collaEngine = this.collaEngineMap.get(this.roomId);
     if (!collaEngine) {
       return;
@@ -311,7 +331,6 @@ export class RoomService {
     this.loadFieldPermissionMap();
     this.bindSocketMessage();
     this.setSendingWatcher();
-
   }
 
   /**
@@ -319,13 +338,13 @@ export class RoomService {
    */
   loadFieldPermissionMap() {
     const dstIds: string[] = [];
-    this.collaEngineMap.forEach(collaEngine => {
+    this.collaEngineMap.forEach((collaEngine) => {
       if (collaEngine.resourceType !== ResourceType.Datasheet) {
         return;
       }
       dstIds.push(collaEngine.resourceId);
     });
-    dstIds.length && this.store.dispatch(StoreActions.fetchFieldPermission(dstIds) as any);
+    dstIds.length && this.store.dispatch(fetchFieldPermission(dstIds) as any);
   }
 
   @errorCapture<RoomService>()
@@ -354,22 +373,24 @@ export class RoomService {
         throw new EnhanceError({
           code: StatusCode.FRONT_VERSION_ERROR,
           message: t(Strings.changeset_diff_big_tip),
-          modalType: ModalType.Info
+          modalType: ModalType.Info,
         });
       }
       missVersionEngines.push({ collaEngine, revision });
     }
 
-    return await Promise.all(missVersionEngines.map<Promise<any>>(({ collaEngine, revision }) => {
-      return collaEngine.prepare(revision + 1);
-    }));
+    return await Promise.all(
+      missVersionEngines.map<Promise<any>>(({ collaEngine, revision }) => {
+        return collaEngine.prepare(revision + 1);
+      })
+    );
   }
 
   /**
-   * @description unwatch no longer needs to pay attention to whether the coordinator queue is emptied, 
-   * there are two cases here: switch table and complete disconnection of ƒ socket. 
+   * @description unwatch no longer needs to pay attention to whether the coordinator queue is emptied,
+   * there are two cases here: switch table and complete disconnection of ƒ socket.
    * The processing of the latter needs to rely on locally stored data, and the unwatch event here will not be triggered.
-   * For the former, the service has already converted the engine data in the process of switching rooms, 
+   * For the former, the service has already converted the engine data in the process of switching rooms,
    * which ensures that even if there is unsent data in the previous room, it can be coordinated after switching rooms.
    * So here you only need to pay attention to the notification that the middle server(room) leaves the room
    * @private
@@ -392,7 +413,7 @@ export class RoomService {
     if (this.socket.connected) {
       await this.unwatch();
     } else {
-      console.log('socket has been closed, room needn\'t leave again');
+      console.log("socket has been closed, room needn't leave again");
     }
     this.clearSendingWatcher();
     return this.collaEngineMap;
@@ -412,7 +433,7 @@ export class RoomService {
     if (collaEngine.isStorageClear()) {
       this.collaEngineMap.delete(resourceId);
       collaEngine.cancelQuit?.();
-      this.store.dispatch(StoreActions.resetResource(resourceId, collaEngine.resourceType));
+      this.store.dispatch(resetResource(resourceId, collaEngine.resourceType));
       return;
     }
 
@@ -430,10 +451,10 @@ export class RoomService {
   }
 
   /**
-    * Data sending status listener
-    * Regular polling to check whether user data has been sent and confirmed
-    * If it has not been confirmed for a long time (1 minute), execute a retry mechanism
-    * This situation usually occurs with an error
+   * Data sending status listener
+   * Regular polling to check whether user data has been sent and confirmed
+   * If it has not been confirmed for a long time (1 minute), execute a retry mechanism
+   * This situation usually occurs with an error
    */
   private setSendingWatcher() {
     this.clearSendingWatcher();
@@ -464,9 +485,12 @@ export class RoomService {
   // As long as a persistent connection exists, data will be sent.
   private forceSend(changesets: ILocalChangeset[]) {
     const actionLength = changesets.reduce((pre, cur) => {
-      return pre + cur.operations.reduce((p, c) => {
-        return p + c.actions.length;
-      }, 0);
+      return (
+        pre +
+        cur.operations.reduce((p, c) => {
+          return p + c.actions.length;
+        }, 0)
+      );
     }, 0);
 
     // Note: In the case of pasting large data, the server may return slowly, and the data will not be re-sent at this time.
@@ -480,7 +504,7 @@ export class RoomService {
     });
     this.event.setRoomLastSendTime();
 
-    this.sendUserChanges(changesets);
+    void this.sendUserChanges(changesets);
   }
 
   /**
@@ -492,7 +516,7 @@ export class RoomService {
     this.event.setRoomIOClear(false);
     this.event.setRoomLastSendTime();
     if (!this.connected) {
-      console.error('room has been destroy,can\'t send anything');
+      console.error("room has been destroy,can't send anything");
       return;
     }
     // Load after 500ms, to prevent the icon from flashing when the network is fast
@@ -503,36 +527,37 @@ export class RoomService {
     }, 500);
     const state = this.store.getState();
     const shareId = state.pageParams.shareId;
-    return this.io.request<ISocketResponseData, IClientRoomMessage>({
-      type: SyncRequestTypes.CLIENT_ROOM_CHANGE,
-      roomId: this.roomId,
-      changesets,
-      shareId,
-    }).then((data) => {
-      clearTimeout(timer);
-      this.event.setRoomIOClear(true);
-      if (data.success && data.data) {
-        this.store.dispatch(changeResourceSyncingStatus(this.roomId, resourceType, false));
-        this.handleAcceptCommit(data.data.changesets);
-        data.data;
-        return Promise.resolve();
-      }
-      // Unsuccessful requests, divert traffic to the following catch
-      return Promise.reject(data);
-    }).catch(e => {
-      this.event.setRoomIOClear(true);
-      let errMsg = e;
-      clearTimeout(timer);
-      if (!('success' in errMsg)) {
-        errMsg = {
-          success: false,
-          code: 0,
-          message: t(Strings.exception_network_exception),
-        };
-      }
-      this.handleRejectCommit(errMsg);
-      return Promise.reject();
-    });
+    return this.io
+      .request<ISocketResponseData, IClientRoomMessage>({
+        type: SyncRequestTypes.CLIENT_ROOM_CHANGE,
+        roomId: this.roomId,
+        changesets,
+        shareId,
+      })
+      .then((data) => {
+        clearTimeout(timer);
+        this.event.setRoomIOClear(true);
+        if (data.success && data.data) {
+          this.store.dispatch(changeResourceSyncingStatus(this.roomId, resourceType, false));
+          return this.handleAcceptCommit(data.data.changesets);
+        }
+        // Unsuccessful requests, divert traffic to the following catch
+        return Promise.reject(data);
+      })
+      .catch(async (e) => {
+        this.event.setRoomIOClear(true);
+        let errMsg = e;
+        clearTimeout(timer);
+        if (!('success' in errMsg)) {
+          errMsg = {
+            success: false,
+            code: 0,
+            message: t(Strings.exception_network_exception),
+          };
+        }
+        await this.handleRejectCommit(errMsg);
+        return Promise.reject();
+      });
   };
 
   @errorCapture<RoomService>()
@@ -546,6 +571,10 @@ export class RoomService {
       await collaEngine.handleAcceptCommit(cs);
       // TODO: There are cookies in changesets to be removed in the middle layer
       console.log('Data returned successfully: ', cs);
+      if (isClient()) {
+        const customEvent = new CustomEvent(cs.messageId);
+        window.dispatchEvent(customEvent);
+      }
     }
 
     this.nextSend();
@@ -578,7 +607,7 @@ export class RoomService {
       // Before clearing the data, make a local backup of the cleared data
       await this.backupDB.setItem(String(Date.now()), {
         opBufferMap: this.getBufferOperateMap(),
-        changesetMap: keyBy(this.getLocalPendingChangesets(), 'resourceId')
+        changesetMap: keyBy(this.getLocalPendingChangesets(), 'resourceId'),
       });
       this.clearAllStorage();
     }
@@ -643,13 +672,13 @@ export class RoomService {
     }
     if (nextChangesets.length) {
       this.event.setRoomLastSendTime();
-      this.sendUserChanges(nextChangesets);
+      void this.sendUserChanges(nextChangesets);
     }
-  }, 500);
+  }, 1000);
 
   /**
    * Push the operation into the send queue, SyncEngine will ensure that the data is sent to the server in version order
-   * And provide temporary local persistence capabilities to 
+   * And provide temporary local persistence capabilities to
    * prevent users from losing data in the case of accidental network disconnection and active refresh
    *
    * Notice: Multiple operations may be merged into one changeset and sent to the server at one time
@@ -657,9 +686,9 @@ export class RoomService {
    */
   @errorCapture<RoomService>()
   syncOperations(localOperations: IResourceOpsCollect[]) {
-    localOperations.forEach(lop => {
+    localOperations.forEach((lop) => {
       const collaEngine = this.collaEngineMap.get(lop.resourceId);
-      lop.operations.forEach(op => collaEngine?.pushOpBuffer(op));
+      lop.operations.forEach((op) => collaEngine?.pushOpBuffer(op));
     });
 
     this.nextSend();
@@ -695,7 +724,7 @@ export class RoomService {
   }
 
   /**
-   * Activate the collaborator. After calling this method, 
+   * Activate the collaborator. After calling this method,
    * the avatar of the current user will be displayed on the interface of all collaborators who open this table
    */
   handleActiveCollaborators(data: { collaborators: ICollaborator[] }) {
@@ -704,33 +733,38 @@ export class RoomService {
     if (!collaEngine) {
       return;
     }
-    data.collaborators.forEach(item => {
-      this.store.dispatch(StoreActions.activeCollaborator(item, this.roomId, collaEngine.resourceType));
+    data.collaborators.forEach((item) => {
+      this.store.dispatch(activeCollaborator(item, this.roomId, collaEngine.resourceType));
     });
   }
 
   /**
-   * Deactivate the collaborator. 
+   * Deactivate the collaborator.
    * After calling this method, the avatar of the current user will be left on the interface of all collaborators who open this table
    */
   handleDeactivateCollaborator(data: ICollaborator) {
-    console.log('deactivate collaborator', data);
+    // console.log('deactivate collaborator', data);
     const collaEngine = this.getCollaEngine();
     if (!collaEngine) {
       return;
     }
-    this.store.dispatch(StoreActions.deactivateCollaborator(data, this.roomId, collaEngine.resourceType));
+    this.store.dispatch(deactivateCollaborator(data, this.roomId, collaEngine.resourceType));
   }
 
   handleCursor(data: IEngagementCursorData) {
-    console.log('RECEIVED IEngagementCursorData: ', { data });
+    // console.log('RECEIVED IEngagementCursorData: ', { data });
     const { cursorInfo } = data;
-    this.store.dispatch(StoreActions.cursorMove({
-      fieldId: cursorInfo.fieldId,
-      recordId: cursorInfo.recordId,
-      time: cursorInfo.time,
-      socketId: data.socketId,
-    }, this.roomId));
+    this.store.dispatch(
+      cursorMove(
+        {
+          fieldId: cursorInfo.fieldId,
+          recordId: cursorInfo.recordId,
+          time: cursorInfo.time,
+          socketId: data.socketId,
+        },
+        this.roomId
+      )
+    );
   }
 
   @errorCapture<RoomService>()
@@ -745,7 +779,7 @@ export class RoomService {
         message: t(Strings.error_please_close_sharing_page),
         okText: t(Strings.okay),
         modalType: ModalType.Warning,
-        onOkType: OnOkType.BackWorkBench
+        onOkType: OnOkType.BackWorkBench,
       });
     }
   }
@@ -768,7 +802,6 @@ export class RoomService {
     console.log('RECEIVED handleFieldPermissionEnabled: ', { data });
     const fieldPermission = this.generateStdFieldPermission(data, true);
     this.store.dispatch(updateFieldPermissionMap(fieldPermission, data.datasheetId));
-
   }
 
   // change column permissions
@@ -804,38 +837,38 @@ export class RoomService {
     this.io.offAll();
 
     this.io.on<INewChangesData>(BroadcastTypes.SERVER_ROOM_CHANGE, (data) => {
-      this.handleNewChanges(data);
+      void this.handleNewChanges(data);
     });
 
     this.io.on<IEngagementCursorData & { datasheetId: string }>(BroadcastTypes.ENGAGEMENT_CURSOR, (data) => {
       this.handleCursor(data);
     });
 
-    this.io.on<{ collaborators: ICollaborator[] }>(BroadcastTypes.ACTIVATE_COLLABORATORS, data => {
+    this.io.on<{ collaborators: ICollaborator[] }>(BroadcastTypes.ACTIVATE_COLLABORATORS, (data) => {
       this.handleActiveCollaborators(data);
     });
 
-    this.io.on<ICollaborator>(BroadcastTypes.DEACTIVATE_COLLABORATOR, data => {
+    this.io.on<ICollaborator>(BroadcastTypes.DEACTIVATE_COLLABORATOR, (data) => {
       this.handleDeactivateCollaborator(data);
     });
 
-    this.io.on<INodeShareDisabledData>(BroadcastTypes.NODE_SHARE_DISABLED, data => {
+    this.io.on<INodeShareDisabledData>(BroadcastTypes.NODE_SHARE_DISABLED, (data) => {
       this.handleNodeShareDisabled(data);
     });
 
-    this.io.on<IFieldPermissionMessage>(BroadcastTypes.FIELD_PERMISSION_ENABLE, data => {
+    this.io.on<IFieldPermissionMessage>(BroadcastTypes.FIELD_PERMISSION_ENABLE, (data) => {
       this.handleFieldPermissionEnabled(data);
     });
 
-    this.io.on<IFieldPermissionMessage>(BroadcastTypes.FIELD_PERMISSION_CHANGE, data => {
+    this.io.on<IFieldPermissionMessage>(BroadcastTypes.FIELD_PERMISSION_CHANGE, (data) => {
       this.handleFieldPermissionChange(data);
     });
 
-    this.io.on<IFieldPermissionMessage>(BroadcastTypes.FIELD_PERMISSION_DISABLE, data => {
+    this.io.on<IFieldPermissionMessage>(BroadcastTypes.FIELD_PERMISSION_DISABLE, (data) => {
       this.handleFieldPermissionDisabled(data);
     });
 
-    this.io.on<IFieldPermissionMessage>(BroadcastTypes.FIELD_PERMISSION_SETTING_CHANGE, data => {
+    this.io.on<IFieldPermissionMessage>(BroadcastTypes.FIELD_PERMISSION_SETTING_CHANGE, (data) => {
       this.handleFieldPermissionSetting(data);
     });
   };

@@ -16,7 +16,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import { getLanguage } from 'iframe_message/utils';
+import { getLanguage } from './language';
 
 export interface IString {
   /** Chinese */
@@ -51,10 +51,10 @@ const ERROR_STR = '[ERROR STR]';
  */
 export function t(string: IString) {
   if (!string) {
-    console.log(1231231);
     return ERROR_STR;
   }
   const lang = getLanguage().replace(/-/g, '_');
-  const text = lang in string ? string[lang] : string['zh_CN'] || ERROR_STR;
+  const defaultLang = window.__initialization_data__?.envVars?.IS_APITABLE ? 'en_US' : 'zh_CN';
+  const text = lang in string ? string[lang] : string[defaultLang] || ERROR_STR;
   return text;
 }

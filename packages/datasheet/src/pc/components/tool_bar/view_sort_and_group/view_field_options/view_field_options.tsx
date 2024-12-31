@@ -16,16 +16,18 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import { Field, IViewColumn, Selectors, Strings, t } from '@apitable/core';
 import classNames from 'classnames';
+import * as React from 'react';
+import { memo, useMemo, useState } from 'react';
+// eslint-disable-next-line no-restricted-imports
+import { IOption, Select, useThemeColors, WrapperTooltip } from '@apitable/components';
+import { Field, IViewColumn, Selectors, Strings, t } from '@apitable/core';
+import { FieldPermissionLock } from 'pc/components/field_permission';
 import { getFieldTypeIcon } from 'pc/components/multi_grid/field_setting';
 import { renderComputeFieldError } from 'pc/components/multi_grid/header';
-import { useMemo, useState, memo } from 'react';
-import * as React from 'react';
-import { useSelector } from 'react-redux';
+import { useShowViewLockModal } from 'pc/components/view_lock/use_show_view_lock_modal';
+import { useAppSelector } from 'pc/store/react-redux';
 import styles from './style.module.less';
-import { IOption, Select, WrapperTooltip, useThemeColors } from '@apitable/components';
-import { FieldPermissionLock } from 'pc/components/field_permission';
 
 interface IViewFieldOptions {
   defaultFieldId: string;
@@ -39,15 +41,16 @@ interface IViewFieldOptions {
   isAddNewOption?: boolean; // Whether the operation of the current option is to add a new option.
 }
 
-export const ViewFieldOptions: React.FC<React.PropsWithChildren<IViewFieldOptions>> = memo(props => {
+export const ViewFieldOptions: React.FC<React.PropsWithChildren<IViewFieldOptions>> = memo((props) => {
   const colors = useThemeColors();
   const { onChange, isAddNewOption, defaultFieldId, existFieldIds, invalidFieldIds = [], invalidTip, isCryptoField, fieldNotFound } = props;
-  const currentViewAllField = useSelector(state => Selectors.getCurrentView(state))!.columns;
-  const fieldMap = useSelector(state => Selectors.getFieldMap(state, state.pageParams.datasheetId!))!;
+  const currentViewAllField = useAppSelector((state) => Selectors.getCurrentView(state))!.columns;
+  const fieldMap = useAppSelector((state) => Selectors.getFieldMap(state, state.pageParams.datasheetId!))!;
   const [isOpen, setIsOpen] = useState(false);
-  const fieldPermissionMap = useSelector(state => {
+  const fieldPermissionMap = useAppSelector((state) => {
     return Selectors.getFieldPermissionMap(state);
   });
+  const isViewLock = useShowViewLockModal();
 
   function optionSelect(targetId: string) {
     onChange(targetId);
@@ -73,9 +76,13 @@ export const ViewFieldOptions: React.FC<React.PropsWithChildren<IViewFieldOption
     }
     if (isFieldInvalid) {
       const valid = renderComputeFieldError(fieldMap[fieldId], t(Strings.err_field_group_tip));
-      return valid && <WrapperTooltip wrapper={isFieldInvalid} tip={invalidTip || ''}>
-        {valid}
-      </WrapperTooltip>;
+      return (
+        valid && (
+          <WrapperTooltip wrapper={isFieldInvalid} tip={invalidTip || ''}>
+            {valid}
+          </WrapperTooltip>
+        )
+      );
     }
     return;
   };
@@ -84,14 +91,14 @@ export const ViewFieldOptions: React.FC<React.PropsWithChildren<IViewFieldOption
     const temp = {};
     currentViewAllField.forEach(({ fieldId }) => {
       const field = fieldMap[fieldId];
-      return temp[fieldId] = !Field.bindModel(field).canGroup || Field.bindModel(field).hasError;
+      return (temp[fieldId] = !Field.bindModel(field).canGroup || Field.bindModel(field).hasError);
     });
     return temp;
   }, [currentViewAllField, fieldMap]);
 
   const options: IOption[] = currentViewAllField.filter(filter).map(({ fieldId }) => {
     const field = fieldMap[fieldId];
-    const isFieldInvalid = invalidFieldIds.some(di => di === fieldId);
+    const isFieldInvalid = invalidFieldIds.some((di) => di === fieldId);
     const isDisabled = disabledFieldMap[fieldId];
     return {
       label: field.name,
@@ -135,7 +142,6 @@ export const ViewFieldOptions: React.FC<React.PropsWithChildren<IViewFieldOption
         [styles.blankField]: !existFieldIds.length,
       })}
     >
-
       <Select
         placeholder={t(Strings.pick_one_option)}
         options={options}
@@ -148,6 +154,9 @@ export const ViewFieldOptions: React.FC<React.PropsWithChildren<IViewFieldOption
         hideSelectedOption
         openSearch
         searchPlaceholder={t(Strings.search)}
+        noDataTip={t(Strings.no_search_result)}
+        disabled={isViewLock}
+        disabledTip={t(Strings.view_lock_setting_desc)}
       />
     </div>
   );

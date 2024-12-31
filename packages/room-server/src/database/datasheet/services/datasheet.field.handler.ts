@@ -17,25 +17,68 @@
  */
 
 import {
-  FieldType, ICreatedByProperty, IDatasheetUnits, IFieldMap, IForeignDatasheetMap, IFormulaField, ILinkFieldProperty, ILookUpProperty,
-  IMemberProperty, IMeta, IRecordMap, IUnitValue, IUserValue, IViewProperty
+  FieldType,
+  IDatasheetUnits,
+  IFieldMap,
+  IFieldPermissionMap,
+  IForeignDatasheetMap,
+  IFormulaField,
+  ILinkFieldProperty,
+  ILinkIds,
+  ILookUpProperty,
+  IMeta,
+  INodeMeta,
+  IRecordMap,
+  IUnitValue,
+  IUserValue,
 } from '@apitable/core';
+import { Span } from '@metinseylan/nestjs-opentelemetry';
 import { forwardRef, Inject, Injectable } from '@nestjs/common';
-import { isEmpty } from 'class-validator';
-import { difference, head, intersection } from 'lodash';
+import { isArray, isEmpty } from 'class-validator';
+import { RoomResourceRelService } from 'database/resource/services/room.resource.rel.service';
+import { difference } from 'lodash';
+import { NodeService } from 'node/services/node.service';
 import { InjectLogger } from 'shared/common';
 import { PermissionException, ServerException } from 'shared/exception';
 import { IAuthHeader, IFetchDataOriginOptions, ILinkedRecordMap } from 'shared/interfaces';
-import { RoomResourceRelService } from 'database/resource/services/room.resource.rel.service';
-import { Logger } from 'winston';
-import { RecordMap } from '../../interfaces';
-import { DatasheetRepository } from '../repositories/datasheet.repository';
-import { NodeService } from 'node/services/node.service';
 import { UnitService } from 'unit/services/unit.service';
 import { UserService } from 'user/services/user.service';
+import { Logger } from 'winston';
+import { DatasheetRepository } from '../repositories/datasheet.repository';
 import { ComputeFieldReferenceManager } from './compute.field.reference.manager';
 import { DatasheetMetaService } from './datasheet.meta.service';
 import { DatasheetRecordService } from './datasheet.record.service';
+
+interface IAnalysisState {
+  mainDstId: string;
+  auth: IAuthHeader;
+  origin: IFetchDataOriginOptions;
+  foreignDstMap: Exclude<IForeignDatasheetMap['foreignDatasheetMap'], undefined>;
+  dstIdToHeadFieldIdMap: Map<string, string>;
+  memberFieldUnitIds: Set<string>;
+  createdByFieldUuids: Set<string>;
+  dstIdToProcessedFldIdsMap: { [dstId: string]: string[] };
+  dstIdToNewRecFlagMap: Map<string, boolean>;
+  withoutPermission?: boolean;
+  needExtendMainDstRecords: boolean;
+  mainDstMeta: IMeta;
+  mainDstRecordMap: IRecordMap;
+}
+
+export type IFieldAnalysisResult = IForeignDatasheetMap &
+  IDatasheetUnits & {
+  mainDstRecordMap: IRecordMap;
+};
+
+export interface IFieldAnalysisOptions {
+  auth: IAuthHeader;
+  origin: IFetchDataOriginOptions;
+  linkedRecordMap?: ILinkedRecordMap;
+  mainDstMeta: IMeta;
+  mainDstRecordMap: IRecordMap;
+  needExtendMainDstRecords: boolean;
+  withoutPermission?: boolean;
+}
 
 /**
  * <p>
@@ -57,9 +100,11 @@ export class DatasheetFieldHandler {
     private readonly datasheetRepository: DatasheetRepository,
     private readonly computeFieldReferenceManager: ComputeFieldReferenceManager,
     private readonly roomResourceRelService: RoomResourceRelService,
-  ) { }
+  ) {
+  }
 
-  initGlobalParameter(mainDstId: string, auth: IAuthHeader, origin: IFetchDataOriginOptions, withoutPermission?: boolean) {
+  initAnalysisState(mainDstId: string, options: IFieldAnalysisOptions): IAnalysisState {
+    const { auth, origin, withoutPermission, needExtendMainDstRecords, mainDstMeta, mainDstRecordMap } = options;
     origin.main = false;
     return {
       mainDstId,
@@ -75,54 +120,61 @@ export class DatasheetFieldHandler {
       // UUID set of creator/modifier fields
       createdByFieldUuids: new Set<string>(),
       // datasheet ID -> processed field ID set
-      // { [dstId: string]: string[] } 
+      // { [dstId: string]: string[] }
       dstIdToProcessedFldIdsMap: {},
       // datasheet ID -> if new records are added.
       dstIdToNewRecFlagMap: new Map<string, boolean>(),
       // If obtain datasheet base info unrelated to user base info regardless of permission
       withoutPermission,
+      needExtendMainDstRecords,
+      mainDstMeta,
+      mainDstRecordMap,
     };
   }
 
-  async parse(
-    mainDstId: string,
-    auth: IAuthHeader,
-    mainMeta: IMeta,
-    mainRecordMap: IRecordMap,
-    origin: IFetchDataOriginOptions,
-    linkedRecordMap?: ILinkedRecordMap,
-    fieldIds?: string[],
-    withoutPermission?: boolean
-  ): Promise<IForeignDatasheetMap & IDatasheetUnits> {
+  /**
+   * Process special fields (link, lookup, and formula), ignoring other fields
+   */
+  @Span()
+  async analyze(mainDstId: string, options: IFieldAnalysisOptions): Promise<IFieldAnalysisResult> {
     const beginTime = +new Date();
     this.logger.info(`Start processing special field [${mainDstId}]`);
-    const globalParam = this.initGlobalParameter(mainDstId, auth, origin, withoutPermission);
+    const state = this.initAnalysisState(mainDstId, options);
 
     // Process all fields of the datasheet
-    const fldIds = fieldIds?.length ? fieldIds : Object.keys(mainMeta.fieldMap);
-    await this.parseField(mainDstId, mainMeta.fieldMap, mainRecordMap, fldIds, globalParam, linkedRecordMap);
+    const fldIds = Object.keys(options.mainDstMeta.fieldMap);
+    await this.parseField(mainDstId, options.mainDstMeta.fieldMap, options.mainDstRecordMap, fldIds, state, options.linkedRecordMap);
 
-    const combineResult: IForeignDatasheetMap & IDatasheetUnits = {};
-    combineResult.foreignDatasheetMap = globalParam.foreignDstMap;
-    // Get the space ID which the datasheet belongs to
-    const spaceId = await this.getSpaceIdByDstId(mainDstId);
-    let tempUnitMap: (IUnitValue | IUserValue)[] = [];
-    // Batch query member info
-    if (globalParam.memberFieldUnitIds.size > 0) {
-      const unitMap = await this.unitService.getUnitInfo(spaceId, Array.from(globalParam.memberFieldUnitIds));
-      tempUnitMap = [...unitMap];
-    }
-    if (globalParam.createdByFieldUuids.size > 0) {
-      const userMap = await this.userService.getUserInfo(spaceId, Array.from(globalParam.createdByFieldUuids));
-      tempUnitMap = [...tempUnitMap, ...userMap];
-    }
-    if (tempUnitMap.length) {
-      combineResult.units = tempUnitMap;
+    const foreignDatasheetMap = state.foreignDstMap;
+    const result: IFieldAnalysisResult = { foreignDatasheetMap, mainDstRecordMap: state.mainDstRecordMap };
+    if (state.memberFieldUnitIds.size > 0 || state.createdByFieldUuids.size > 0) {
+      let tempUnitMap: (IUnitValue | IUserValue)[] = [];
+      // Get the space ID which the datasheet belongs to
+      const spaceId = await this.getSpaceIdByDstId(mainDstId);
+      // Batch query member info
+      if (state.memberFieldUnitIds.size > 0) {
+        const unitMap = await this.unitService.getUnitInfo(spaceId, Array.from(state.memberFieldUnitIds));
+        tempUnitMap = [...unitMap];
+      }
+      if (state.createdByFieldUuids.size > 0) {
+        const userMap = await this.userService.getUserInfo(spaceId, Array.from(state.createdByFieldUuids));
+        tempUnitMap = [...tempUnitMap, ...userMap];
+      }
+      if (tempUnitMap.length) {
+        result.units = tempUnitMap;
+      }
     }
 
     const endTime = +new Date();
-    this.logger.info(`Finished processing special field, duration [${mainDstId}]: ${endTime - beginTime}ms`);
-    return combineResult;
+    const numRecords: Record<string, number> = { [mainDstId]: Object.keys(result.mainDstRecordMap).length };
+    for (const id in foreignDatasheetMap) {
+      numRecords[id] = Object.keys(foreignDatasheetMap[id]!.snapshot.recordMap).length;
+    }
+    this.logger.info(
+      `Finished processing special field, duration [${mainDstId}]: ${endTime - beginTime}ms. ` +
+      `Loaded datasheets and number of records: ${JSON.stringify(numRecords)}`,
+    );
+    return result;
   }
 
   /**
@@ -130,31 +182,32 @@ export class DatasheetFieldHandler {
    * @param fieldMap field data
    * @param recordMap record data
    * @param processFieldIds field IDs to be processed
-   * @param globalParam global parameters
+   * @param state field analysis state
    * @param linkedRecordMap linked field data
    */
+  @Span()
   private async parseField(
     dstId: string,
     fieldMap: IFieldMap,
-    recordMap: RecordMap,
+    recordMap: IRecordMap,
     processFieldIds: string[],
-    globalParam: any,
-    linkedRecordMap?: ILinkedRecordMap
+    state: IAnalysisState,
+    linkedRecordMap?: ILinkedRecordMap,
   ) {
     if (this.logger.isDebugEnabled()) {
       this.logger.debug('Process fields', processFieldIds);
     }
     // Get field IDs that have been processed
-    const processedFldIds = [...Object.values(globalParam.dstIdToProcessedFldIdsMap[dstId] || {})] as string[];
+    const processedFldIds = [...Object.values(state.dstIdToProcessedFldIdsMap[dstId] || {})] as string[];
     let diff = difference<string>(processFieldIds, processedFldIds);
     // New field, put inside processed fields
     if (diff.length > 0) {
-      DatasheetFieldHandler.setIfExist(globalParam.dstIdToProcessedFldIdsMap, dstId, diff);
+      DatasheetFieldHandler.setIfExist(state.dstIdToProcessedFldIdsMap, dstId, diff);
     }
     // When a record is created, parse its fields to be processed
-    if (globalParam.dstIdToNewRecFlagMap.has(dstId)) {
+    if (state.dstIdToNewRecFlagMap.has(dstId)) {
       diff = processFieldIds;
-      globalParam.dstIdToNewRecFlagMap.delete(dstId);
+      state.dstIdToNewRecFlagMap.delete(dstId);
     }
     // If difference is empty, no unprocessed fileds exist
     if (diff.length === 0) {
@@ -162,9 +215,9 @@ export class DatasheetFieldHandler {
     }
 
     // TODO(troy): extract the above codes into multiple functions
-    // field ID -> linked datasheet ID
+    /** field ID -> linked datasheet ID */
     const fieldIdToLinkDstIdMap = new Map<string, string>();
-    // Lookup field: linked datasheet ID -> field ID set
+    /** Lookup field: linked datasheet ID -> lookuped field ID set */
     const foreignDstIdToLookupFldIdsMap: { [dstId: string]: string[] } = {};
 
     for (const fieldId of diff) {
@@ -181,60 +234,70 @@ export class DatasheetFieldHandler {
         this.logger.debug('Field type:' + fieldType);
       }
       switch (fieldType) {
+        case FieldType.OneWayLink:
         case FieldType.Link:
-          const fieldProperty = fieldInfo.property as ILinkFieldProperty;
+          const fieldProperty = fieldInfo.property;
           const linkDatasheetId = fieldProperty.foreignDatasheetId;
-          // main datasheet is self-linking or linked, skip it
-          if (linkDatasheetId === globalParam.mainDstId) {
+          // main datasheet is self-linking or linked
+          if (linkDatasheetId === state.mainDstId && !state.needExtendMainDstRecords) {
             continue;
           }
-          // Store linked datasheet ID corresponding to linked field
+          // Store linked datasheet ID corresponding to link field
           fieldIdToLinkDstIdMap.set(fieldId, linkDatasheetId);
           break;
         // Lookup field, may recurse
         case FieldType.LookUp:
-          const { relatedLinkFieldId, lookUpTargetFieldId, openFilter, filterInfo } = fieldInfo.property as ILookUpProperty;
+          const { relatedLinkFieldId, lookUpTargetFieldId, openFilter, filterInfo, sortInfo } = fieldInfo.property;
           // The field is not in datasheet, skip
           if (!fieldMap[relatedLinkFieldId]) {
             continue;
           }
           // Linked field is not link field, skip
-          if (fieldMap[relatedLinkFieldId]!.type !== FieldType.Link) {
+          if (fieldMap[relatedLinkFieldId]!.type !== FieldType.Link && fieldMap[relatedLinkFieldId]!.type !== FieldType.OneWayLink) {
             continue;
           }
           // Get referenced linked datasheet ID
           const { foreignDatasheetId } = fieldMap[relatedLinkFieldId]!.property as ILinkFieldProperty;
           const foreignFieldIds = [lookUpTargetFieldId];
           // Parse reference filter condition
-          if (openFilter && filterInfo?.conditions.length) {
-            filterInfo.conditions.forEach(condition => foreignFieldIds.push(condition.fieldId));
+          if (openFilter) {
+            if (filterInfo?.conditions.length) {
+              filterInfo.conditions.forEach((condition) => foreignFieldIds.push(condition.fieldId));
+            }
+            if (sortInfo?.rules.length) {
+              sortInfo.rules.forEach((rule) => foreignFieldIds.push(rule.fieldId));
+            }
           }
           // Create two-way reference relation
           await this.computeFieldReferenceManager.createReference(dstId, fieldId, foreignDatasheetId, foreignFieldIds);
-          // main datasheet is self-linking or linked, skip
-          if (foreignDatasheetId === globalParam.mainDstId) {
+          // main datasheet is self-linking or linked
+          if (foreignDatasheetId === state.mainDstId && !state.needExtendMainDstRecords) {
             continue;
           }
           // Store linked datasheet ID corresponding to linked field
           fieldIdToLinkDstIdMap.set(relatedLinkFieldId, foreignDatasheetId);
-          // Store corresponding fields in referenced linked datasheet 
+          // Store corresponding fields in referenced linked datasheet
           DatasheetFieldHandler.setIfExist(foreignDstIdToLookupFldIdsMap, foreignDatasheetId, foreignFieldIds);
           break;
         // member field, not recursive
         case FieldType.Member:
-          const { unitIds } = fieldInfo.property as IMemberProperty;
-          if (unitIds && unitIds.length) {
-            unitIds.forEach((unitId: string) => globalParam.memberFieldUnitIds.add(unitId));
+          const { unitIds } = fieldInfo.property;
+          if (unitIds?.length) {
+            unitIds.forEach((unitId: string) => state.memberFieldUnitIds.add(unitId));
           }
           break;
         // modifier/creator field, not recursive
         case FieldType.CreatedBy:
         case FieldType.LastModifiedBy:
-          const { uuids } = fieldInfo.property as ICreatedByProperty;
-          uuids.forEach((uuid: string) => globalParam.createdByFieldUuids.add(uuid));
+          const { uuids } = fieldInfo.property;
+          uuids.forEach((uuid) => {
+            if (typeof uuid === 'string') {
+              state.createdByFieldUuids.add(uuid);
+            }
+          });
           break;
         case FieldType.Formula:
-          await this.processFormulaField(fieldMap, fieldInfo as IFormulaField, globalParam, recordMap);
+          await this.processFormulaField(fieldMap, fieldInfo, state, recordMap);
           break;
         default:
           break;
@@ -243,75 +306,83 @@ export class DatasheetFieldHandler {
 
     // ======= Load linked datasheet structure data (not including records) BEGIN =======
     for (const [fldId, foreignDstId] of fieldIdToLinkDstIdMap.entries()) {
-      // Avoid redundant loading of a linked datasheet caused by multiple fields linking the same datasheet
-      if (globalParam.foreignDstMap[foreignDstId]) {
+      // Avoid redundant loading of a linked datasheet caused by multiple fields linking the same datasheet,
+      // and avoid loading metadata of main datasheet.
+      if (foreignDstId === state.mainDstId || state.foreignDstMap[foreignDstId]) {
         continue;
       }
-      const { datasheet, meta, fieldPermissionMap } = await this.initLinkDstSnapshot(foreignDstId, globalParam);
+      const { datasheet, meta, fieldPermissionMap } = await this.initLinkDstSnapshot(foreignDstId, state);
       // If linked datasheet is unaccessible, skip loading
       if (!datasheet || !meta) {
         fieldIdToLinkDstIdMap.delete(fldId);
         continue;
       }
-      globalParam.foreignDstMap[foreignDstId] = { snapshot: { meta, recordMap: {}, datasheetId: datasheet.id }, datasheet, fieldPermissionMap };
+      state.foreignDstMap[foreignDstId] = { snapshot: { meta, recordMap: {}, datasheetId: datasheet.id }, datasheet, fieldPermissionMap };
     }
     // ======= Load linked datasheet structure data (not including records) END =======
 
     // Traverse records, obtain linked datasheet ID and corresponding linked records
-    const foreignDstIdRecordIdsMap = linkedRecordMap || this.forEachRecordMap(dstId, recordMap, fieldIdToLinkDstIdMap);
+    const foreignDstIdRecordIdsMap = linkedRecordMap || DatasheetFieldHandler.forEachRecordMap(dstId, recordMap, fieldIdToLinkDstIdMap, this.logger);
     // All linking records in link field of main datasheet are stored in foreignDstIdRecordIdsMap
-    if (!isEmpty(foreignDstIdRecordIdsMap)) {
-      // Query linked datasheet data and linked records
-      for (const [foreignDstId, recordIds] of Object.entries(foreignDstIdRecordIdsMap)) {
-        const foreignDatasheetDataPack = globalParam.foreignDstMap[foreignDstId];
+    // Query linked datasheet data and linked records
+    for (const foreignDstId in foreignDstIdRecordIdsMap) {
+      const recordIds = Array.from(foreignDstIdRecordIdsMap[foreignDstId]!);
+      if (foreignDstId === state.mainDstId) {
+        // Load more records of main datasheet.
+        const existRecordIds = [...Object.keys(state.mainDstRecordMap)];
+        const diff = difference(recordIds, existRecordIds);
+        if (diff.length > 0) {
+          const addRecordMap = await this.fetchRecordMap(foreignDstId, diff);
+          state.mainDstRecordMap = { ...state.mainDstRecordMap, ...addRecordMap };
+          state.dstIdToNewRecFlagMap.set(foreignDstId, true);
+        }
+        continue;
+      }
+      const foreignDatasheetDataPack = state.foreignDstMap[foreignDstId];
+      if (this.logger.isDebugEnabled()) {
+        this.logger.debug(`Query new record [${foreignDstId}] --- [${recordIds}]`);
+      }
+      // linkedRecordMap of robot event, linked datasheet may be unaccessible, skip
+      if (!foreignDatasheetDataPack) {
+        continue;
+      }
+
+      if (foreignDatasheetDataPack.snapshot.recordMap) {
+        const existRecordIds = [...Object.keys(foreignDatasheetDataPack.snapshot.recordMap)];
         if (this.logger.isDebugEnabled()) {
-          this.logger.debug(`Query new record [${foreignDstId}] --- [${recordIds}]`);
+          this.logger.debug(`New record: ${recordIds} - original record: ${existRecordIds} `);
         }
-        // linkedRecordMap of robot event, linked datasheet may be unaccessible, skip
-        if (!foreignDatasheetDataPack) {
-          continue;
+        const theDiff = difference(recordIds, existRecordIds);
+        if (this.logger.isDebugEnabled()) {
+          this.logger.debug(`after filter: ${theDiff}`);
         }
-
-        const relatedFieldIds = this.getRelatedFieldIds(foreignDstId, foreignDatasheetDataPack, foreignDstIdToLookupFldIdsMap);
-
-        if (foreignDatasheetDataPack.snapshot.recordMap) {
-          const existRecordIds = [...Object.keys(foreignDatasheetDataPack.snapshot.recordMap)];
-          if (this.logger.isDebugEnabled()) {
-            this.logger.debug(`New record: ${Array.from(recordIds)} - original record: ${existRecordIds} `);
-          }
-          const theDiff = difference(Array.from(recordIds), existRecordIds);
-          if (this.logger.isDebugEnabled()) {
-            this.logger.debug(`after filter: ${theDiff}`);
-          }
-          if (theDiff.length > 0) {
-            const addRecordMap = await this.fetchRecordMap(foreignDstId, Array.from(new Set<string>(theDiff)), relatedFieldIds);
-            const existRecordMap = foreignDatasheetDataPack.snapshot.recordMap;
-            foreignDatasheetDataPack.snapshot.recordMap = { ...addRecordMap, ...existRecordMap };
-            globalParam.dstIdToNewRecFlagMap.set(foreignDstId, true);
-          }
-        } else {
-          foreignDatasheetDataPack.snapshot.recordMap =
-            await this.fetchRecordMap(foreignDstId, Array.from(recordIds), relatedFieldIds);
+        if (theDiff.length > 0) {
+          const addRecordMap = await this.fetchRecordMap(foreignDstId, theDiff);
+          const existRecordMap = foreignDatasheetDataPack.snapshot.recordMap;
+          foreignDatasheetDataPack.snapshot.recordMap = { ...addRecordMap, ...existRecordMap };
+          state.dstIdToNewRecFlagMap.set(foreignDstId, true);
         }
+      } else {
+        foreignDatasheetDataPack.snapshot.recordMap = await this.fetchRecordMap(foreignDstId, recordIds);
       }
     }
 
     // Process primary field of linked datasheet, formula field requires recursive process
     for (const [fldId, foreignDstId] of fieldIdToLinkDstIdMap.entries()) {
       // exists, skip
-      if (globalParam.dstIdToHeadFieldIdMap.has(foreignDstId)) {
+      const headFieldId = state.dstIdToHeadFieldIdMap.get(foreignDstId)!;
+      if (headFieldId) {
         // Create two-way reference
-        const headFieldId = globalParam.dstIdToHeadFieldIdMap.get(foreignDstId);
         await this.computeFieldReferenceManager.createReference(dstId, fldId, foreignDstId, [headFieldId]);
         continue;
       }
       // Get view and field data of linked datasheet
-      const { views, fieldMap } = globalParam.foreignDstMap[foreignDstId].snapshot.meta;
+      const { views, fieldMap } = foreignDstId === state.mainDstId ? state.mainDstMeta : state.foreignDstMap[foreignDstId]!.snapshot.meta;
       // Primary field ID
-      const { fieldId } = head((head(views) as IViewProperty).columns)!;
+      const { fieldId } = views[0]!.columns[0]!;
       // Primary field data
-      const indexField = fieldMap[fieldId];
-      globalParam.dstIdToHeadFieldIdMap.set(foreignDstId, fieldId);
+      const indexField = fieldMap[fieldId]!;
+      state.dstIdToHeadFieldIdMap.set(foreignDstId, fieldId);
       // Create two-way reference
       await this.computeFieldReferenceManager.createReference(dstId, fldId, foreignDstId, [fieldId]);
       // Only handle formula field
@@ -320,40 +391,32 @@ export class DatasheetFieldHandler {
           this.logger.debug(`Linked datasheet [${foreignDstId}] contains formula field`, indexField);
         }
         // Process primary field of linked datasheet, which is a formula field
-        await this.processFormulaField(fieldMap, indexField, globalParam);
+        await this.processFormulaField(fieldMap, indexField, state);
       }
     }
 
     // Process LookUp field recursively
     if (!isEmpty(foreignDstIdToLookupFldIdsMap)) {
       for (const [foreignDstId, fieldIds] of Object.entries(foreignDstIdToLookupFldIdsMap)) {
+        if (foreignDstId === state.mainDstId) {
+          await this.parseField(foreignDstId, state.mainDstMeta.fieldMap, state.mainDstRecordMap, Array.from(fieldIds), state);
+          continue;
+        }
         // Linked datasheet must exist, or skip
-        if (!Object.keys(globalParam.foreignDstMap).includes(foreignDstId)) {
+        if (!Object.keys(state.foreignDstMap).includes(foreignDstId)) {
           continue;
         }
         if (this.logger.isDebugEnabled()) {
           this.logger.debug(`Process new Lookup field recursively [${foreignDstId}] --- [${fieldIds}]`);
         }
-        const foreignFieldMap = globalParam.foreignDstMap[foreignDstId].snapshot.meta.fieldMap;
-        const foreignRecordMap = globalParam.foreignDstMap[foreignDstId].snapshot.recordMap;
-        await this.parseField(foreignDstId, foreignFieldMap, foreignRecordMap, Array.from(fieldIds), globalParam);
+        const foreignFieldMap = state.foreignDstMap[foreignDstId]!.snapshot.meta.fieldMap;
+        const foreignRecordMap = state.foreignDstMap[foreignDstId]!.snapshot.recordMap;
+        await this.parseField(foreignDstId, foreignFieldMap, foreignRecordMap, Array.from(fieldIds), state);
       }
     }
   }
 
-  private getRelatedFieldIds(datasheetId: string, foreignDatasheetData: any
-    , foreignDstIdToLookupFldIdsMap: { [datasheetId: string]: string[] }) {
-    const lookupLinkedFieldIds: string[] = foreignDstIdToLookupFldIdsMap[datasheetId] || [];
-    const relatedFieldIds = new Set<string>([...lookupLinkedFieldIds]);
-    // Get view and field data of linked datasheet
-    const { views } = foreignDatasheetData.snapshot.meta;
-    // Primary field ID
-    const { fieldId } = head((head(views) as IViewProperty).columns)!;
-    relatedFieldIds.add(fieldId);
-    return [...relatedFieldIds];
-  }
-
-  private async processFormulaField(fieldMap: IFieldMap, formulaField: IFormulaField, globalParam: any, recordMap?: RecordMap) {
+  private async processFormulaField(fieldMap: IFieldMap, formulaField: IFormulaField, state: IAnalysisState, recordMap?: IRecordMap) {
     if (this.logger.isDebugEnabled()) {
       this.logger.debug('Process formula field', formulaField);
     }
@@ -369,10 +432,10 @@ export class DatasheetFieldHandler {
     await this.computeFieldReferenceManager.createReference(datasheetId, formulaField.id, datasheetId, formulaRefFieldIds);
     // Get corresponding record data of current datasheet
     if (!recordMap) {
-      recordMap = globalParam.foreignDstMap[datasheetId].snapshot.recordMap;
+      recordMap = datasheetId === state.mainDstId ? state.mainDstRecordMap : state.foreignDstMap[datasheetId]!.snapshot.recordMap;
     }
     // process recursively
-    await this.parseField(datasheetId, fieldMap, recordMap || {}, formulaRefFieldIds, globalParam);
+    await this.parseField(datasheetId, fieldMap, recordMap || {}, formulaRefFieldIds, state);
   }
 
   /**
@@ -382,69 +445,70 @@ export class DatasheetFieldHandler {
    * @param fieldLinkDstMap field ID -> linked datasheet ID
    * @returns linked records in linked datasheets
    */
-  private forEachRecordMap(dstId: string, recordMap: RecordMap, fieldLinkDstMap: Map<string, string>) {
+  static forEachRecordMap(dstId: string, recordMap: IRecordMap, fieldLinkDstMap: Map<string, string>, logger: Logger): Record<string, Set<string>> {
+    if (fieldLinkDstMap.size == 0) {
+      return {};
+    }
+
     const beginTime = +new Date();
-    if (Object.keys(recordMap).length === 0) return {};
-    this.logger.info(`Start traverse main datasheet ${dstId} records`);
-    const foreignDstIdRecordIdsMap = Object.values(recordMap).reduce<{ [foreignDstId: string]: string[] }>((pre, cur) => {
-      if (!isEmpty(cur) && !isEmpty(cur.data)) {
-        // Only process records with link fields
-        if (fieldLinkDstMap.size > 0) {
-          // All cells containing data
-          const fieldIds = [...Object.keys(cur.data)];
-          // Process cell data of link field, get linking records from cell data
-          // get linked field IDs
-          const linkFieldIds = [...fieldLinkDstMap.keys()];
-          const inter = intersection<string>(fieldIds, linkFieldIds);
-          // If difference is not empty, there are linked datasheet records
-          if (inter.length > 0) {
-            // corresponding records from linked datasheet
-            for (const [fieldId, foreignDstId] of fieldLinkDstMap.entries()) {
-              // Only get record IDs if field is in fieldIds
-              if (fieldIds.includes(fieldId)) {
-                // record IDs of linked datasheet
-                const recordIds = cur.data[fieldId] as string[];
-                if (recordIds?.length > 0) {
-                  // filter out invalid cell values of linked fields
-                  const filterRecordIds = recordIds.filter(recId => typeof recId === 'string');
-                  if (filterRecordIds.length === 0) {
-                    continue;
-                  }
-                  // Store linked datasheet and corresponding record IDs
-                  DatasheetFieldHandler.setIfExist(pre, foreignDstId, filterRecordIds);
-                }
-              }
-            }
+    if (Object.keys(recordMap).length === 0) {
+      return {};
+    }
+    logger.info(`Start traverse main datasheet ${dstId} records`);
+    const foreignDstIdRecordIdsMap: { [foreignDstId: string]: Set<string> } = {};
+    for (const recordId in recordMap) {
+      const record = recordMap[recordId];
+      if (isEmpty(record) || isEmpty(record!.data)) {
+        continue;
+      }
+
+      const recordData = record!.data;
+      for (const [fieldId, foreignDstId] of fieldLinkDstMap) {
+        let linkedRecordIds = recordData[fieldId];
+        if (!linkedRecordIds || !isArray(linkedRecordIds)) {
+          continue;
+        }
+        linkedRecordIds = (linkedRecordIds as ILinkIds).filter((recId) => typeof recId === 'string');
+        if (linkedRecordIds.length) {
+          let foreignRecIds = foreignDstIdRecordIdsMap[foreignDstId];
+          if (!foreignRecIds) {
+            foreignRecIds = new Set();
+            foreignDstIdRecordIdsMap[foreignDstId] = foreignRecIds;
+          }
+          for (const linkedRecordId of linkedRecordIds as ILinkIds) {
+            foreignRecIds.add(linkedRecordId);
           }
         }
       }
-      return pre;
-    }, {});
+    }
     const endTime = +new Date();
-    this.logger.info(`Finished traversing main datasheet ${dstId} records, duration: ${endTime - beginTime}ms`);
+    logger.info(`Finished traversing main datasheet ${dstId} records, duration: ${endTime - beginTime}ms`);
     return foreignDstIdRecordIdsMap;
   }
 
-  private async fetchRecordMap(dstId: string, recordIds: string[], _relatedFieldIds: string[]): Promise<RecordMap> {
-    return await this.datasheetRecordService.getRecordsByDstIdAndRecordIds(dstId, recordIds);
+  private async fetchRecordMap(dstId: string, recordIds: string[]): Promise<IRecordMap> {
+    return await this.datasheetRecordService.getRecordsByDstIdAndRecordIds(dstId, recordIds, false, false);
   }
 
   /**
    * Initialize linked datasheet snapshot
    *
    * @param dstId datasheet ID
-   * @param globalParam global parameters
+   * @param state field analysis state
    */
-  private async initLinkDstSnapshot(dstId: string, globalParam: any) {
+  private async initLinkDstSnapshot(
+    dstId: string,
+    state: IAnalysisState,
+  ): Promise<{ datasheet?: INodeMeta; meta?: IMeta; fieldPermissionMap?: IFieldPermissionMap }> {
     try {
       const meta = await this.datasheetMetaService.getMetaDataMaybeNull(dstId);
 
-      if (globalParam.withoutPermission) {
+      if (state.withoutPermission) {
         const nodeBaseInfoList = await this.datasheetRepository.selectBaseInfoByDstIds([dstId]);
         const node = nodeBaseInfoList[0];
-        return { datasheet: node, meta };
+        return { datasheet: node as any, meta };
       }
-      const { node, fieldPermissionMap } = await this.nodeService.getNodeDetailInfo(dstId, globalParam.auth, globalParam.origin);
+      const { node, fieldPermissionMap } = await this.nodeService.getNodeDetailInfo(dstId, state.auth, state.origin);
       return { datasheet: node, meta, fieldPermissionMap };
     } catch {
       return {};
@@ -454,16 +518,12 @@ export class DatasheetFieldHandler {
   /**
    * Add a value array to a key-values mapping, if key exists, append the array
    */
-  private static setIfExist(map: { [dstId: string]: any[] }, key: string, value: any[]) {
+  private static setIfExist<T>(map: { [dstId: string]: T[] }, key: string, value: T[]) {
     if (key in map) {
       map[key] = [...map[key]!, ...value];
     } else {
       map[key] = value;
     }
-  }
-
-  static getHeadFieldId(meta: IMeta): string {
-    return head((head(meta.views) as IViewProperty).columns)!.fieldId;
   }
 
   async computeFormulaReference(dstId: string, toChangeFormulaExpressions: any[]) {
@@ -474,8 +534,13 @@ export class DatasheetFieldHandler {
         if (!isEmpty(formulaRefFieldIds)) {
           // Create two-way reference relation (cover old relations, remaining part will break two-way reference)
           const members = await this.computeFieldReferenceManager.createReference(dstId, fieldId, dstId, formulaRefFieldIds);
-          await this.reverseComputeReference(dstId, fieldId, dstId,
-            difference<string>(formulaRefFieldIds, members), difference<string>(members, formulaRefFieldIds));
+          await this.reverseComputeReference(
+            dstId,
+            fieldId,
+            dstId,
+            difference<string>(formulaRefFieldIds, members),
+            difference<string>(members, formulaRefFieldIds),
+          );
           continue;
         }
       }
@@ -494,7 +559,7 @@ export class DatasheetFieldHandler {
     // datasheet ID -> processed field ID set
     const dstIdToProcessedFldIdsMap: { [dstId: string]: string[] } = {};
     // Parse main datasheet, obtain all referenced resources
-    const specialFieldTypes = [FieldType.Link, FieldType.LookUp, FieldType.Formula];
+    const specialFieldTypes = [FieldType.Link, FieldType.OneWayLink, FieldType.LookUp, FieldType.Formula];
     const refFieldIds = Object.values(fieldMap).reduce((pre, field) => {
       if (specialFieldTypes.includes(field.type)) {
         pre.push(field.id);
@@ -508,16 +573,23 @@ export class DatasheetFieldHandler {
     return Object.keys(dstIdToProcessedFldIdsMap);
   }
 
-  async deleteLinkFieldReference(dstId: string, mainDstMeta: IMeta,
-    fldIdToForeignDatasheetIdMap: Map<string, string>): Promise<string[] | undefined> {
+  async deleteLinkFieldReference(
+    dstId: string,
+    mainDstMeta: IMeta,
+    fldIdToForeignDatasheetIdMap: Map<string, string>,
+  ): Promise<string[] | undefined> {
     // Break reference, make sure resource is not referenced before resource leaving room
     // 1. many link fields may link the same datasheet, reference will not be broken before all these fields are deleted
     // 2. there exists indirect reference to this datasheet. Example: A links B & C, B links C and primary field references LinkC field.
     //    After A and C is unlinked, LinkB still references C indirectly.
 
     // Process link field reference
-    const { dstIdToMetaMap, dstIdToProcessedFldIdsMap } =
-      await this.processLinkFieldReference(dstId, mainDstMeta, fldIdToForeignDatasheetIdMap, false);
+    const { dstIdToMetaMap, dstIdToProcessedFldIdsMap } = await this.processLinkFieldReference(
+      dstId,
+      mainDstMeta,
+      fldIdToForeignDatasheetIdMap,
+      false,
+    );
 
     // Loaded one datasheet means break self-linking, no resource will leave room, return
     if (dstIdToMetaMap.size === 1) {
@@ -554,8 +626,7 @@ export class DatasheetFieldHandler {
       return pre;
     }, {});
 
-    const updateReference = creatable ? this.computeFieldReferenceManager.createReference :
-      this.computeFieldReferenceManager.deleteReference;
+    const updateReference = creatable ? this.computeFieldReferenceManager.createReference : this.computeFieldReferenceManager.deleteReference;
 
     for (const [fldId, foreignDatasheetId] of fldIdToForeignDatasheetIdMap.entries()) {
       const meta = await this.getMeta(foreignDatasheetId, dstIdToMetaMap);
@@ -563,7 +634,7 @@ export class DatasheetFieldHandler {
         continue;
       }
       // primary field ID
-      const { fieldId } = head((head(meta.views) as IViewProperty).columns)!;
+      const { fieldId } = meta.views[0]!.columns[0]!;
       // Update two-way reference relation of link field
       await updateReference(dstId, fldId, foreignDatasheetId, [fieldId]);
       // Count all influenced fields of linked datasheet
@@ -585,8 +656,9 @@ export class DatasheetFieldHandler {
         continue;
       }
       await this.parseFieldReference(dstId, foreignDatasheetId, allForeignFieldIds, dstIdToMetaMap, dstIdToProcessedFldIdsMap);
-      creatable ? await this.reverseComputeReference(dstId, fldId, foreignDatasheetId, allForeignFieldIds, undefined) :
-        await this.reverseComputeReference(dstId, fldId, foreignDatasheetId, undefined, allForeignFieldIds);
+      creatable
+        ? await this.reverseComputeReference(dstId, fldId, foreignDatasheetId, allForeignFieldIds, undefined)
+        : await this.reverseComputeReference(dstId, fldId, foreignDatasheetId, undefined, allForeignFieldIds);
     }
     return { dstIdToMetaMap, dstIdToProcessedFldIdsMap };
   }
@@ -595,8 +667,12 @@ export class DatasheetFieldHandler {
     // Compute possible ROOM resource changes caused by removing Lookup reference,
     // Resource only leave room after not referenced.
     // Process Lookup field reference
-    const { dstIdToMetaMap, dstIdToProcessedFldIdsMap, foreignDatasheetIds } =
-      await this.processLookUpFieldReference(dstId, meta, toDeleteLookUpProperties, false);
+    const { dstIdToMetaMap, dstIdToProcessedFldIdsMap, foreignDatasheetIds } = await this.processLookUpFieldReference(
+      dstId,
+      meta,
+      toDeleteLookUpProperties,
+      false,
+    );
 
     // If all resouces are linked datasheet when changing, just return
     if (foreignDatasheetIds.length === Object.keys(dstIdToProcessedFldIdsMap).length) {
@@ -609,8 +685,7 @@ export class DatasheetFieldHandler {
 
   async computeLookUpReference(dstId: string, meta: IMeta, toCreateLookUpProperties: any[]): Promise<string[] | undefined> {
     // Process Lookup field reference
-    const { dstIdToProcessedFldIdsMap, foreignDatasheetIds } =
-      await this.processLookUpFieldReference(dstId, meta, toCreateLookUpProperties, true);
+    const { dstIdToProcessedFldIdsMap, foreignDatasheetIds } = await this.processLookUpFieldReference(dstId, meta, toCreateLookUpProperties, true);
 
     if (!foreignDatasheetIds.length || foreignDatasheetIds.length === Object.keys(dstIdToProcessedFldIdsMap).length) {
       return undefined;
@@ -626,8 +701,7 @@ export class DatasheetFieldHandler {
     const dstIdToProcessedFldIdsMap: { [dstId: string]: string[] } = {};
     const foreignDatasheetIds: string[] = [];
 
-    const updateReference = creatable ? this.computeFieldReferenceManager.createReference :
-      this.computeFieldReferenceManager.deleteReference;
+    const updateReference = creatable ? this.computeFieldReferenceManager.createReference : this.computeFieldReferenceManager.deleteReference;
 
     const fieldMap = meta.fieldMap;
     for (const { fieldId, relatedLinkFieldId, lookUpTargetFieldId, openFilter, filterInfo } of properties) {
@@ -636,7 +710,7 @@ export class DatasheetFieldHandler {
         continue;
       }
       // Referenced field is not field type, skip
-      if (fieldMap[relatedLinkFieldId]!.type !== FieldType.Link) {
+      if (fieldMap[relatedLinkFieldId]!.type !== FieldType.Link && fieldMap[relatedLinkFieldId]!.type !== FieldType.OneWayLink) {
         continue;
       }
       const { foreignDatasheetId } = fieldMap[relatedLinkFieldId]!.property;
@@ -646,7 +720,7 @@ export class DatasheetFieldHandler {
         filterInfo.conditions.forEach((condition: any) => lookUpReferFieldIds.push(condition.fieldId));
       }
       // Update two-way reference of LookUp field
-      updateReference(dstId, fieldId, foreignDatasheetId, lookUpReferFieldIds);
+      await updateReference(dstId, fieldId, foreignDatasheetId, lookUpReferFieldIds);
       // skip self-linking
       if (foreignDatasheetId === dstId) {
         continue;
@@ -656,8 +730,9 @@ export class DatasheetFieldHandler {
       // Parse reference field
       await this.parseFieldReference(dstId, foreignDatasheetId, lookUpReferFieldIds, dstIdToMetaMap, dstIdToProcessedFldIdsMap);
       // Reverse compute reference (depends on field reference cache, must go after field reference parsing)
-      creatable ? await this.reverseComputeReference(dstId, fieldId, foreignDatasheetId, lookUpReferFieldIds, undefined) :
-        await this.reverseComputeReference(dstId, fieldId, foreignDatasheetId, undefined, lookUpReferFieldIds);
+      creatable
+        ? await this.reverseComputeReference(dstId, fieldId, foreignDatasheetId, lookUpReferFieldIds, undefined)
+        : await this.reverseComputeReference(dstId, fieldId, foreignDatasheetId, undefined, lookUpReferFieldIds);
     }
     return { dstIdToMetaMap, dstIdToProcessedFldIdsMap, foreignDatasheetIds };
   }
@@ -667,7 +742,7 @@ export class DatasheetFieldHandler {
     foreignDstId: string,
     refFieldIds: string[],
     dstToMetaMap: Map<string, IMeta>,
-    dstIdToProcessedFldIdsMap: { [dstId: string]: string[] }
+    dstIdToProcessedFldIdsMap: { [dstId: string]: string[] },
   ) {
     // Check if linked datasheet fields have been process, if so, get diffrence with processed fields
     const diff = foreignDstId in dstIdToProcessedFldIdsMap ? difference<string>(refFieldIds, dstIdToProcessedFldIdsMap[foreignDstId]!) : refFieldIds;
@@ -704,6 +779,7 @@ export class DatasheetFieldHandler {
         continue;
       }
       switch (fieldInfo.type) {
+        case FieldType.OneWayLink:
         case FieldType.Link:
           const fieldProperty = fieldInfo.property as ILinkFieldProperty;
           const linkDatasheetId = fieldProperty.foreignDatasheetId;
@@ -716,7 +792,7 @@ export class DatasheetFieldHandler {
             break;
           }
           // primary field ID
-          const { fieldId } = head((head(linkDstMeta.views) as IViewProperty).columns)!;
+          const { fieldId } = linkDstMeta.views[0]!.columns[0]!;
           // Create two-way reference
           await this.computeFieldReferenceManager.createReference(foreignDstId, refFieldId, linkDatasheetId, [fieldId]);
           // Parse field reference recursively
@@ -729,7 +805,7 @@ export class DatasheetFieldHandler {
             break;
           }
           // Linked field is not a link field, skip
-          if (fieldMap[relatedLinkFieldId]!.type !== FieldType.Link) {
+          if (fieldMap[relatedLinkFieldId]!.type !== FieldType.Link && fieldMap[relatedLinkFieldId]!.type !== FieldType.OneWayLink) {
             break;
           }
           // Get linked datasheet ID
@@ -737,7 +813,7 @@ export class DatasheetFieldHandler {
           const foreignFieldIds = [lookUpTargetFieldId];
           // Analyze reference filter condition
           if (openFilter && filterInfo?.conditions.length) {
-            filterInfo.conditions.forEach(condition => foreignFieldIds.push(condition.fieldId));
+            filterInfo.conditions.forEach((condition) => foreignFieldIds.push(condition.fieldId));
           }
           // Create two-way reference
           await this.computeFieldReferenceManager.createReference(foreignDstId, refFieldId, foreignDatasheetId, foreignFieldIds);
@@ -852,7 +928,7 @@ export class DatasheetFieldHandler {
     delResourceIds: string[],
     dstToFiledMap: Map<string, string[]>,
     dstIdToMetaMap: Map<string, IMeta>,
-    dstIdToProcessedFldIdsMap: { [dstId: string]: string[] }
+    dstIdToProcessedFldIdsMap: { [dstId: string]: string[] },
   ) {
     for (const [datasheetId, fieldIds] of dstToFiledMap.entries()) {
       // Get processed field IDs

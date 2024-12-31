@@ -4,14 +4,12 @@
 
 :global(.ant-modal-body) {
   .viewFilter {
-    background: var(--defaultBg);
+    background-color: var(--bgCommonDefault);
   }
 }
 
 .viewFilter {
-  width: 720px;
   overflow: auto;
-  // height: 242px;
   box-sizing: border-box;
   background: var(--highBg);
   z-index: var(--viewFilterBox);
@@ -36,6 +34,20 @@
     cursor: pointer;
     width: max-content;
     color: var(--secondLevelText);
+
+    &.disabled {
+      color: var(--textCommonDisabled) !important;
+      cursor: not-allowed;
+
+      svg {
+        fill: var(--textCommonDisabled) !important;
+      }
+
+      & > * {
+        opacity: 0.5;
+
+      }
+    }
 
     .iconAdd {
       display: flex;

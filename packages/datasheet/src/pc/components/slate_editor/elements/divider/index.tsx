@@ -16,22 +16,19 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import dynamic from 'next/dynamic';
 import * as React from 'react';
 import { useCallback, useMemo } from 'react';
 import { Transforms } from 'slate';
 import { ReactEditor, useReadOnly, useSlate } from 'slate-react';
+import { DeleteOutlined } from '@apitable/icons';
 import { IElement, IElementRenderProps } from '../../interface/element';
 import styles from './divider.module.less';
 
-const DeleteOutlined = dynamic(() => import('@ant-design/icons/DeleteOutlined'), { ssr: false });
 const Divider = React.memo(({ children, element }: IElementRenderProps<IElement>) => {
-
   const readOnly = useReadOnly();
   const editor = useSlate() as ReactEditor;
 
-  const handleDelete = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
+  const handleDelete = useCallback(() => {
     try {
       const path = ReactEditor.findPath(editor, element);
       Transforms.removeNodes(editor, { at: path });
@@ -41,20 +38,20 @@ const Divider = React.memo(({ children, element }: IElementRenderProps<IElement>
   }, [editor, element]);
 
   const DotList = useMemo(() => {
-    return Array(4).fill('').map((_item, idx) => <i key={idx} className={styles.dot} />);
+    return Array(4)
+      .fill('')
+      .map((_item, idx) => <i key={idx} className={styles.dot} />);
   }, []);
 
-  return <div className={styles.wrap}>
-    <div contentEditable={false} className={styles.divider}>
-      {
-        DotList
-      }
-      {
-        !readOnly && <DeleteOutlined className={styles.deleteBtn} onMouseDown={handleDelete} />
-      }
+  return (
+    <div className={styles.wrap}>
+      <div contentEditable={false} className={styles.divider}>
+        {DotList}
+        {!readOnly && <DeleteOutlined className={styles.deleteBtn} onClick={handleDelete} />}
+      </div>
+      {children}
     </div>
-    {children}
-  </div>;
+  );
 });
 
 export default Divider;

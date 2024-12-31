@@ -16,13 +16,11 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import { compensator } from 'compensator';
-import { computeCache } from 'compute_manager/compute_cache_manager';
+import { compensator } from '../../../../../../compensator';
 
-import {
-  CellType
-} from '../../../../../../exports/store';
-import { ILinearRow, IReduxState, ISearchResult } from '../../../../../../exports/store/interfaces';
+import { CellType } from 'modules/shared/store/constants';
+
+import { ILinearRow, IReduxState } from 'exports/store/interfaces';
 import { getDatasheetPack } from './base';
 import { getViewByIdWithDefault } from './calc';
 
@@ -34,14 +32,6 @@ export const getComputedInfo = (state: IReduxState, dsId?: string) => {
 export const getComputedStatus = (state: IReduxState, dsId?: string) => {
   const datasheetPack = getDatasheetPack(state, dsId);
   return datasheetPack?.computedStatus;
-};
-
-// get the result set from the search
-export const getSearchResultArray = (state: IReduxState, searchKeyword: string): ISearchResult => {
-  const computedInfo = getComputedInfo(state);
-  if (computedInfo && computedInfo.searchResultArray) return computedInfo.searchResultArray;
-  const cacheKey = `SEARCH_${searchKeyword.toLowerCase()}`;
-  return computeCache.get(cacheKey) || [];
 };
 
 export const getPureVisibleRowsFormComputed = (state: IReduxState, dsId?: string | void) => {
@@ -93,10 +83,4 @@ export const getLinearRowsFormComputed = (state: IReduxState, dsId?: string) => 
     }
     return check(item);
   }, true));
-};
-
-export const getGroupBreakpoint = (state: IReduxState) => {
-  const computedInfo = getComputedInfo(state);
-  if (computedInfo && computedInfo.groupBreakpoint) return computedInfo.groupBreakpoint;
-  return computeCache.get('groupBreakpoint');
 };

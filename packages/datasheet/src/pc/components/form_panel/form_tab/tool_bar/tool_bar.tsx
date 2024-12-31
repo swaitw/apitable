@@ -16,35 +16,36 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+import classNames from 'classnames';
+import Trigger from 'rc-trigger';
 import { useState } from 'react';
 import * as React from 'react';
-import { useSelector, shallowEqual } from 'react-redux';
-import { Selectors, t, Strings, IFormProps, CollaCommandName, DATASHEET_ID } from '@apitable/core';
-import Trigger from 'rc-trigger';
-import classNames from 'classnames';
+import { shallowEqual } from 'react-redux';
 import { useThemeColors } from '@apitable/components';
-import styles from './style.module.less';
+import { Selectors, t, Strings, IFormProps, CollaCommandName, DATASHEET_ID } from '@apitable/core';
+import { SettingOutlined, ShareOutlined } from '@apitable/icons';
+import { ScreenSize } from 'pc/components/common/component_display';
+import { useResponsive } from 'pc/hooks';
+import { resourceService } from 'pc/resource_service';
+import { useAppSelector } from 'pc/store/react-redux';
+import { ToolItem } from '../../../tool_bar/tool_item';
 import { SettingPanel } from './setting_panel';
 import { ShareModal } from './share_modal';
-import { ToolItem } from '../../../tool_bar/tool_item';
-import SettingIcon from 'static/icon/datasheet/gallery/datasheet_icon_setting.svg';
-import ShareIcon from 'static/icon/datasheet/viewtoolbar/datasheet_icon_share_normal.svg';
-import { useResponsive } from 'pc/hooks';
-import { ScreenSize } from 'pc/components/common/component_display';
-import { resourceService } from 'pc/resource_service';
+import styles from './style.module.less';
+
 interface IToolBarProps {
   nodeShared: boolean;
   showLabel?: boolean;
 }
 
-export const ToolBar: React.FC<React.PropsWithChildren<IToolBarProps>> = props => {
+export const ToolBar: React.FC<React.PropsWithChildren<IToolBarProps>> = (props) => {
   const { nodeShared, showLabel = true } = props;
   const colors = useThemeColors();
   const [isPanelShow, setPanelShow] = useState<boolean>(false);
   const [visible, setVisible] = useState<boolean>(false);
   const { screenIsAtMost } = useResponsive();
   const isMobile = screenIsAtMost(ScreenSize.md);
-  const { formId, formProps, manageable } = useSelector(state => {
+  const { formId, formProps, manageable } = useAppSelector((state) => {
     const { id, snapshot, permissions } = Selectors.getForm(state)!;
     const { manageable } = permissions;
     return {
@@ -66,6 +67,13 @@ export const ToolBar: React.FC<React.PropsWithChildren<IToolBarProps>> = props =
       formContainer?.scrollTo(0, 0);
     }
   };
+  const { embedId } = useAppSelector((state) => state.pageParams);
+
+  const embedInfo = useAppSelector((state) => state.embedInfo);
+
+  const showSetting = embedId ? embedInfo.viewControl?.toolBar?.formSettingBtn : true;
+
+  const showShareBtn = embedId ? embedInfo.viewControl?.toolBar?.shareBtn : true;
 
   const commonProps = {
     formId,
@@ -75,37 +83,37 @@ export const ToolBar: React.FC<React.PropsWithChildren<IToolBarProps>> = props =
 
   return (
     <>
-      {!isMobile && manageable && (
+      {!isMobile && manageable && showSetting && (
         <Trigger
           action={['click']}
           popup={<SettingPanel {...commonProps} />}
           destroyPopupOnHide
-          popupAlign={{ points: ['tr', 'br'], offset: [-8, 10], overflow: { adjustX: true, adjustY: true }}}
+          popupAlign={{ points: ['tr', 'br'], offset: [-8, 10], overflow: { adjustX: true, adjustY: true } }}
           popupStyle={{ width: 240 }}
           popupVisible={isPanelShow}
-          onPopupVisibleChange={visible => setPanelShow(visible)}
+          onPopupVisibleChange={(visible) => setPanelShow(visible)}
           zIndex={1000}
         >
           <ToolItem
             className={classNames(styles.toolbarItem, isPanelShow && styles.active)}
             text={t(Strings.form_tab_setting)}
             id={DATASHEET_ID.FORM_CONTAINER_SETTING}
-            icon={
-              <SettingIcon width={16} height={16} fill={isPanelShow ? colors.primaryColor : colors.secondLevelText} className={styles.toolIcon} />
-            }
+            icon={<SettingOutlined size={16} color={isPanelShow ? colors.primaryColor : colors.secondLevelText} className={styles.toolIcon} />}
             onClick={() => setPanelShow(true)}
             showLabel={showLabel}
           />
         </Trigger>
       )}
-      <ToolItem
-        icon={<ShareIcon width={16} height={16} fill={nodeShared ? colors.primaryColor : colors.secondLevelText} className={styles.toolIcon} />}
-        text={t(Strings.form_tab_share)}
-        isActive={nodeShared}
-        className={styles.toolbarItem}
-        onClick={() => setVisible(true)}
-        showLabel={showLabel}
-      />
+      {showShareBtn && (
+        <ToolItem
+          icon={<ShareOutlined size={16} color={nodeShared ? colors.primaryColor : colors.secondLevelText} className={styles.toolIcon} />}
+          text={t(Strings.form_tab_share)}
+          isActive={nodeShared}
+          className={styles.toolbarItem}
+          onClick={() => setVisible(true)}
+          showLabel={showLabel}
+        />
+      )}
       {<ShareModal formId={formId} visible={visible} onClose={() => setVisible(false)} />}
     </>
   );

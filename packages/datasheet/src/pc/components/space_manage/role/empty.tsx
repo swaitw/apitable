@@ -16,15 +16,21 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import { Box, Button, Typography, useThemeColors } from '@apitable/components';
-import { integrateCdnHost, Settings, Strings, t } from '@apitable/core';
-import { getEnvVariables } from 'pc/utils/env';
+import Image from 'next/image';
 import { useContext } from 'react';
+import { Box, Button, Typography, useThemeColors } from '@apitable/components';
+import { Strings, t, ThemeName } from '@apitable/core';
+import { useAppSelector } from 'pc/store/react-redux';
+import { getEnvVariables } from 'pc/utils/env';
+import RoleEmptyDark from 'static/icon/common/role_empty_dark.png';
+import RoleEmptyLight from 'static/icon/common/role_empty_light.png';
 import { RoleContext } from './context';
 
-export const Empty: React.FC<React.PropsWithChildren<{ onClick: () => void }>> = props => {
+export const Empty: React.FC<React.PropsWithChildren<{ onClick: () => void }>> = (props) => {
   const colors = useThemeColors();
   const { manageable } = useContext(RoleContext);
+  const theme = useAppSelector((state) => state.theme);
+  const RoleEmpty = theme === ThemeName.Light ? RoleEmptyLight : RoleEmptyDark;
   return (
     <Box
       display={'flex'}
@@ -36,7 +42,7 @@ export const Empty: React.FC<React.PropsWithChildren<{ onClick: () => void }>> =
     >
       <Box width={480}>
         <Box textAlign={'center'} marginBottom={24}>
-          <img width={320} height={228.57} src={integrateCdnHost(Settings.space_setting_role_empty_img.value)} alt="role" />
+          <Image width={320} height={240} src={RoleEmpty} alt="role" />
         </Box>
         <Typography variant="h5" align="center">
           {t(Strings.manage_role_empty_title)}

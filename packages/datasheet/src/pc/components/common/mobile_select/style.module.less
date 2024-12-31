@@ -82,6 +82,10 @@
   }
 }
 
+.mobileSelect {
+  z-index: 9999;
+}
+
 .trigger {
   height: 48px;
   flex-shrink: 0;
@@ -92,6 +96,16 @@
 
 .outerTrigger,
 .trigger {
+
+  &.disabled{
+    span {
+      opacity: 0.5;
+    }
+
+    svg {
+      opacity: 0.5;
+    }
+  }
   span {
     .ellipsis();
   }

@@ -16,8 +16,9 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import { Injectable } from '@nestjs/common';
 import { IRemoteChangeset } from '@apitable/core';
+import { Injectable } from '@nestjs/common';
+import { ICommonData } from 'database/ot/interfaces/ot.interface';
 import { isEmpty } from 'lodash';
 import { DatasheetRecordSubscriptionEntity } from './entities/datasheet.record.subscription.entity';
 
@@ -47,6 +48,13 @@ export class DatasheetRecordSubscriptionBaseService {
   }
 
   public async handleChangesets(_changesets: IRemoteChangeset[], _context: any) {
+    await Promise.resolve();
+  }
+
+  public async handleRecordAutoSubscriptions(
+    _commonData: ICommonData,
+    _resultSet: { [key: string]: any },
+  ) {
     await Promise.resolve();
   }
 

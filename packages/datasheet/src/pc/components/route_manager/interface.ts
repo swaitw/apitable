@@ -22,6 +22,7 @@ export interface IParams {
   spaceId?: string | null;
   nodeId?: string;
   viewId?: string;
+  automationId?: string;
   recordId?: string;
   shareId?: string;
   categoryId?: string; // Template Category
@@ -31,16 +32,7 @@ export interface IParams {
   formId?: string;
   pathInSpace?: string;
   feiShuPath?: 'admin_login' | 'bind_space' | 'bind_user' | 'err';
-  invitePath?:
-    | 'mail/bindphone'
-    | 'mail/mismatch'
-    | 'mail/invalid'
-    | 'link/invalid'
-    | 'link/confirm'
-    | 'mail/login'
-    | 'link/login'
-    | 'link'
-    | 'mail';
+  invitePath?: 'mail/bindphone' | 'mail/mismatch' | 'mail/invalid' | 'link/invalid' | 'link/confirm' | 'mail/login' | 'link/login' | 'link' | 'mail';
   widgetId?: string;
   dingtalkPath?: 'login' | 'unbound_err' | 'social_login';
   dashboardId?: string;
@@ -55,6 +47,7 @@ export interface IQuery {
   token?: string;
   inviteMailToken?: string;
   inviteLinkToken?: string;
+  inviteLinkData?: string;
   loginType?: ConfigConstant.LoginTypes;
   reference?: string;
   inputDisabled?: boolean;
@@ -85,4 +78,12 @@ export interface IQuery {
   client_id?: string; // Spatial parameters of the privatized binding of Yufu
   nodeId?: string;
   comment?: number;
+  improveType?: ConfigConstant.ImproveType;
+  via?: string;
+  recordId?: string;
+  fieldId?: string;
+}
+
+export interface IOptions {
+  shallow?: boolean;
 }

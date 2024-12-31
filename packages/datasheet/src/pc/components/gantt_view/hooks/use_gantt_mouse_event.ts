@@ -16,23 +16,32 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+import { KonvaEventObject } from 'konva/lib/Node';
+import { useCallback, useContext, useEffect } from 'react';
 import {
-  CellType, CollaCommandName, DropDirectionType, FieldType, ICellValue, IGanttViewProperty, IGridViewProperty, ISetRecordOptions, KONVA_DATASHEET_ID,
+  CellType,
+  CollaCommandName,
+  DropDirectionType,
+  FieldType,
+  ICellValue,
+  ICollaCommandExecuteResult,
+  IGanttViewProperty,
+  IGridViewProperty,
+  ISetRecordOptions,
+  KONVA_DATASHEET_ID,
   Selectors,
 } from '@apitable/core';
-import { KonvaEventObject } from 'konva/lib/Node';
 import { appendRow, getCellValuesForGroupRecord } from 'modules/shared/shortcut_key/shortcut_actions/append_row';
 import { expandRecordIdNavigate } from 'pc/components/expand_record';
 import { AreaType, GanttCoordinate, KonvaGanttViewContext, PointPosition, ScrollViewType } from 'pc/components/gantt_view';
 import { GridCoordinate, KonvaGridContext } from 'pc/components/konva_grid';
 import { KonvaGridViewContext } from 'pc/components/konva_grid/context';
 import { dependsGroup2ChangeData } from 'pc/components/multi_grid/drag';
-import { MouseDownType } from 'pc/components/selection_wrapper';
 import { resourceService } from 'pc/resource_service';
 import { store } from 'pc/store';
 import { getParentNodeByClass } from 'pc/utils';
 import { executeCommandWithMirror } from 'pc/utils/execute_command_with_mirror';
-import { useCallback, useContext, useEffect } from 'react';
+import { MouseDownType } from '../../multi_grid';
 import { checkFieldEditable } from './use_gantt_tasks';
 
 interface IGanttMouseEventProps {
@@ -43,20 +52,8 @@ interface IGanttMouseEventProps {
   getMousePosition: (x: number, y: number, targetName?: string) => PointPosition;
 }
 
-export const useGanttMouseEvent = ({
-  gridInstance,
-  ganttInstance,
-  pointPosition,
-  scrollIntoView,
-  getMousePosition,
-}: IGanttMouseEventProps) => {
-  const {
-    x: pointX,
-    rowIndex: pointRowIndex,
-    columnIndex: pointColumnIndex,
-    offsetTop: pointOffsetTop,
-    targetName: pointTargetName,
-  } = pointPosition;
+export const useGanttMouseEvent = ({ gridInstance, ganttInstance, pointPosition, scrollIntoView, getMousePosition }: IGanttMouseEventProps) => {
+  const { x: pointX, rowIndex: pointRowIndex, columnIndex: pointColumnIndex, offsetTop: pointOffsetTop, targetName: pointTargetName } = pointPosition;
   const state = store.getState();
   const {
     view,
@@ -75,21 +72,21 @@ export const useGanttMouseEvent = ({
   } = useContext(KonvaGridViewContext);
   const {
     ganttStyle,
-    backTo, setRecord,
-    dragTaskId, setDragTaskId,
-    transformerId, setTransformerId,
-    dragSplitterInfo, setDragSplitterInfo,
+    backTo,
+    setRecord,
+    dragTaskId,
+    setDragTaskId,
+    transformerId,
+    setTransformerId,
+    dragSplitterInfo,
+    setDragSplitterInfo,
     isTaskLineDrawing,
     setIsTaskLineDrawing,
     taskLineSetting,
-    setTaskLineSetting
+    setTaskLineSetting,
   } = useContext(KonvaGanttViewContext);
-  const {
-    isMobile,
-    setMouseStyle,
-    scrollHandler
-  } = useContext(KonvaGridContext);
-  
+  const { isMobile, setMouseStyle, scrollHandler } = useContext(KonvaGridContext);
+
   const { startFieldId, endFieldId } = ganttStyle;
   const startField = fieldMap[startFieldId];
   const endField = fieldMap[endFieldId];
@@ -124,7 +121,7 @@ export const useGanttMouseEvent = ({
     if (transformerId !== taskId) return setTransformerId(taskId);
   };
 
-  const clickBlankHandler = () => {
+  const clickBlankHandler = (): Promise<ICollaCommandExecuteResult<string[]>> | void => {
     const task = getTaskData(pointRowIndex);
     if (task == null) return;
     const { type, startOffset, endOffset, recordId: taskRecordId } = task;
@@ -150,7 +147,7 @@ export const useGanttMouseEvent = ({
         if (!rowCreatable) return;
         const rowCount = visibleRows.length;
         const pointRecordId = linearRows[pointRowIndex]?.recordId;
-        const recordId = groupInfo.length ? pointRecordId : (rowCount > 0 ? visibleRows[rowCount - 1].recordId : '');
+        const recordId = groupInfo.length ? pointRecordId : rowCount > 0 ? visibleRows[rowCount - 1].recordId : '';
         let recordData: { [fieldId: string]: ICellValue } | null = null;
         if (isValidGanttFields) {
           const { startUnitIndex, endUnitIndex } = ganttInstance.getRangeIndexByColumnIndex(pointColumnIndex);
@@ -178,7 +175,7 @@ export const useGanttMouseEvent = ({
     // Only jumps to a distance of 1 frame from the border on mobile, 3 frames on PC
     const columnDistanceCount = isMobile ? 1 : 3;
     console.log('targetName--->', targetName);
-    if(targetName !== KONVA_DATASHEET_ID.GANTT_LINE_SETTING) {
+    if (targetName !== KONVA_DATASHEET_ID.GANTT_LINE_SETTING) {
       setTaskLineSetting(null);
     }
 
@@ -215,7 +212,7 @@ export const useGanttMouseEvent = ({
       }
       // Click on the blank space to create a new task
       case KONVA_DATASHEET_ID.GANTT_BLANK: {
-        if(taskLineSetting) return;
+        if (taskLineSetting) return;
         return clickBlankHandler();
       }
       // Previous page
@@ -234,7 +231,7 @@ export const useGanttMouseEvent = ({
           sourceId,
           targetId,
           dashEnabled,
-          fillColor
+          fillColor,
         });
       }
     }
@@ -248,7 +245,7 @@ export const useGanttMouseEvent = ({
     const { x, y } = pos;
     const { targetName } = getMousePosition(x, y, _targetName);
 
-    if(targetName === KONVA_DATASHEET_ID.GANTT_LINE_POINT) {
+    if (targetName === KONVA_DATASHEET_ID.GANTT_LINE_POINT) {
       setIsTaskLineDrawing(true);
     }
 
@@ -257,10 +254,9 @@ export const useGanttMouseEvent = ({
     if (_targetName === KONVA_DATASHEET_ID.GANTT_SPLITTER) {
       setDragSplitterInfo({
         x: pointX,
-        visible: true
+        visible: true,
       });
     }
-    
   };
 
   const onHighlightSplitterMove = (e: KonvaEventObject<MouseEvent>) => {
@@ -287,23 +283,28 @@ export const useGanttMouseEvent = ({
       const lastColumnWidth = gridInstance.getColumnWidth(lastColumnIndex);
       const finalColumnWidth = Math.max(lastColumnWidth + diffWidth, 80);
       if (finalColumnWidth === lastColumnWidth) return;
-      executeCommandWithMirror(() => {
-        resourceService.instance!.commandManager.execute({
-          cmd: CollaCommandName.SetColumnsProperty,
-          viewId: view.id,
-          fieldId: lastFieldId,
-          data: {
-            width: finalColumnWidth,
-          },
-        });
-      }, {
-        columns: (view as IGanttViewProperty).columns.map(column => {
-          return column.fieldId === lastFieldId ? {
-            ...column,
-            width: finalColumnWidth
-          } : column;
-        })
-      });
+      executeCommandWithMirror(
+        () => {
+          resourceService.instance!.commandManager.execute({
+            cmd: CollaCommandName.SetColumnsProperty,
+            viewId: view.id,
+            fieldId: lastFieldId,
+            data: {
+              width: finalColumnWidth,
+            },
+          });
+        },
+        {
+          columns: (view as IGanttViewProperty).columns.map((column) => {
+            return column.fieldId === lastFieldId
+              ? {
+                ...column,
+                width: finalColumnWidth,
+              }
+              : column;
+          }),
+        },
+      );
     }
   };
 
@@ -344,8 +345,8 @@ export const useGanttMouseEvent = ({
       });
       return recordsData;
     }, []);
-    
-    resourceService.instance!.commandManager!.execute({
+
+    resourceService.instance!.commandManager.execute({
       cmd: CollaCommandName.SetRecords,
       data: recordsData,
     });
@@ -358,11 +359,11 @@ export const useGanttMouseEvent = ({
       } else {
         const overTargetId = linearRows[pointRowIndex]?.recordId;
         const pointY = ganttInstance.getRowOffset(pointRowIndex);
-        const direction = pointOffsetTop - pointY > (rowHeight / 2) ? DropDirectionType.AFTER : DropDirectionType.BEFORE;
+        const direction = pointOffsetTop - pointY > rowHeight / 2 ? DropDirectionType.AFTER : DropDirectionType.BEFORE;
         let data: Array<{ recordId: string; overTargetId: string; direction: DropDirectionType }>;
         if (new Set(selectRecordIds).has(dragTaskId)) {
           // The record currently in operation is already ticked
-          data = selectRecordIds.map(recordId => {
+          data = selectRecordIds.map((recordId) => {
             return {
               recordId,
               overTargetId,
@@ -371,11 +372,13 @@ export const useGanttMouseEvent = ({
           });
         } else {
           // The record currently in operation is not ticked
-          data = [{
-            recordId: dragTaskId,
-            overTargetId,
-            direction,
-          }];
+          data = [
+            {
+              recordId: dragTaskId,
+              overTargetId,
+              direction,
+            },
+          ];
         }
 
         const targetIndex = visibleRowsIndexMap.get(overTargetId);
@@ -388,7 +391,7 @@ export const useGanttMouseEvent = ({
           return setDragTaskId(null);
         }
 
-        const isSameRecordIndex = data.findIndex(item => item.overTargetId === item.recordId);
+        const isSameRecordIndex = data.findIndex((item) => item.overTargetId === item.recordId);
         if (isSameRecordIndex !== -1 && data.length > 1) {
           data = data.map((item, index) => {
             if (index < isSameRecordIndex) {
@@ -404,12 +407,12 @@ export const useGanttMouseEvent = ({
           groupLevel: groupInfo.length,
           snapshot,
           view: view as IGridViewProperty,
-          fieldPermissionMap
+          fieldPermissionMap,
         });
         if (recordData == null) return setDragTaskId(null);
         resourceService.instance!.commandManager.execute({
           cmd: CollaCommandName.MoveRow,
-          data: data.filter(item => item.overTargetId !== item.recordId),
+          data: data.filter((item) => item.overTargetId !== item.recordId),
           viewId: view.id,
           recordData,
         });
@@ -420,8 +423,7 @@ export const useGanttMouseEvent = ({
   };
 
   const handleMouseStyle = (targetName: string) => {
-  
-    if(isTaskLineDrawing) {
+    if (isTaskLineDrawing) {
       setMouseStyle('grabbing');
       return;
     }
@@ -433,9 +435,9 @@ export const useGanttMouseEvent = ({
       case KONVA_DATASHEET_ID.GANTT_ERROR_TASK_TIP:
       case KONVA_DATASHEET_ID.GANTT_GROUP_TOGGLE_BUTTON:
       case KONVA_DATASHEET_ID.GANTT_BACK_TO_TASK_BUTTON_LEFT:
-      case KONVA_DATASHEET_ID.GANTT_BACK_TO_TASK_BUTTON_RIGHT: 
+      case KONVA_DATASHEET_ID.GANTT_BACK_TO_TASK_BUTTON_RIGHT:
       case KONVA_DATASHEET_ID.GANTT_LINE_POINT:
-      case KONVA_DATASHEET_ID.GANTT_LINE_TASK: 
+      case KONVA_DATASHEET_ID.GANTT_LINE_TASK:
       case KONVA_DATASHEET_ID.GANTT_LINE_SETTING: {
         return setMouseStyle('pointer');
       }
@@ -444,18 +446,21 @@ export const useGanttMouseEvent = ({
     }
   };
 
-  const mouseUp = useCallback((e: any) => {
-    if (getParentNodeByClass(e.target as HTMLElement, 'vikaGanttView')) return;
-    scrollHandler.stopScroll();
-    setDragTaskId(null);
-    setTaskLineSetting(null);
-  }, [scrollHandler, setDragTaskId, setTaskLineSetting]);
+  const mouseUp = useCallback(
+    (e: any) => {
+      if (getParentNodeByClass(e.target as HTMLElement, 'vikaGanttView')) return;
+      scrollHandler.stopScroll();
+      setDragTaskId(null);
+      setTaskLineSetting(null);
+    },
+    [scrollHandler, setDragTaskId, setTaskLineSetting],
+  );
 
   useEffect(() => {
     document.addEventListener('mouseup', mouseUp);
     return () => document.removeEventListener('mouseup', mouseUp);
   }, [mouseUp]);
-  
+
   return {
     onClick,
     onMouseUp,
@@ -464,6 +469,6 @@ export const useGanttMouseEvent = ({
     onDragStart,
     onDragMove,
     onDragEnd,
-    handleMouseStyle
+    handleMouseStyle,
   };
 };

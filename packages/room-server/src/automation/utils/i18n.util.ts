@@ -16,6 +16,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+import { isJSON } from 'class-validator';
+
 export function replaceSchemaByLanguage(language: string, source: any): any {
   if (Array.isArray(source)) {
     return source.map((item) => {
@@ -32,10 +34,12 @@ export function replaceSchemaByLanguage(language: string, source: any): any {
 }
 
 export function getTypeByItem(item: any, lang: string, type = 'action') {
+  //TODO: default value replace to DEFAULT_LOCALE env variable after new configuration update
+  lang = item.i18n[lang] ? lang : (lang.includes('zh') ? 'zh' : 'en');
   const language = item.i18n[lang];
   const inputSchema = item.inputJsonSchema;
   const outputSchema = item.outputJsonSchema;
-  const serviceLanguage = item.serviceI18n[lang];
+  const serviceLanguage = item.serviceI18n[(item.serviceI18n[lang] ? lang : 'en')];
   const idFieldName = type === 'action' ? 'actionTypeId' : 'triggerTypeId';
   return {
     [idFieldName]: item[idFieldName],
@@ -47,7 +51,8 @@ export function getTypeByItem(item: any, lang: string, type = 'action') {
     service: {
       serviceId: item.serviceId,
       name: serviceLanguage[item.serviceName],
-      logo: item.serviceLogo,
+      logo: isJSON(item.serviceLogo) ? JSON.parse(item.serviceLogo).light : item.serviceLogo,
+      themeLogo: isJSON(item.serviceLogo) ? JSON.parse(item.serviceLogo) : { light: item.serviceLogo },
       slug: item.serviceSlug
     }
   };

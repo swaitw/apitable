@@ -1,7 +1,7 @@
 ---
 name: Feature request
 about: Suggest an idea for APITable
-title: 'feat: FEATURE...'
+title: 'feat: A brief description of your requested feature'
 labels: 'enhancement'
 assignees: ''
 
@@ -10,17 +10,13 @@ assignees: ''
 I have an idea for this project.
 
 ## Why? 
-<!-- 
 > Why we need this feature？
 > What is the user story for this feature? 
--->
 
 
 ## What?
-<!--
 > Can you describe this feature in detail?
 > Who can benefit from it? 
--->
 
 ## How?
 <!-- 

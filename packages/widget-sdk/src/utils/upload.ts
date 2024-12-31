@@ -84,8 +84,8 @@ export function upload(params: {
       fileType: UploadType.DstAttachment,
       nodeId: datasheetId,
       axiosConfig: {
-        onUploadProgress: ({ loaded, total }: IUploadProgress) => {
-          onProgress && onProgress({ loaded, total });
+        onUploadProgress: ({ loaded, total }) => {
+          return onProgress && onProgress({ loaded, total });
         },
       },
     });
@@ -97,9 +97,10 @@ export function upload(params: {
       });
       return;
     }
+
     resolve(pickBy({
       id: data.token,
-      name: data.name,
+      name: data.name || file.name,
       mimeType: data.mimeType,
       token: data.token,
       bucket: data.bucket,

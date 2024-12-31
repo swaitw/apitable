@@ -16,7 +16,10 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import { useState, useEffect, FC } from 'react';
+import { Col, Row } from 'antd';
+import { isEqual } from 'lodash';
+import { FC, useContext, useEffect, useState } from 'react';
+import { colorVars, IconButton, WrapperTooltip } from '@apitable/components';
 import {
   ConfigConstant,
   FieldType,
@@ -29,20 +32,18 @@ import {
   Strings,
   t,
 } from '@apitable/core';
-import { useSelector } from 'react-redux';
-import { Col, Row } from 'antd';
-import { IconButton, colorVars } from '@apitable/components';
-import { checkComputeRef } from 'pc/components/multi_grid/field_setting';
+import { DeleteOutlined } from '@apitable/icons';
 import { ComponentDisplay, ScreenSize } from 'pc/components/common/component_display';
+import { checkComputeRef } from 'pc/components/multi_grid/field_setting';
+import { InvalidValue } from 'pc/components/tool_bar/view_filter/invalid_value';
+import { ViewFilterContext } from 'pc/components/tool_bar/view_filter/view_filter_context';
+import { useAppSelector } from 'pc/store/react-redux';
 import { FilterConjunction } from './filter_conjunction/filter_conjunction';
 import { FilterFieldList } from './filter_field_list';
 import { FilterOperate } from './filter_operate';
 import { FilterValue } from './filter_value';
-import IconDelete from 'static/icon/common/common_icon_delete.svg';
-import styles from './style.module.less';
 import { ExecuteFilterFn } from './interface';
-import { isEqual } from 'lodash';
-import { InvalidValue } from 'pc/components/tool_bar/view_filter/invalid_value';
+import styles from './style.module.less';
 
 interface IConditionList {
   filterInfo?: IFilterInfo;
@@ -53,21 +54,22 @@ interface IConditionList {
   field?: ILookUpField;
 }
 
-const ConditionList: FC<React.PropsWithChildren<IConditionList>> = props => {
+const ConditionList: FC<React.PropsWithChildren<IConditionList>> = (props) => {
   const { filterInfo, fieldMap, changeFilter, deleteFilter, datasheetId, field } = props;
   const { conditions, conjunction = FilterConjunctionEnum.And } = filterInfo || {};
-  const columns = useSelector(state => {
+  const columns = useAppSelector((state) => {
     const view = Selectors.getCurrentView(state, datasheetId);
     return view!.columns as IViewColumn[];
   });
-  const fieldPermissionMap = useSelector(Selectors.getFieldPermissionMap);
+  const fieldPermissionMap = useAppSelector(Selectors.getFieldPermissionMap);
+  const { isViewLock } = useContext(ViewFilterContext);
 
   // Check if the magic lookup filter is circularly referenced
   const [warnTextObj, setWarnTextObj] = useState<{ string?: string }>({});
   useEffect(() => {
     if (field) {
       const newWarnTextObj = {};
-      columns.forEach(column => {
+      columns.forEach((column) => {
         const foreignFieldId = fieldMap[column.fieldId];
         if ([FieldType.LookUp, FieldType.Formula].includes(foreignFieldId.type)) {
           const warnText = checkComputeRef({
@@ -93,10 +95,10 @@ const ConditionList: FC<React.PropsWithChildren<IConditionList>> = props => {
   return (
     <div className={styles.condition}>
       {conditions.map((item, index) => {
-        const field = fieldMap[item.fieldId];
+        const conditionField = fieldMap[item.fieldId];
         const fieldRole = Selectors.getFieldRoleByFieldId(fieldPermissionMap, item.fieldId);
         const isCryptoField = Boolean(fieldRole && fieldRole === ConfigConstant.Role.None);
-        const fieldNotFound = !isCryptoField && !field;
+        const fieldNotFound = !isCryptoField && !conditionField;
 
         const publicProps = {
           condition: item,
@@ -113,16 +115,21 @@ const ConditionList: FC<React.PropsWithChildren<IConditionList>> = props => {
               <FilterFieldList columns={columns} fieldMap={fieldMap} warnTextObj={warnTextObj} {...publicProps} />
               {!isCryptoField && !fieldNotFound ? (
                 <>
-                  <FilterOperate conditions={conditions} fieldMap={fieldMap} field={field} {...publicProps} />
-                  <FilterValue field={field} {...publicProps} />
+                  <FilterOperate conditions={conditions} fieldMap={fieldMap} field={conditionField} {...publicProps} />
+                  <FilterValue primaryField={field} field={conditionField} {...publicProps} />
                 </>
               ) : (
                 <InvalidValue style={{ maxWidth: 298 }} content={fieldNotFound ? t(Strings.current_field_fail) : undefined} />
               )}
-              <IconButton
-                onClick={deleteFilter.bind(null, index)}
-                icon={() => <IconDelete width={15} height={15} fill={colorVars.thirdLevelText} />}
-              />
+              <WrapperTooltip wrapper={isViewLock} tip={t(Strings.view_lock_setting_desc)}>
+                <div>
+                  <IconButton
+                    onClick={deleteFilter.bind(null, index)}
+                    icon={() => <DeleteOutlined size={15} color={colorVars.thirdLevelText} />}
+                    disabled={isViewLock}
+                  />
+                </div>
+              </WrapperTooltip>
             </ComponentDisplay>
 
             <ComponentDisplay maxWidthCompatible={ScreenSize.md}>
@@ -135,7 +142,7 @@ const ConditionList: FC<React.PropsWithChildren<IConditionList>> = props => {
                     </Col>
                     <Col span={8}>
                       {!isCryptoField && !fieldNotFound ? (
-                        <FilterOperate conditions={conditions} fieldMap={fieldMap} field={field} {...publicProps} />
+                        <FilterOperate conditions={conditions} fieldMap={fieldMap} field={conditionField} {...publicProps} />
                       ) : (
                         <InvalidValue style={{ maxWidth: 298 }} content={fieldNotFound ? t(Strings.current_field_fail) : undefined} />
                       )}
@@ -144,7 +151,7 @@ const ConditionList: FC<React.PropsWithChildren<IConditionList>> = props => {
                   {!isCryptoField && !fieldNotFound && (
                     <Row align="middle" style={{ width: '100%' }}>
                       <Col span={24} style={{ paddingLeft: 1 }}>
-                        <FilterValue field={field} {...publicProps} />
+                        <FilterValue primaryField={field} field={conditionField} {...publicProps} />
                       </Col>
                     </Row>
                   )}
@@ -158,7 +165,8 @@ const ConditionList: FC<React.PropsWithChildren<IConditionList>> = props => {
                 >
                   <IconButton
                     onClick={deleteFilter.bind(null, index)}
-                    icon={() => <IconDelete width={15} height={15} fill={colorVars.thirdLevelText} />}
+                    icon={() => <DeleteOutlined size={15} color={colorVars.thirdLevelText} />}
+                    disabled={isViewLock}
                   />
                 </Col>
               </Row>

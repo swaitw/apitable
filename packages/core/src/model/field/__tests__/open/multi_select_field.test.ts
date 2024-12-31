@@ -126,7 +126,7 @@ const writeOpenProperty: IUpdateOpenMultiSelectFieldProperty = {
 
 describe('Multiple selection fields read property format check', () => {
   const valid = getOpenFieldProperty(singleSelectField);
-  it('correct property', function() {
+  it('correct property', function () {
     const [expectValue, receiveValue] = valid(openSingleSelectField.property);
     expect(receiveValue).toEqual(expectValue);
   });

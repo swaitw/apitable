@@ -16,14 +16,36 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import {
-  CollaCommandName, DatasheetActions, Events, ExecuteResult, Field, FieldType, FieldTypeDescriptionMap, getFieldClass, getNewId, IDPrefix, IField,
-  ISegment, IViewColumn, Player, Selectors, StoreActions, Strings, t,
-} from '@apitable/core';
-import { Button, Checkbox, TextButton, useListenVisualHeight, useThemeColors } from '@apitable/components';
 import { useKeyPress } from 'ahooks';
 import type { InputRef } from 'antd';
-import { Input } from 'antd';
+import { Input, message } from 'antd';
+import produce from 'immer';
+import * as React from 'react';
+import { useCallback, useEffect, useRef, useState, FC, PropsWithChildren } from 'react';
+import { shallowEqual, useDispatch } from 'react-redux';
+import { Button, Checkbox, TextButton, useListenVisualHeight, useThemeColors } from '@apitable/components';
+import {
+  CollaCommandName,
+  DatasheetActions,
+  Events,
+  ExecuteResult,
+  Field,
+  FieldType,
+  FieldTypeDescriptionMap,
+  getFieldClass,
+  getNewId,
+  IDPrefix,
+  IField,
+  ISegment,
+  IViewColumn,
+  Player,
+  Selectors,
+  StoreActions,
+  Strings,
+  t,
+  DatasheetApi,
+} from '@apitable/core';
+import { QuestionCircleOutlined, WarnCircleFilled } from '@apitable/icons';
 import { ContextName, ShortcutContext } from 'modules/shared/shortcut_key';
 import { ComponentDisplay, ScreenSize } from 'pc/components/common/component_display';
 import { Divider } from 'pc/components/common/divider';
@@ -32,19 +54,18 @@ import { Popup } from 'pc/components/common/mobile/popup';
 import { Modal } from 'pc/components/common/modal/modal/modal';
 import { notify } from 'pc/components/common/notify';
 import { NotifyKey } from 'pc/components/common/notify/notify.interface';
+// eslint-disable-next-line no-restricted-imports
 import { Tooltip } from 'pc/components/common/tooltip';
 import { EXPAND_RECORD_CLS } from 'pc/components/expand_record/expand_record_modal';
-import { useResponsive } from 'pc/hooks';
 import { usePlatform } from 'pc/hooks/use_platform';
+import { useResponsive } from 'pc/hooks/use_responsive';
 import { resourceService } from 'pc/resource_service';
 import { store } from 'pc/store';
-import { ButtonOperateType, getParentNodeByClass, isTouchDevice } from 'pc/utils';
-import * as React from 'react';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { shallowEqual, useDispatch, useSelector } from 'react-redux';
-import HelpIcon from 'static/icon/common/common_icon_information.svg';
-import { stopPropagation } from '../../../utils/dom';
-import { FieldFormat } from '../format';
+import { useAppSelector } from 'pc/store/react-redux';
+import { ButtonOperateType } from 'pc/utils/constant';
+import { stopPropagation, getParentNodeByClass } from 'pc/utils/dom';
+import { isTouchDevice } from 'pc/utils/mobile';
+import { FieldFormat } from '../format/format';
 import { useFieldOperate } from '../hooks';
 import { checkFactory, CheckFieldSettingBase } from './check_factory';
 import { FieldTypeSelect } from './field_type_select';
@@ -77,11 +98,11 @@ const MAX_HEIGHT = 640;
 /**
  * This component is reused by the Magic Form and Expand Modal, except for the DomGrid, which evokes it.
  */
-export const FieldSettingBase: React.FC<React.PropsWithChildren<IFieldSettingProps>> = props => {
+const FieldSettingBase: FC<PropsWithChildren<IFieldSettingProps>> = (props) => {
   const colors = useThemeColors();
   const { scrollToItem, datasheetId: propDatasheetId, viewId: propViewId, targetDOM, showAdvancedFields = true } = props;
   const dispatch = useDispatch();
-  const { visibleColumnsCount, columns, columnCount, snapshot, activeFieldState, viewId, linkId, datasheetId } = useSelector(state => {
+  const { visibleColumnsCount, columns, columnCount, snapshot, activeFieldState, viewId, linkId, datasheetId, spaceId } = useAppSelector((state) => {
     const columnCount = Selectors.getColumnCount(state)!;
     const datasheetId = propDatasheetId || Selectors.getActiveDatasheetId(state)!;
     const snapshot = Selectors.getSnapshot(state, datasheetId)!;
@@ -90,6 +111,7 @@ export const FieldSettingBase: React.FC<React.PropsWithChildren<IFieldSettingPro
     const linkId = Selectors.getLinkId(state);
     const visibleColumns = Selectors.getVisibleColumns(state);
     const view = Selectors.getCurrentView(state, datasheetId)!;
+    const spaceId = Selectors.activeSpaceId(state)!;
     return {
       visibleColumnsCount: visibleColumns?.length || 0,
       columns: view.columns,
@@ -99,6 +121,7 @@ export const FieldSettingBase: React.FC<React.PropsWithChildren<IFieldSettingPro
       viewId,
       linkId,
       datasheetId,
+      spaceId,
     };
   }, shallowEqual);
 
@@ -136,13 +159,21 @@ export const FieldSettingBase: React.FC<React.PropsWithChildren<IFieldSettingPro
     },
   });
 
+  const [submitPending, setSubmitPending] = useState(false);
+
   const hideOperateBox = useCallback(
     () => {
+      if (submitPending && field.type === FieldType.Cascader) {
+        Message.warning({
+          content: t(Strings.cascader_snapshot_updating),
+        });
+        return;
+      }
       dispatch(StoreActions.clearActiveFieldState(datasheetId));
       props.onClose?.();
     },
     // eslint-disable-next-line
-    [dispatch, datasheetId],
+    [dispatch, datasheetId, submitPending],
   );
 
   useEffect(() => {
@@ -188,10 +219,9 @@ export const FieldSettingBase: React.FC<React.PropsWithChildren<IFieldSettingPro
     } as IField);
   const [currentField, setCurrentField] = useState(fieldInfoForState);
   const [baseErrMsg, setBaseErrMsg] = useState('');
-  const [optionErrMsg, setOptionErrMsg] = useState('');
+  const [optionErrMsg, setOptionErrMsg] = useState<string | object>('');
 
   const { hasOptSetting } = FieldTypeDescriptionMap[currentField.type];
-  const commandManager = resourceService.instance!.commandManager;
 
   const isComputedField = Field.bindModel(currentField).isComputed;
 
@@ -248,26 +278,6 @@ export const FieldSettingBase: React.FC<React.PropsWithChildren<IFieldSettingPro
     // eslint-disable-next-line
   }, [activeFieldState.fieldId]);
 
-  useEffect(() => {
-    if (isMobile) {
-      return;
-    }
-
-    function closeAndSave(e: MouseEvent) {
-      const modalRoot = getParentNodeByClass(e.target as HTMLElement, 'ant-modal-root');
-      const isClickInExpandRecord = getParentNodeByClass(e.target as HTMLElement, EXPAND_RECORD_CLS);
-
-      if (!modalRoot || isClickInExpandRecord) {
-        onSubmit(true);
-      }
-    }
-
-    document.addEventListener('mousedown', closeAndSave);
-    return () => {
-      document.removeEventListener('mousedown', closeAndSave);
-    };
-  });
-
   const onChange = (e: React.ChangeEvent<any>) => {
     const value = e.target.value;
     if (value.length > 100 && value.length > currentField.name.length) {
@@ -279,7 +289,7 @@ export const FieldSettingBase: React.FC<React.PropsWithChildren<IFieldSettingPro
         ...pre,
         name: value,
       };
-      const hasTheSameName = Object.keys(fieldMap).some(fieldId => {
+      const hasTheSameName = Object.keys(fieldMap).some((fieldId) => {
         const item = fieldMap[fieldId];
         return item.name === value && pre.id !== item.id;
       });
@@ -297,13 +307,13 @@ export const FieldSettingBase: React.FC<React.PropsWithChildren<IFieldSettingPro
     const currentFieldId = currentField.id;
     const recordList = Object.values(recordMap);
 
-    return recordList.some(item => {
+    return recordList.some((item) => {
       return item.data[currentFieldId];
     });
   };
 
   const modifyFieldType = (newField: IField) => {
-    const result = commandManager.execute({
+    const result = resourceService.instance!.commandManager.execute({
       cmd: CollaCommandName.SetFieldAttr,
       fieldId: currentField.id,
       data: {
@@ -314,12 +324,39 @@ export const FieldSettingBase: React.FC<React.PropsWithChildren<IFieldSettingPro
 
     // If a mounted dom is specified, no prompt will be given
     if (ExecuteResult.Success === result.result && !targetDOM) {
-      notify.open({
-        message: t(Strings.toast_field_configuration_success),
-        key: NotifyKey.ChangeFieldSetting,
-      });
+      // cascader field linkedDatasheetId or linkedViewId changes need update cascader snapshot
+      if (
+        newField.type === FieldType.Cascader &&
+        (fieldInfoForState.property?.linkedDatasheetId !== newField.property.linkedDatasheetId ||
+          fieldInfoForState.property?.linkedViewId !== newField.property.linkedViewId)
+      ) {
+        setSubmitPending(true);
+        DatasheetApi.updateCascaderSnapshot({
+          spaceId,
+          datasheetId,
+          fieldId: newField.id,
+          linkedDatasheetId: newField.property.linkedDatasheetId,
+          linkedViewId: newField.property.linkedViewId,
+        }).then(() => {
+          setSubmitPending(false);
+          notify.open({
+            message: t(Strings.toast_field_configuration_success),
+            key: NotifyKey.ChangeFieldSetting,
+          });
+          hideOperateBox();
+          return;
+        });
+      } else {
+        notify.open({
+          message: t(Strings.toast_field_configuration_success),
+          key: NotifyKey.ChangeFieldSetting,
+        });
+        hideOperateBox();
+        return;
+      }
+    } else {
+      hideOperateBox();
     }
-    hideOperateBox();
   };
 
   const handleFieldRequiredChange = (required: boolean) => {
@@ -328,8 +365,8 @@ export const FieldSettingBase: React.FC<React.PropsWithChildren<IFieldSettingPro
     });
   };
 
-  function addField(newField: IField, colIndex?: number) {
-    const result = commandManager.execute({
+  const addField = (newField: IField, colIndex?: number) => {
+    const result = resourceService.instance!.commandManager.execute({
       cmd: CollaCommandName.AddFields,
       data: [
         {
@@ -344,24 +381,37 @@ export const FieldSettingBase: React.FC<React.PropsWithChildren<IFieldSettingPro
       datasheetId,
     });
     if (ExecuteResult.Success === result.result) {
-      // If a mounted dom is specified, no prompt will be given
-      if (!targetDOM) {
+      const resultCallback = () => {
         notify.open({
           message: t(Strings.toast_add_field_success),
           key: NotifyKey.AddField,
         });
-      }
-
-      hideOperateBox();
-
-      setTimeout(() => {
-        scrollToItem &&
-        scrollToItem({
-          columnIndex: visibleColumnsCount,
+        hideOperateBox();
+        setTimeout(() => {
+          scrollToItem &&
+            scrollToItem({
+              columnIndex: visibleColumnsCount,
+            });
+        }, 0);
+      };
+      // cascader field add need update cascader snapshot
+      if (newField.type === FieldType.Cascader) {
+        setSubmitPending(true);
+        DatasheetApi.updateCascaderSnapshot({
+          spaceId,
+          datasheetId,
+          fieldId: newField.id,
+          linkedDatasheetId: newField.property.linkedDatasheetId,
+          linkedViewId: newField.property.linkedViewId,
+        }).then(() => {
+          setSubmitPending(false);
+          resultCallback();
         });
-      }, 0);
+      } else {
+        resultCallback();
+      }
     }
-  }
+  };
 
   function renderModal(errMsg: string) {
     Modal.confirm({
@@ -374,15 +424,15 @@ export const FieldSettingBase: React.FC<React.PropsWithChildren<IFieldSettingPro
   }
 
   // If the result of the conversion is a member field, scan the data and load the new member information
-  const checkMemberField = async(checkResult: IField) => {
+  const checkMemberField = async (checkResult: IField) => {
     if (checkResult.type === FieldType.Member) {
       const cellValues = DatasheetActions.getCellValuesByFieldId(store.getState(), snapshot, checkResult.id);
       const stdVals = cellValues
-        .map(cv => {
+        .map((cv) => {
           return Field.bindModel(field).cellValueToStdValue(cv as ISegment[]);
         })
-        .map(item => item.data[0] && item.data[0].text)
-        .filter(item => item);
+        .map((item) => item.data[0] && item.data[0].text)
+        .filter((item) => item);
 
       await dispatch(StoreActions.loadLackUnitMap(stdVals.join(','), linkId) as any);
     }
@@ -394,13 +444,19 @@ export const FieldSettingBase: React.FC<React.PropsWithChildren<IFieldSettingPro
       isModal && renderModal(baseErrMsg);
       return;
     }
+
     const checkResult = checkFactory[currentField.type]
       ? checkFactory[currentField.type](currentField, propDatasheetId)
       : CheckFieldSettingBase.checkStream(currentField, propDatasheetId);
 
-    if (typeof checkResult === 'string') {
+    if (typeof checkResult === 'string' || checkResult.errors) {
       setOptionErrMsg(checkResult);
-      isModal && renderModal(checkResult);
+      const _checkResult = checkResult.errors ? (Object.values(checkResult.errors)[0] as string) : checkResult;
+      isModal && renderModal(_checkResult);
+
+      if(!isModal && currentField.type === FieldType.Button) {
+        message.error(_checkResult);
+      }
       return;
     }
 
@@ -426,6 +482,26 @@ export const FieldSettingBase: React.FC<React.PropsWithChildren<IFieldSettingPro
       return modifyFieldType(checkResult);
     }
   };
+
+  useEffect(() => {
+    if (isMobile) {
+      return;
+    }
+
+    function closeAndSave(e: MouseEvent) {
+      const modalRoot = getParentNodeByClass(e.target as HTMLElement, 'ant-modal-root');
+      const isClickInExpandRecord = getParentNodeByClass(e.target as HTMLElement, EXPAND_RECORD_CLS);
+
+      if (!modalRoot || isClickInExpandRecord) {
+        onSubmit(true);
+      }
+    }
+
+    document.addEventListener('mousedown', closeAndSave);
+    return () => {
+      document.removeEventListener('mousedown', closeAndSave);
+    };
+  });
 
   function onPressEnter(e: React.KeyboardEvent) {
     if (e.shiftKey) return;
@@ -461,15 +537,56 @@ export const FieldSettingBase: React.FC<React.PropsWithChildren<IFieldSettingPro
         isMobile={isMobile}
         showAdvancedFields={showAdvancedFields}
       />
-      {hasOptSetting && <Divider />}
-      <FieldFormat
-        from={activeFieldState.from}
-        currentField={currentField}
-        setCurrentField={setCurrentField}
-        hideOperateBox={hideOperateBox}
-        datasheetId={propDatasheetId}
-      />
-      {optionErrMsg && <section className={styles.error}>{optionErrMsg}</section>}
+      {isMobile && currentField.type === FieldType.Cascader ? (
+        <div className={styles.cascaderMobileTip}>
+          <WarnCircleFilled color={colors.textCommonTertiary} />
+          {t(Strings.cascader_mobile_unavailable_tip)}
+        </div>
+      ) : (
+        <>
+          {hasOptSetting && <Divider />}
+          <FieldFormat
+            from={activeFieldState.from}
+            currentField={currentField}
+            onCreate={(field) => {
+              const integractedItem: IField = produce(field, draft => {
+                draft.property.action = field.property.action;
+              });
+
+              const checkResult : IField= checkFactory[currentField.type]
+                ? checkFactory[currentField.type](integractedItem, propDatasheetId)
+                : CheckFieldSettingBase.checkStream(integractedItem, propDatasheetId);
+
+              // @ts-ignore
+              if (typeof checkResult === 'string' || checkResult.errors) {
+                setOptionErrMsg(checkResult);
+                // @ts-ignore
+                const _checkResult = checkResult.errors ? (Object.values(checkResult.errors)[0] as string) : checkResult;
+                renderModal(_checkResult as string);
+                return;
+              }
+
+              // Passing datasheetId externally means that FieldSetting is mounted in a non-numbered table, using the activeFieldState column index.
+              if (propDatasheetId) {
+                addField(checkResult, activeFieldState?.fieldIndex);
+              } else {
+                addField(checkResult);
+              }
+              return;
+            }
+            }
+            onUpdate={(field) => {
+              modifyFieldType(field);
+            }
+            }
+            setCurrentField={setCurrentField}
+            hideOperateBox={hideOperateBox}
+            datasheetId={propDatasheetId}
+            optionErrMsg={optionErrMsg as object}
+          />
+        </>
+      )}
+      {typeof optionErrMsg === 'string' && <section className={styles.error}>{optionErrMsg}</section>}
 
       {!isComputedField && (
         <>
@@ -490,7 +607,7 @@ export const FieldSettingBase: React.FC<React.PropsWithChildren<IFieldSettingPro
               }
             >
               <span className={styles.requiredTip}>
-                <HelpIcon fill='currentColor' />
+                <QuestionCircleOutlined color="currentColor" />
               </span>
             </Tooltip>
           </div>
@@ -509,7 +626,7 @@ export const FieldSettingBase: React.FC<React.PropsWithChildren<IFieldSettingPro
         <div
           className={styles.fieldOperateBox}
           style={positionStyle}
-          onMouseDown={e => e.nativeEvent.stopImmediatePropagation()}
+          onMouseDown={(e) => e.nativeEvent.stopImmediatePropagation()}
           tabIndex={-1}
           onKeyDown={stopPropagation}
           ref={containerRef}
@@ -519,15 +636,16 @@ export const FieldSettingBase: React.FC<React.PropsWithChildren<IFieldSettingPro
           </div>
           <div ref={scrollShadowRef} className={styles.scrollShadow} />
           <section className={styles.buttonWrapper}>
-            <TextButton size='small' onClick={hideOperateBox} style={{ color: colors.thirdLevelText }}>
+            <TextButton size="small" onClick={hideOperateBox} style={{ color: colors.thirdLevelText }}>
               {t(Strings.cancel)}
             </TextButton>
             <Button
-              size='small'
+              size="small"
               onClick={() => {
                 onSubmit();
               }}
-              color='primary'
+              loading={submitPending}
+              color="primary"
             >
               {t(Strings.submit)}
             </Button>
@@ -539,10 +657,10 @@ export const FieldSettingBase: React.FC<React.PropsWithChildren<IFieldSettingPro
         <Popup
           open
           onClose={hideOperateBox}
-          height='90%'
+          height="90%"
           title={t(Strings.datasheet_choose_field_type)}
           footer={
-            <Button color='primary' size='large' block onClick={() => onSubmit()}>
+            <Button color="primary" size="large" block onClick={() => onSubmit()}>
               {t(Strings.confirm)}
             </Button>
           }

@@ -16,6 +16,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+import { isEmpty } from 'lodash';
+import { ContextName, ShortcutActionName } from 'modules/shared/shortcut_key/enum';
 import {
   CollaCommandName,
   ConfigConstant,
@@ -28,11 +30,13 @@ import {
   Strings,
   t,
 } from '@apitable/core';
-import { ContextName, ShortcutActionName } from 'modules/shared/shortcut_key/enum';
 import { Message } from 'pc/components/common/message/message';
 import { notify } from 'pc/components/common/notify/notify';
 import { NotifyKey } from 'pc/components/common/notify/notify.interface';
-import { EXPAND_RECORD, expandRecordIdNavigate } from 'pc/components/expand_record';
+import { EXPAND_RECORD } from 'pc/components/expand_record/expand_record.enum';
+import { expandRecordIdNavigate } from 'pc/components/expand_record/utils';
+import { string2Query } from 'pc/components/form_container/util';
+import { EXPAND_SEARCH } from 'pc/components/quick_search/const';
 import { resourceService } from 'pc/resource_service';
 import { store } from 'pc/store';
 import { getParentNodeByClass } from 'pc/utils/dom';
@@ -77,6 +81,12 @@ export class ShortcutContext {
       // Handling of table and expanded card shortcuts conflicts when cards are considered unexpanded in side mode
       if (state.space.isSideRecordOpen) return false;
       return Boolean(document.querySelectorAll(`.${EXPAND_RECORD}`).length);
+    },
+    [ContextName.isWorkdocOpen]: () => {
+      const query = string2Query();
+      const recordId = query.recordId as string | undefined;
+      const fieldId = query.fieldId as string | undefined;
+      return Boolean(recordId && fieldId);
     },
     [ContextName['true']]: () => true,
     [ContextName.isFocusing]: () => {
@@ -129,6 +139,9 @@ export class ShortcutContext {
       return hasPermissions().editable;
     },
     [ContextName.modalVisible]: () => false,
+    [ContextName.isQuickSearchExpanding]: () => {
+      return Boolean(document.querySelectorAll(`.${EXPAND_SEARCH}`).length);
+    },
   };
 
   static bind(key: ContextName, fn: () => boolean) {
@@ -152,13 +165,14 @@ export class ShortcutContext {
 export class ShortcutActionManager {
   private constructor() {}
 
-  static actionMap = new Map<ShortcutActionName, () => boolean | void>([
-    [
-      ShortcutActionName.None,
-      () => {
-        console.warn('! ' + 'A shortcut action of None');
-      },
-    ],
+  static actionMap = new Map<ShortcutActionName, () => boolean | void | Promise<boolean | void>>([
+    // Compatible with German Vietnamese special characters
+    // [
+    //   ShortcutActionName.None,
+    //   () => {
+    //     console.warn('! ' + 'A shortcut action of None');
+    //   },
+    // ],
     [
       ShortcutActionName.ToastForSave,
       () => {
@@ -206,7 +220,7 @@ export class ShortcutActionManager {
       },
     ],
     [ShortcutActionName.Clear, clear],
-    [ShortcutActionName.PrependRow, prependRow],
+    [ShortcutActionName.PrependRow, () => prependRow().then(() => true)],
     [
       ShortcutActionName.ToggleApiPanel,
       () => {
@@ -228,10 +242,9 @@ export class ShortcutActionManager {
     this.actionMap.delete(key);
   }
 
-  static trigger(key: ShortcutActionName): boolean | void {
+  static async trigger(key: ShortcutActionName): Promise<boolean | void> {
     const fn = this.actionMap.get(key);
-    const result = fn ? fn() : false;
-    return result;
+    return fn ? await fn() : false;
   }
 }
 
@@ -259,9 +272,20 @@ const getUndoManager = () => {
 };
 
 export function clear() {
+  const query = string2Query();
   const state = store.getState();
+  const recordId = query.recordId as string | undefined;
+  const fieldId = query.fieldId as string | undefined;
+  if (recordId && fieldId) {
+    const snapshot = Selectors.getSnapshot(state)!;
+    const fieldMap = snapshot.meta?.fieldMap;
+    const fieldType = fieldMap[fieldId]?.type;
+    const cv = Selectors.getCellValue(state, snapshot, recordId, fieldId);
+    if (fieldType === FieldType.WorkDoc && !isEmpty(cv)) {
+      return;
+    }
+  }
   const fieldMap = Selectors.getFieldMap(state, state.pageParams.datasheetId!);
-  const commandManager = resourceService.instance!.commandManager;
   const uploadManager = resourceService.instance!.uploadManager;
   const data: ISetRecordOptions[] = [];
   const cellMatrixFromRange = Selectors.getCellMatrixFromSelection(state);
@@ -272,7 +296,7 @@ export function clear() {
   if (!cellMatrix || !fieldMap) {
     return;
   }
-  cellMatrix.forEach(cell => {
+  cellMatrix.forEach((cell) => {
     const { recordId, fieldId } = cell;
     const field = fieldMap[fieldId];
     const fieldType = fieldMap[fieldId].type;
@@ -296,13 +320,13 @@ export function clear() {
       }),
       btnText: t(Strings.undo),
       key: NotifyKey.ClearRecordData,
-      btnFn() {
-        ShortcutActionManager.trigger(ShortcutActionName.Undo);
+      async btnFn(): Promise<void> {
+        await ShortcutActionManager.trigger(ShortcutActionName.Undo);
         notify.close(NotifyKey.ClearRecordData);
       },
     });
 
-  commandManager.execute({
+  resourceService.instance!.commandManager.execute({
     cmd: CollaCommandName.SetRecords,
     data,
   });

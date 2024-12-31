@@ -16,29 +16,24 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import {
-  useState,
-  useRef,
-  useImperativeHandle,
-  forwardRef,
-  ForwardRefRenderFunction,
-} from 'react';
 import { useSize } from 'ahooks';
+import { useState, useRef, useImperativeHandle, forwardRef, ForwardRefRenderFunction } from 'react';
+// eslint-disable-next-line no-restricted-imports
 import { Select, TextInput, ITextInputProps, IOption } from '@apitable/components';
 import { SystemConfig, t, Strings, getLanguage } from '@apitable/core';
-import { PhonenumberFilled } from '@apitable/icons';
+import { TelephoneFilled } from '@apitable/icons';
 import styles from './style.module.less';
 
 // Area code and city collection
 const countryAndPhoneAreaCode = SystemConfig.country_code_and_phone_code;
 // Converting data into the data structure required by the Select component
 const optionData = (() => {
-  const tempArr: { value: string, label: string }[] = [];
+  const tempArr: { value: string; label: string }[] = [];
   for (const country in countryAndPhoneAreaCode) {
     const areaCode = countryAndPhoneAreaCode[country].phoneCode;
     tempArr.push({
       value: `+${areaCode}`,
-      label: `${t(Strings[country])}（+${areaCode}）`
+      label: `${t(Strings[country])}（+${areaCode}）`,
     });
   }
   const lang = getLanguage().split('-')[0];
@@ -49,7 +44,7 @@ const optionData = (() => {
 })();
 
 export interface IPhoneInputRefProps {
-  focus: () => void
+  focus: () => void;
 }
 
 export interface IPhoneInputProps extends Omit<ITextInputProps, 'onChange'> {
@@ -59,12 +54,7 @@ export interface IPhoneInputProps extends Omit<ITextInputProps, 'onChange'> {
   onChange?: (areaCode: string, phone: string) => void;
 }
 
-export const PhoneInputBase: ForwardRefRenderFunction<any, IPhoneInputProps> = ({
-  className,
-  onChange,
-  defaultAreaCode = '+86',
-  ...rest
-}, ref) => {
+export const PhoneInputBase: ForwardRefRenderFunction<any, IPhoneInputProps> = ({ className, onChange, defaultAreaCode = '+86', ...rest }, ref) => {
   const [areaCode, setAreaCode] = useState(defaultAreaCode);
   const [phone, setPhone] = useState('');
   const inputWrapperRef = useRef<any>(null);
@@ -74,7 +64,7 @@ export const PhoneInputBase: ForwardRefRenderFunction<any, IPhoneInputProps> = (
   useImperativeHandle(ref, () => ({
     focus: () => {
       inputRef.current.focus();
-    }
+    },
   }));
 
   const handleOptionSelected = (option: IOption) => {
@@ -85,8 +75,9 @@ export const PhoneInputBase: ForwardRefRenderFunction<any, IPhoneInputProps> = (
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value.trim();
-    onChange && onChange(areaCode, value);
-    setPhone(value);
+    const newValue = value.replace(/\D/g, '');
+    onChange && onChange(areaCode, newValue);
+    setPhone(newValue);
   };
 
   const PhoneCodeSelect = () => {
@@ -100,7 +91,7 @@ export const PhoneInputBase: ForwardRefRenderFunction<any, IPhoneInputProps> = (
         onSelected={handleOptionSelected}
         dropdownMatchSelectWidth={false}
         listStyle={{ width: size?.width }}
-        renderValue={option => option.value.toString()}
+        renderValue={(option) => option.value.toString()}
       />
     );
   };
@@ -111,11 +102,13 @@ export const PhoneInputBase: ForwardRefRenderFunction<any, IPhoneInputProps> = (
       wrapperRef={inputWrapperRef}
       className={styles.phoneInput}
       placeholder={t(Strings.placeholder_input_mobile)}
-      addonBefore={<>
-        <PhoneCodeSelect />
-        <div className={styles.line} />
-      </>}
-      prefix={<PhonenumberFilled />}
+      addonBefore={
+        <>
+          <PhoneCodeSelect />
+          <div className={styles.line} />
+        </>
+      }
+      prefix={<TelephoneFilled />}
       onChange={handlePhoneChange}
       {...rest}
     />

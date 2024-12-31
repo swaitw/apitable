@@ -18,22 +18,15 @@
 
 package com.apitable.organization.mapper;
 
-import java.util.Collections;
-import java.util.List;
-
-import javax.annotation.Resource;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import cn.hutool.core.collection.CollUtil;
-import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.Test;
-
 import com.apitable.AbstractMyBatisMapperTest;
 import com.apitable.organization.dto.MemberBaseInfoDTO;
 import com.apitable.organization.dto.MemberDTO;
 import com.apitable.organization.dto.MemberTeamInfoDTO;
 import com.apitable.organization.dto.SearchMemberDTO;
 import com.apitable.organization.dto.SpaceMemberDTO;
-import com.apitable.organization.dto.SpaceMemberIdDTO;
 import com.apitable.organization.dto.TenantMemberDto;
 import com.apitable.organization.entity.MemberEntity;
 import com.apitable.organization.vo.MemberInfoVo;
@@ -41,18 +34,16 @@ import com.apitable.organization.vo.SearchMemberVo;
 import com.apitable.organization.vo.UnitMemberVo;
 import com.apitable.player.dto.PlayerBaseDTO;
 import com.apitable.space.vo.MainAdminInfoVo;
-import com.apitable.workspace.dto.MemberInfoDTO;
 import com.apitable.workspace.vo.FieldRoleMemberVo;
 import com.apitable.workspace.vo.NodeRoleMemberVo;
-
+import java.util.List;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.jdbc.Sql;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
-@Disabled
 public class MemberMapperTest extends AbstractMyBatisMapperTest {
 
-    @Resource
+    @Autowired
     private MemberMapper memberMapper;
 
     @Test
@@ -86,7 +77,8 @@ public class MemberMapperTest extends AbstractMyBatisMapperTest {
     @Test
     @Sql("/sql/unit-member-data.sql")
     void testSelectIdBySpaceIdAndNames() {
-        List<Long> ids = memberMapper.selectIdBySpaceIdAndNames("spc41", CollUtil.newArrayList("41"));
+        List<Long> ids =
+            memberMapper.selectIdBySpaceIdAndNames("spc41", CollUtil.newArrayList("41"));
         assertThat(ids).isNotEmpty();
     }
 
@@ -114,7 +106,8 @@ public class MemberMapperTest extends AbstractMyBatisMapperTest {
     @Test
     @Sql({"/sql/unit-member-data.sql", "/sql/unit-team-member-rel-data.sql"})
     void testSelectMembersByTeamId() {
-        List<MemberInfoVo> entities = memberMapper.selectMembersByTeamId(CollUtil.newArrayList(41L));
+        List<MemberInfoVo> entities =
+            memberMapper.selectMembersByTeamId(CollUtil.newArrayList(41L));
         assertThat(entities).isNotEmpty();
     }
 
@@ -123,13 +116,6 @@ public class MemberMapperTest extends AbstractMyBatisMapperTest {
     void testSelectMemberNameById() {
         String name = memberMapper.selectMemberNameById(41L);
         assertThat(name).isEqualTo("41");
-    }
-
-    @Test
-    @Sql("/sql/unit-member-data.sql")
-    void testSelectDtoByUserIdAndSpaceId() {
-        MemberDTO entity = memberMapper.selectDtoByUserIdAndSpaceId(41L, "spc41");
-        assertThat(entity).isNotNull();
     }
 
     @Test
@@ -162,8 +148,15 @@ public class MemberMapperTest extends AbstractMyBatisMapperTest {
 
     @Test
     @Sql("/sql/unit-member-data.sql")
-    void testSelectMemberIdByUserIdAndSpaceIdExcludeDelete() {
-        Long id = memberMapper.selectMemberIdByUserIdAndSpaceIdExcludeDelete(41L, "spc41");
+    void testSelectIdByUserIdAndSpaceIdIsNull() {
+        Long id = memberMapper.selectIdByUserIdAndSpaceId(40L, "spc41");
+        assertThat(id).isEqualTo(null);
+    }
+
+    @Test
+    @Sql("/sql/unit-member-data.sql")
+    void testSelectMemberIdByUserIdAndSpaceIdIncludeDeleted() {
+        Long id = memberMapper.selectMemberIdByUserIdAndSpaceIdIncludeDeleted(41L, "spc41");
         assertThat(id).isEqualTo(41L);
     }
 
@@ -247,7 +240,8 @@ public class MemberMapperTest extends AbstractMyBatisMapperTest {
     @Test
     @Sql({"/sql/unit-member-data.sql", "/sql/unit-data.sql"})
     void testSelectUnitMemberByMemberIds() {
-        List<UnitMemberVo> entities = memberMapper.selectUnitMemberByMemberIds(CollUtil.newArrayList(41L));
+        List<UnitMemberVo> entities =
+            memberMapper.selectUnitMemberByMemberIds(CollUtil.newArrayList(41L));
         assertThat(entities).isNotEmpty();
     }
 
@@ -268,7 +262,8 @@ public class MemberMapperTest extends AbstractMyBatisMapperTest {
     @Test
     @Sql("/sql/unit-member-data.sql")
     void testSelectBindSocialListBySpaceIdWithOffset() {
-        List<MemberEntity> entities = memberMapper.selectBindSocialListBySpaceIdWithOffset("spc41", 0, 1);
+        List<MemberEntity> entities =
+            memberMapper.selectBindSocialListBySpaceIdWithOffset("spc41", 0, 1);
         assertThat(entities).isNotEmpty();
     }
 
@@ -302,15 +297,18 @@ public class MemberMapperTest extends AbstractMyBatisMapperTest {
 
     @Test
     @Sql("/sql/unit-member-data.sql")
-    void testSelectIdsByEmailsAndSpaceId() {
-        List<Long> entities = memberMapper.selectIdsByEmailsAndSpaceId(CollUtil.newArrayList("41@apitable.com"), "spc41");
+    void testSelectEmailBySpaceIdAndEmails() {
+        List<String> entities =
+            memberMapper.selectEmailBySpaceIdAndEmails("spc41",
+                CollUtil.newArrayList("41@apitable.com"));
         assertThat(entities).isNotEmpty();
     }
 
     @Test
     @Sql("/sql/unit-member-data.sql")
     void testSelectUserIdBySpaceIdAndIds() {
-        List<Long> entities = memberMapper.selectUserIdBySpaceIdAndIds("spc41", CollUtil.newArrayList(41L));
+        List<Long> entities =
+            memberMapper.selectUserIdBySpaceIdAndIds("spc41", CollUtil.newArrayList(41L));
         assertThat(entities).isNotEmpty();
     }
 
@@ -324,35 +322,41 @@ public class MemberMapperTest extends AbstractMyBatisMapperTest {
     @Test
     @Sql("/sql/unit-member-data.sql")
     void testSelectMemberInfoByMemberIdsIncludeDelete() {
-        List<PlayerBaseDTO> entities = memberMapper.selectMemberInfoByMemberIdsIncludeDelete(CollUtil.newArrayList(41L));
+        List<PlayerBaseDTO> entities =
+            memberMapper.selectMemberInfoByMemberIdsIncludeDelete(CollUtil.newArrayList(41L));
         assertThat(entities).isNotEmpty();
     }
 
     @Test
     @Sql("/sql/unit-member-data.sql")
     void testSelectDtoBySpaceIdAndUserIds() {
-        List<MemberDTO> entities = memberMapper.selectDtoBySpaceIdAndUserIds("spc41", CollUtil.newArrayList(41L));
+        List<MemberDTO> entities =
+            memberMapper.selectDtoBySpaceIdAndUserIds("spc41", CollUtil.newArrayList(41L));
         assertThat(entities).isNotEmpty();
     }
 
     @Test
     @Sql("/sql/unit-member-data.sql")
-    void testSelectByUserIdAndSpaceIdIgnoreDelete() {
-        MemberEntity entity = memberMapper.selectByUserIdAndSpaceIdIgnoreDelete(41L, "spc41");
+    void testSelectByUserIdAndSpaceIdIncludeDeleted() {
+        MemberEntity entity = memberMapper.selectByUserIdAndSpaceIdIncludeDeleted(41L, "spc41");
         assertThat(entity).isNotNull();
+        assertThat(entity.getId()).isEqualTo(41L);
+        assertThat(entity.getIsDeleted()).isFalse();
     }
 
     @Test
     @Sql({"/sql/unit-member-data.sql"})
     void testSelectNodeRoleMemberByIds() {
-        List<NodeRoleMemberVo> entities = memberMapper.selectNodeRoleMemberByIds(CollUtil.newArrayList(41L));
+        List<NodeRoleMemberVo> entities =
+            memberMapper.selectNodeRoleMemberByIds(CollUtil.newArrayList(41L));
         assertThat(entities).isNotEmpty();
     }
 
     @Test
     @Sql({"/sql/unit-member-data.sql"})
     void testSelectFieldRoleMemberByIds() {
-        List<FieldRoleMemberVo> entities = memberMapper.selectFieldRoleMemberByIds(CollUtil.newArrayList(41L));
+        List<FieldRoleMemberVo> entities =
+            memberMapper.selectFieldRoleMemberByIds(CollUtil.newArrayList(41L));
         assertThat(entities).isNotEmpty();
     }
 
@@ -387,7 +391,7 @@ public class MemberMapperTest extends AbstractMyBatisMapperTest {
     @Test
     @Sql("/sql/unit-member-data.sql")
     void testSelectByOpenIdIgnoreDelete() {
-        Long id = memberMapper.selectByOpenIdIgnoreDelete("spc41", "41");
+        Long id = memberMapper.selectIdByOpenIdIgnoreDelete("spc41", "41");
         assertThat(id).isEqualTo(41L);
     }
 
@@ -406,9 +410,10 @@ public class MemberMapperTest extends AbstractMyBatisMapperTest {
     }
 
     @Test
-    @Sql({ "/sql/unit-member-data.sql", "/sql/user-data.sql" })
+    @Sql({"/sql/unit-member-data.sql", "/sql/user-data.sql"})
     void testSelectBaseInfoDTOByIds() {
-        List<MemberBaseInfoDTO> entities = memberMapper.selectBaseInfoDTOByIds(CollUtil.newArrayList(41L));
+        List<MemberBaseInfoDTO> entities =
+            memberMapper.selectBaseInfoDTOByIds(CollUtil.newArrayList(41L));
         assertThat(entities).isNotEmpty();
     }
 
@@ -436,15 +441,15 @@ public class MemberMapperTest extends AbstractMyBatisMapperTest {
     @Test
     @Sql("/sql/unit-member-data.sql")
     void testSelectCountBySpaceId() {
-        Integer count = memberMapper.selectCountBySpaceId("spc41");
-        assertThat(count).isEqualTo(1);
+        Long count = memberMapper.selectCountBySpaceId("spc41");
+        assertThat(count).isEqualTo(1L);
     }
 
     @Test
     @Sql("/sql/unit-member-data.sql")
     void testSelectActiveMemberCountBySpaceId() {
-        Integer count = memberMapper.selectActiveMemberCountBySpaceId("spc41");
-        assertThat(count).isEqualTo(1);
+        Long count = memberMapper.selectActiveMemberCountBySpaceId("spc41");
+        assertThat(count).isEqualTo(1L);
     }
 
     @Test
@@ -471,7 +476,8 @@ public class MemberMapperTest extends AbstractMyBatisMapperTest {
     @Test
     @Sql("/sql/unit-member-data.sql")
     void testSelectMembersBySpaceIds() {
-        List<SpaceMemberDTO> entities = memberMapper.selectMembersBySpaceIds(CollUtil.newArrayList("spc41"));
+        List<SpaceMemberDTO> entities =
+            memberMapper.selectMembersBySpaceIds(CollUtil.newArrayList("spc41"));
         assertThat(entities).isNotEmpty();
     }
 
@@ -491,35 +497,21 @@ public class MemberMapperTest extends AbstractMyBatisMapperTest {
 
     @Test
     @Sql("/sql/unit-team-member-rel-data.sql")
-    void testSelectTeamIdsByMember(){
+    void testSelectTeamIdsByMember() {
         List<Long> teamIds = memberMapper.selectTeamIdsByMemberId(41L);
         assertThat(teamIds.size()).isEqualTo(1);
     }
 
     @Test
-    @Sql("/sql/unit-member-data.sql")
-    void testSelectMemberIdsByUserIdAndSpaceIds() {
-        List<SpaceMemberIdDTO> dtos = memberMapper.selectMemberIdsByUserIdAndSpaceIds(45L, Collections.singletonList("spc45"));
-        assertThat(dtos.size()).isEqualTo(1);
-    }
-
-    @Test
     @Sql("/sql/unit-team-member-rel-data.sql")
-    void testSelectTeamIdsByMemberIds(){
+    void testSelectTeamIdsByMemberIds() {
         List<Long> memberIds = CollUtil.newArrayList(41L, 45L);
-        List<MemberTeamInfoDTO> memberTeamInfoDTOS = memberMapper.selectTeamIdsByMemberIds(memberIds);
+        List<MemberTeamInfoDTO> memberTeamInfoDTOS =
+            memberMapper.selectTeamIdsByMemberIds(memberIds);
         assertThat(memberTeamInfoDTOS.get(0).getMemberId()).isEqualTo(41);
         assertThat(memberTeamInfoDTOS.get(0).getTeamId()).isEqualTo(41);
         assertThat(memberTeamInfoDTOS.get(1).getMemberId()).isEqualTo(45);
         assertThat(memberTeamInfoDTOS.get(1).getTeamId()).isEqualTo(45);
-    }
-
-    @Test
-    @Sql("/sql/unit-member-data.sql")
-    void testSelectIdByUserIdAndSpaceIdExcludeDelete() {
-        MemberInfoDTO memberInfoDTO = memberMapper.selectIdByUserIdAndSpaceIdExcludeDelete(41L, "spc41");
-        assertThat(memberInfoDTO.getId()).isEqualTo(41L);
-        assertThat(memberInfoDTO.getIsDeleted()).isFalse();
     }
 }
 

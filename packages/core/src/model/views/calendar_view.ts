@@ -16,23 +16,22 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import { IJOTAction, integrateCdnHost, OTActionName, Settings } from 'index';
-import { Field } from 'model';
+import { Settings } from 'config/system_config';
+import { integrateCdnHost } from 'utils';
+import { Field } from 'model/field';
 import { BasicValueType } from 'types';
 import { Strings, t } from '../../exports/i18n';
 import {
-  CalendarColorType,
   ICalendarViewColumn,
   ICalendarViewProperty,
+  ICalendarViewStyle,
   IFieldMap,
   IReduxState,
-  ISetCalendarStyle,
   ISnapshot,
   IViewProperty,
-  ViewType
-} from '../../exports/store';
-import { getViewIndex } from '../../exports/store/selectors';
-import { DatasheetActions } from '../datasheet';
+} from '../../exports/store/interfaces';
+import { GanttColorType,ViewType } from 'modules/shared/store/constants';
+import { DatasheetActions } from '../../commands_actions/datasheet';
 import { View } from './views';
 
 export class CalendarView extends View {
@@ -57,16 +56,16 @@ export class CalendarView extends View {
     return filterIds;
   }
 
-  static defaultStyle(snapshot: ISnapshot, activeViewId: string | null | undefined, state?: IReduxState) {
+  static defaultStyle(snapshot: ISnapshot, activeViewId: string | null | undefined, state?: IReduxState): ICalendarViewStyle {
     const srcView = this.getSrcView(snapshot, activeViewId);
     const dateTimeFieldIds = this.findDateTimeFieldIds(srcView, snapshot.meta.fieldMap, state);
 
     return {
-      startFieldId: dateTimeFieldIds[0],
-      endFieldId: dateTimeFieldIds[1],
+      startFieldId: dateTimeFieldIds[0]!,
+      endFieldId: dateTimeFieldIds[1]!,
       isColNameVisible: false,
       colorOption: {
-        type: CalendarColorType.Custom,
+        type: GanttColorType.Custom,
         fieldId: '',
         color: -1,
       }
@@ -89,7 +88,7 @@ export class CalendarView extends View {
     return columns;
   }
 
-  static generateDefaultProperty(snapshot: ISnapshot, activeViewId: string | null | undefined, state?: IReduxState): any {
+  static generateDefaultProperty(snapshot: ISnapshot, activeViewId: string | null | undefined, state?: IReduxState): ICalendarViewProperty {
     const srcView = this.getSrcView(snapshot, activeViewId);
     const views = snapshot.meta.views;
 
@@ -102,32 +101,8 @@ export class CalendarView extends View {
       rows: this.defaultRows(srcView),
       frozenColumnCount: 1,
       style: this.defaultStyle(snapshot, activeViewId, state),
+      displayHiddenColumnWithinMirror: true
     };
   }
 
-  static setCalendarStyle2Action = (snapshot: ISnapshot, payload: { viewId: string, data: ISetCalendarStyle[], isClear?: boolean }): IJOTAction[] => {
-    const { viewId, data, isClear } = payload;
-    const viewIndex = getViewIndex(snapshot, viewId);
-    if (viewIndex < 0) return [];
-    const view = snapshot.meta.views[viewIndex] as ICalendarViewProperty;
-    if (view.type !== ViewType.Calendar) return [];
-
-    return data.filter(({ styleKey, styleValue }) => {
-      return styleValue !== view.style[styleKey];
-    }).map(({ styleKey, styleValue }) => {
-      if (isClear) {
-        return {
-          n: OTActionName.ObjectDelete,
-          p: ['meta', 'views', viewIndex, 'style', styleKey],
-          od: view.style[styleKey],
-        };
-      }
-      return {
-        n: OTActionName.ObjectReplace,
-        p: ['meta', 'views', viewIndex, 'style', styleKey],
-        oi: styleValue,
-        od: view.style[styleKey],
-      };
-    });
-  };
 }

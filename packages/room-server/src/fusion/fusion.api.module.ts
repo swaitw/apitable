@@ -19,9 +19,10 @@
 import { CacheModule, MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import {
-  AttachmentField, AutoNumberField, CheckboxField, CreatedByField, CreatedTimeField, CurrencyField, DateTimeField, EmailField, FormulaField,
+  AttachmentField, AutoNumberField,
+  CascaderField, CheckboxField, CreatedByField, CreatedTimeField, CurrencyField, DateTimeField, EmailField, FormulaField,
   LastModifiedByField, LastModifiedTimeField, LinkField, LookUpField, MemberField, MultiSelectField, NumberField, PercentField, PhoneField,
-  RatingField, SingleSelectField, SingleTextField, TextField, UrlField,
+  RatingField, SingleSelectField, SingleTextField, TextField, UrlField, WorkDocField
 } from 'fusion/field';
 import { CacheConfigService } from 'shared/cache/cache.config.service';
 import { ApiRequestMiddleware } from './middleware/api.request.middleware';
@@ -41,6 +42,10 @@ import { FusionApiFilter } from './filter/fusion.api.filter';
 import { UserModule } from 'user/user.module';
 import { NodeModule } from 'node/node.module';
 import { UnitModule } from 'unit/unit.module';
+import { FusionApiV2Controller } from './fusion.api.v2.controller';
+import { FusionNodeApiService } from './services/fusion.node.api.service';
+import { DeveloperModule } from '../developer/developer.module';
+import { OneWayLinkField } from './field/one_way_link.field';
 
 @Module({
   imports: [
@@ -48,6 +53,7 @@ import { UnitModule } from 'unit/unit.module';
     NodeModule,
     UserModule,
     UnitModule,
+    DeveloperModule,
     CacheModule.registerAsync({
       useClass: CacheConfigService,
     }),
@@ -55,10 +61,11 @@ import { UnitModule } from 'unit/unit.module';
       ApiUsageRepository,
     ]),
   ],
-  controllers: [FusionApiController],
+  controllers: [FusionApiController, FusionApiV2Controller],
   providers: [
     FusionApiRecordService,
     FusionApiService,
+    FusionNodeApiService,
     DataBusService,
     QueryPipe,
     FieldPipe,
@@ -67,6 +74,7 @@ import { UnitModule } from 'unit/unit.module';
     // field service
     AttachmentField,
     AutoNumberField,
+    CascaderField,
     CheckboxField,
     CreatedByField,
     CreatedTimeField,
@@ -77,6 +85,7 @@ import { UnitModule } from 'unit/unit.module';
     LastModifiedByField,
     LastModifiedTimeField,
     LinkField,
+    OneWayLinkField,
     LookUpField,
     MemberField,
     MultiSelectField,
@@ -88,6 +97,7 @@ import { UnitModule } from 'unit/unit.module';
     SingleTextField,
     TextField,
     UrlField,
+    WorkDocField,
     FusionApiTransformer,
     FusionApiFilter,
   ],

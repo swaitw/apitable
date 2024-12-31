@@ -16,20 +16,27 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import { ApiTipConstant, FieldKeyEnum, FieldType, ICellValue, IField, ISelectField, SelectField } from '@apitable/core';
+import { ApiTipConstant, FieldKeyEnum, FieldType, ICellValue, IField, IMeta, ISelectField, SelectField } from '@apitable/core';
 import { ArgumentMetadata, Inject, Injectable, PipeTransform } from '@nestjs/common';
 import { REQUEST } from '@nestjs/core';
 import { DatasheetRecordService } from 'database/datasheet/services/datasheet.record.service';
 import { FastifyRequest } from 'fastify';
 import { FieldManager } from 'fusion/field.manager';
-import { flatten, keyBy } from 'lodash';
+import { flatten, isEmpty, keyBy } from 'lodash';
 import {
-  API_MAX_MODIFY_RECORD_COUNTS, DATASHEET_ENRICH_SELECT_FIELD, DATASHEET_HTTP_DECORATE, DATASHEET_LINKED, DATASHEET_MEMBER_FIELD,
-  DATASHEET_META_HTTP_DECORATE, InjectLogger,
+  API_MAX_MODIFY_RECORD_COUNTS,
+  DATASHEET_ENRICH_SELECT_FIELD,
+  DATASHEET_HTTP_DECORATE,
+  DATASHEET_LINKED,
+  DATASHEET_MEMBER_FIELD,
+  DATASHEET_META_HTTP_DECORATE,
+  InjectLogger,
+  USER_HTTP_DECORATE,
 } from 'shared/common';
 import { FieldTypeEnum } from 'shared/enums/field.type.enum';
 import { ApiException } from 'shared/exception';
 import { IFieldRoTransformOptions, IFieldValue, IFieldValueMap } from 'shared/interfaces';
+import { UserEntity } from 'user/entities/user.entity';
 import { Logger } from 'winston';
 
 /**
@@ -43,16 +50,17 @@ export class FieldPipe implements PipeTransform {
     @Inject(REQUEST) private readonly request: FastifyRequest,
   ) {}
 
+  // no use function
   async transform(value: any, _: ArgumentMetadata): Promise<any> {
     const datasheet = this.request[DATASHEET_HTTP_DECORATE];
-    const meta = this.request[DATASHEET_META_HTTP_DECORATE];
+    const meta = this.request[DATASHEET_META_HTTP_DECORATE] as IMeta;
+    const user = this.request[USER_HTTP_DECORATE] as UserEntity;
     let fieldMap = meta.fieldMap;
     if (value.fieldKey === FieldKeyEnum.NAME) {
       fieldMap = keyBy(Object.values(meta.fieldMap), 'name');
     }
     const records: any[] = [];
-    for (const index of Object.keys(value.records)) {
-      const record = value.records[index];
+    for (const record of value.records) {
       const fields: IFieldValueMap = {};
       for (const fieldKey of Object.keys(record.fields)) {
         const field = fieldMap[fieldKey];
@@ -69,25 +77,28 @@ export class FieldPipe implements PipeTransform {
               fields[field.id] = null;
               continue;
             }
-            const transformedOptionIds = flatten([fieldValue]).map(optionValue => {
-              const { option, isCreated } = SelectField.getOrCreateNewOption({ name: optionValue }, existOptions);
-              if (isCreated) {
-                existOptions.push(option);
-                (field as ISelectField).property.options = existOptions;
-                this.request[DATASHEET_ENRICH_SELECT_FIELD][field.id] = field;
-              }
-              return option.id;
-            });
+            const transformedOptionIds = flatten([fieldValue])
+              .filter((value) => !isEmpty(value))
+              .map((optionValue) => {
+                const { option, isCreated } = SelectField.getOrCreateNewOption({ name: optionValue }, existOptions);
+                if (isCreated) {
+                  existOptions.push(option);
+                  (field as ISelectField).property.options = existOptions;
+                  this.request[DATASHEET_ENRICH_SELECT_FIELD][field.id] = field;
+                }
+                return option.id;
+              });
             fields[field.id] = field.type === FieldType.SingleSelect ? transformedOptionIds[0]! : transformedOptionIds;
           } else {
             // transform
             fields[field.id] = await this.fieldTransform(fieldValue, field, {
               spaceId: datasheet.spaceId,
               fieldMap: meta.fieldMap,
+              timeZone: user.timeZone,
             });
           }
           // collect recordIds if it is link type field
-          if (field.type === FieldType.Link) {
+          if (field.type === FieldType.Link || field.type == FieldType.OneWayLink) {
             const foreignDatasheetId = field.property.foreignDatasheetId;
             const linkRecordIds: string[] = [];
             if (fields[field.id]) {

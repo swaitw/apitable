@@ -16,8 +16,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import { Field, ICell, ICellValue, Selectors, StoreActions, WhyRecordMoveType } from '@apitable/core';
 import { cloneDeep } from 'lodash';
+import { Field, ICell, ICellValue, Selectors, StoreActions, WhyRecordMoveType } from '@apitable/core';
 import { store } from 'pc/store';
 import { dispatch } from 'pc/worker/store';
 
@@ -28,36 +28,28 @@ store.subscribe(function activeCellChange() {
   const state = store.getState();
   const { viewId, datasheetId } = state.pageParams;
   if (!viewId || !datasheetId) return;
-  const activeView = Selectors.getActiveView(state);
+  const activeView = Selectors.getActiveViewId(state);
   if (!activeView) return;
 
   activeCell = Selectors.getActiveCell(state);
   // Click on the same cell.
-  if (
-    preActiveCell && activeCell
-    && preActiveCell.recordId === activeCell.recordId
-    && preActiveCell.fieldId === activeCell.fieldId
-  ) {
+  if (preActiveCell && activeCell && preActiveCell.recordId === activeCell.recordId && preActiveCell.fieldId === activeCell.fieldId) {
     return;
   }
 
   // gridView UI Add a flag to the cache when a record is found to have moved during rendering.
   // When activating a cell horizontally, the presence of a flag is not reported as an active row.
   // gridView UI The activation line change was found in the cache and the cache was deleted.
-  if (
-    preActiveCell && activeCell &&
-    preActiveCell.recordId === activeCell.recordId
-  ) {
+  if (preActiveCell && activeCell && preActiveCell.recordId === activeCell.recordId) {
     return;
   }
   if (activeCell) {
     const snapshot = Selectors.getSnapshot(state, datasheetId)!;
-    const visibleRows = Selectors.getPureVisibleRows(state);
-    const visibleRowsIndexMap = Selectors.getVisibleRowsIndexMapBase(visibleRows);
+    const visibleRowsIndexMap = Selectors.getVisibleRowsIndexMap(state);
     const { recordId, fieldId } = activeCell;
     const visibleRowIndex = visibleRowsIndexMap.get(recordId);
     if (visibleRowIndex == null) {
-      return ;
+      return;
     }
     const positionInfo = {
       fieldId,
@@ -65,13 +57,13 @@ store.subscribe(function activeCellChange() {
       visibleRowIndex,
       isInit: false,
     };
-    const recordSnapshot = Selectors.getRecordSnapshot(state, recordId);
+    const recordSnapshot = Selectors.getRecordSnapshot(state, datasheetId, recordId);
     if (!recordSnapshot) return;
 
     const fieldMap = Selectors.getFieldMap(state, datasheetId)!;
     const computeFieldData: { [fieldId: string]: ICellValue } = {};
     const _recordSnapshot = cloneDeep(recordSnapshot);
-    Object.entries(fieldMap).forEach(item => {
+    Object.entries(fieldMap).forEach((item) => {
       const [fieldId, field] = item;
       // The active row is recorded and the value of the calculated field is stored in recordSnapshot for subsequent pre-sorting comparisons.
       if (Field.bindModel(field).isComputed) {
@@ -83,9 +75,12 @@ store.subscribe(function activeCellChange() {
       ...recordSnapshot.recordMap[recordId]!.data,
       ...computeFieldData,
     };
-    dispatch(StoreActions.setActiveRowInfo(datasheetId, {
-      type: WhyRecordMoveType.UpdateRecord,
-      positionInfo, recordSnapshot: _recordSnapshot,
-    }));
+    dispatch(
+      StoreActions.setActiveRowInfo(datasheetId, {
+        type: WhyRecordMoveType.UpdateRecord,
+        positionInfo,
+        recordSnapshot: _recordSnapshot,
+      }),
+    );
   }
 });

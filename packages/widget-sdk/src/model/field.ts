@@ -29,11 +29,12 @@ import {
   Strings,
   t
 } from 'core';
-import { cmdExecute } from 'iframe_message/utils';
+import { cmdExecute } from 'message/utils';
 import { IWidgetContext, IFormatType, FieldType, IPermissionResult, IPropertyInView } from 'interface';
 import { errMsg } from 'utils/private';
 import { Record } from './record';
-import { getNewId, IDPrefix } from '@apitable/core';
+import { getNewId, IDPrefix, IReduxState } from '@apitable/core';
+import { getSnapshot } from 'store';
 
 /**
  * @hidden
@@ -81,7 +82,8 @@ export class Field {
     private wCtx: IWidgetContext,
     public fieldData: IField
   ) {
-    this.fieldEntity = FieldCore.bindContext(fieldData, wCtx.globalStore.getState());
+    const state = wCtx.widgetStore.getState() as any as IReduxState;
+    this.fieldEntity = FieldCore.bindContext(fieldData, state);
   }
 
   /**
@@ -133,7 +135,7 @@ export class Field {
    * ```
    */
   get type(): FieldType {
-    return getFieldTypeString(this.fieldData.type);
+    return getFieldTypeString(this.fieldData.type) as any as FieldType;
   }
 
   /**
@@ -209,8 +211,8 @@ export class Field {
    * @returns
    */
   get isPrimary(): boolean {
-    const state = this.wCtx.globalStore.getState();
-    const snapshot = Selectors.getSnapshot(state, this.datasheetId);
+    const state = this.wCtx.widgetStore.getState();
+    const snapshot = getSnapshot(state, this.datasheetId);
     return Boolean(snapshot?.meta.views[0]!.columns[0]!.fieldId === this.fieldData.id);
   }
 
@@ -234,8 +236,8 @@ export class Field {
    * ```
    */
   getPropertyInView(viewId: string): IPropertyInView | null {
-    const state = this.wCtx.globalStore.getState();
-    const snapshot = Selectors.getSnapshot(state, this.datasheetId);
+    const state = this.wCtx.widgetStore.getState();
+    const snapshot = getSnapshot(state, this.datasheetId);
     const view = snapshot && Selectors.getViewById(snapshot, viewId);
     const viewField = view?.columns.find(column => column.fieldId === this.id);
     if (!viewField) {
@@ -273,7 +275,7 @@ export class Field {
           ...this.fieldData,
           desc
         }
-      }, this.wCtx.resourceService);
+      }, this.wCtx.id);
       if (result.result === ExecuteResult.Fail) {
         throw new Error(result.reason);
       }
@@ -323,7 +325,7 @@ export class Field {
     }
     const updateProperty = this.fieldEntity.updateOpenFieldPropertyTransformProperty(property);
     let deleteBrotherField: boolean;
-    // Magic link special fields, need to determine whether to delete the associated fields of the associated table
+    // Two-way Link special fields, need to determine whether to delete the associated fields of the associated table
     if (this.type === FieldType.MagicLink) {
       const { conversion } = property as IUpdateOpenMagicLinkFieldProperty;
       deleteBrotherField = conversion === Conversion.Delete;
@@ -338,7 +340,7 @@ export class Field {
           ...this.fieldData,
           property: updateProperty
         }
-      }, this.wCtx.resourceService);
+      }, this.wCtx.id);
       if (result.result === ExecuteResult.Fail) {
         throw new Error(result.reason);
       }
@@ -453,7 +455,7 @@ export class Field {
     if (this.type === FieldType.MagicLookUp) {
       const lookUpEntityField = (this.fieldEntity as LookUpField).getLookUpEntityField();
       if (!lookUpEntityField) return FieldType.NotSupport;
-      return getFieldTypeString(lookUpEntityField.type);
+      return getFieldTypeString(lookUpEntityField.type) as any as FieldType;
     }
     return this.type;
   }
@@ -574,7 +576,7 @@ export class Field {
    */
   getFieldResultByStatType(statType: StatType, records: Record[]) {
     const recordIds = records.map(record => record.id);
-    const state = this.wCtx.globalStore.getState();
+    const state = this.wCtx.widgetStore.getState() as any as IReduxState;
     const snapshot = Selectors.getSnapshot(state, this.datasheetId)!;
     return getFieldResultByStatType(statType, recordIds, this.fieldData, snapshot, state);
   }

@@ -17,18 +17,18 @@
  */
 
 import Joi from 'joi';
-import { IReduxState } from '../../exports/store';
+import { IReduxState, IRecord } from '../../exports/store/interfaces';
 import {
   ILastModifiedTimeField, ILastModifiedTimeFieldProperty, FieldType, IField,
   DateFormat, TimeFormat, CollectType,
 } from 'types/field_types';
-import { DatasheetActions } from '../datasheet';
+import { DatasheetActions } from '../../commands_actions/datasheet';
 import { DateTimeBaseField } from './date_time_base_field';
 import { ICellValue } from 'model/record';
-import { IRecord } from '../../exports/store';
 import { datasheetIdString, enumKeyToArray, enumToArray, joiErrorResult } from './validate_schema';
 import { IOpenLastModifiedTimeFieldProperty } from 'types/open/open_field_read_types';
 import { IUpdateOpenLastModifiedTimeFieldProperty } from 'types/open/open_field_write_types';
+import { getFieldDefaultProperty } from './const';
 
 export class LastModifiedTimeField extends DateTimeBaseField {
   constructor(public override field: ILastModifiedTimeField, state: IReduxState) {
@@ -42,6 +42,8 @@ export class LastModifiedTimeField extends DateTimeBaseField {
     dateFormat: Joi.string().allow(...enumToArray(DateFormat)).required(),
     timeFormat: Joi.string().allow(...enumToArray(TimeFormat)).required(),
     includeTime: Joi.boolean().required(),
+    timeZone: Joi.string(),
+    includeTimeZone: Joi.boolean(),
   }).required();
 
   static defaultDateFormat: string = DateFormat[0]!;
@@ -57,14 +59,7 @@ export class LastModifiedTimeField extends DateTimeBaseField {
   }
 
   static defaultProperty(): ILastModifiedTimeFieldProperty {
-    return {
-      dateFormat: DateFormat['YYYY/MM/DD'],
-      timeFormat: TimeFormat['hh:mm'],
-      includeTime: false,
-      collectType: CollectType.AllFields,
-      fieldIdCollection: [],
-      datasheetId: '',
-    };
+    return getFieldDefaultProperty(FieldType.LastModifiedTime) as ILastModifiedTimeFieldProperty;
   }
 
   override get isComputed() {
@@ -127,7 +122,9 @@ export class LastModifiedTimeField extends DateTimeBaseField {
     timeFormat: Joi.valid(...enumKeyToArray(TimeFormat)),
     includeTime: Joi.boolean(),
     collectType: Joi.number().valid(CollectType.AllFields, CollectType.SpecifiedFields),
-    fieldIdCollection: Joi.array().items(Joi.string())
+    fieldIdCollection: Joi.array().items(Joi.string()),
+    timeZone: Joi.string(),
+    includeTimeZone: Joi.boolean(),
   }).required();
 
   override validateUpdateOpenProperty(updateProperty: IUpdateOpenLastModifiedTimeFieldProperty) {

@@ -17,16 +17,20 @@
  */
 
 import Joi from 'joi';
-import { IReduxState, IUnitValue, Selectors } from '../../exports/store';
-import { IAPIMetaMember, IAPIMetaMemberFieldProperty, IMemberField, IMemberFieldOpenValue, IMemberProperty } from '../../types';
-import { IStandardValue, IUnitIds } from '../../types/field_types';
-import { MemberBaseField } from './member_base_field';
-import { ICellValue } from 'model/record';
 import { isEqual, isNil, isString } from 'lodash';
+import { ICellValue } from 'model/record';
 import { getMemberTypeString } from 'model/utils';
-import { t, Strings } from '../../exports/i18n';
 import { IOpenMemberFieldProperty, IOpenMemberOption } from 'types/open/open_field_read_types';
 import { IAddOpenMemberFieldProperty, IUpdateOpenMemberFieldProperty } from 'types/open/open_field_write_types';
+import { Strings, t } from '../../exports/i18n';
+import { IReduxState } from '../../exports/store/interfaces';
+import { getUnitMap } from 'modules/org/store/selectors/unit_info';
+import { IAPIMetaMember, IAPIMetaMemberFieldProperty, IMemberField, IMemberFieldOpenValue, IMemberProperty } from '../../types';
+import { IStandardValue, IUnitIds } from '../../types/field_types';
+import { polyfillOldData } from './const';
+import { MemberBaseField } from './member_base_field';
+import { getFieldDefaultProperty } from './const';
+import { FieldType } from '../../types/field_types';
 
 export class MemberField extends MemberBaseField {
   constructor(public override field: IMemberField, public override state: IReduxState) {
@@ -37,6 +41,7 @@ export class MemberField extends MemberBaseField {
     isMulti: Joi.boolean().required(),
     unitIds: Joi.array().items(Joi.string()).required(),
     shouldSendMsg: Joi.boolean(),
+    subscription: Joi.boolean(),
   }).required();
 
   static cellValueSchema = Joi.array().items(Joi.string().pattern(/^\d{10}/).required()).allow(null).required();
@@ -67,7 +72,7 @@ export class MemberField extends MemberBaseField {
   }
 
   override get apiMetaProperty(): IAPIMetaMemberFieldProperty {
-    const unitMap = Selectors.getUnitMap(this.state);
+    const unitMap = getUnitMap(this.state);
     const options: IAPIMetaMember[] = [];
     if (unitMap) {
       this.field.property.unitIds.forEach(unitId => {
@@ -86,6 +91,7 @@ export class MemberField extends MemberBaseField {
       options,
       isMulti: this.field.property.isMulti,
       shouldSendMsg: this.field.property.shouldSendMsg,
+      subscription: this.field.property.subscription,
     };
   }
 
@@ -117,28 +123,9 @@ export class MemberField extends MemberBaseField {
     };
   }
 
-  static polyfillOldData(cellValue: IUnitIds | null) {
-    if (!cellValue) {
-      return cellValue;
-    }
-    if (!Array.isArray(cellValue)) {
-      return null;
-    }
-    return cellValue.map(item => {
-      if (typeof item === 'object') {
-        // old data only returns unitId
-        return (item as IUnitValue).unitId;
-      }
-      return item;
-    });
-  }
-
+  static polyfillOldData = polyfillOldData;
   static defaultProperty() {
-    return {
-      isMulti: true,
-      shouldSendMsg: true,
-      unitIds: [],
-    };
+    return getFieldDefaultProperty(FieldType.Member) as IMemberProperty;
   }
 
   override recordEditable(datasheetId?: string, mirrorId?: string) {
@@ -146,7 +133,7 @@ export class MemberField extends MemberBaseField {
       return false;
     }
     const { templateId } = this.state.pageParams;
-    return templateId ? false : true;
+    return !templateId;
   }
 
   override isMultiValueField(): boolean {
@@ -155,18 +142,21 @@ export class MemberField extends MemberBaseField {
 
   override stdValueToCellValue(stdValue: IStandardValue): ICellValue | null {
     // Match matching member information with name text in redux.
-    const unitMap = Selectors.getUnitMap(this.state);
+    const unitMap = getUnitMap(this.state);
     if (!unitMap) {
       return null;
     }
     const unitValue = Object.values(unitMap);
-    // The members of the space station may have the same name, so every time the data is converted, 
+    // The members of the space station may have the same name, so every time the data is converted,
     // it is necessary to first find the members that are activated and not deleted, so all data must be checked
     const unitNames = Array.from(new Set(stdValue.data.map(d => d.text.split(/, ?/)).flat()));
     const cvMap = new Map();
-    for (const name of unitNames) {
+    unitNames.forEach((name, index) => {
+      const unitId = stdValue.data[index]?.unitId;
+      const uuid = stdValue.data[index]?.uuid;
       for (const unit of unitValue) {
-        if (unit.name !== name) {
+        const isCurrentUnit = unitId ? unit.unitId === unitId : uuid ? unit.uuid === uuid : unit.name === name;
+        if (!isCurrentUnit) {
           continue;
         }
         cvMap.set(name, unit.unitId);
@@ -174,7 +164,7 @@ export class MemberField extends MemberBaseField {
           break;
         }
       }
-    }
+    });
 
     return cvMap.size ? [...cvMap.values()] : null;
   }
@@ -188,7 +178,7 @@ export class MemberField extends MemberBaseField {
   }
 
   override getUnitNames(cellValue: IUnitIds) {
-    const unitMap = Selectors.getUnitMap(this.state);
+    const unitMap = getUnitMap(this.state);
     if (!unitMap) {
       return null;
     }
@@ -208,7 +198,7 @@ export class MemberField extends MemberBaseField {
   }
 
   override getUnits(cellValue: IUnitIds) {
-    const unitMap = Selectors.getUnitMap(this.state);
+    const unitMap = getUnitMap(this.state);
     if (!unitMap) {
       return null;
     }
@@ -225,7 +215,7 @@ export class MemberField extends MemberBaseField {
     if (isNil(cellValues)) {
       return null;
     }
-    const unitMap = Selectors.getUnitMap(this.state);
+    const unitMap = getUnitMap(this.state);
     if (isNil(unitMap)) {
       return null;
     }
@@ -234,6 +224,7 @@ export class MemberField extends MemberBaseField {
       if (unitMap.hasOwnProperty(unitId)) {
         units.push({
           id: unitId,
+          unitId: unitMap[unitId]!.originalUnitId,
           type: getMemberTypeString(unitMap[unitId]!.type),
           name: unitMap[unitId]!.name,
           avatar: unitMap[unitId]?.avatar,
@@ -273,7 +264,7 @@ export class MemberField extends MemberBaseField {
   }
 
   override get openFieldProperty(): IOpenMemberFieldProperty {
-    const unitMap = Selectors.getUnitMap(this.state);
+    const unitMap = getUnitMap(this.state);
     const options: IOpenMemberOption[] = [];
     if (unitMap) {
       this.field.property.unitIds.forEach(unitId => {
@@ -288,17 +279,19 @@ export class MemberField extends MemberBaseField {
         }
       });
     }
-    const { isMulti, shouldSendMsg } = this.field.property;
+    const { isMulti, shouldSendMsg, subscription } = this.field.property;
     return {
       options,
       isMulti,
-      shouldSendMsg
+      shouldSendMsg,
+      subscription
     };
   }
 
   static openUpdatePropertySchema = Joi.object({
     isMulti: Joi.boolean(),
     shouldSendMsg: Joi.boolean(),
+    subscription: Joi.boolean(),
   }).required();
 
   override validateUpdateOpenProperty(updateProperty: IUpdateOpenMemberFieldProperty) {
@@ -306,21 +299,23 @@ export class MemberField extends MemberBaseField {
   }
 
   override updateOpenFieldPropertyTransformProperty(openFieldProperty: IUpdateOpenMemberFieldProperty): IMemberProperty {
-    const { isMulti, shouldSendMsg } = openFieldProperty;
+    const { isMulti, shouldSendMsg, subscription } = openFieldProperty;
     const { unitIds } = this.field.property;
     return {
       isMulti: Boolean(isMulti),
       shouldSendMsg: Boolean(shouldSendMsg),
+      subscription: Boolean(subscription),
       unitIds
     };
   }
 
   override addOpenFieldPropertyTransformProperty(openFieldProperty: IAddOpenMemberFieldProperty): IMemberProperty {
-    const { isMulti, shouldSendMsg } = openFieldProperty;
+    const { isMulti, shouldSendMsg, subscription } = openFieldProperty;
     const defaultProperty = MemberField.defaultProperty();
     return {
       isMulti: isMulti ?? defaultProperty.isMulti,
       shouldSendMsg: shouldSendMsg ?? defaultProperty.shouldSendMsg,
+      subscription: subscription ?? defaultProperty.subscription,
       unitIds: []
     };
   }

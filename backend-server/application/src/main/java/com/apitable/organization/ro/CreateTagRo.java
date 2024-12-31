@@ -18,27 +18,28 @@
 
 package com.apitable.organization.ro;
 
-import io.swagger.annotations.ApiModel;
-import io.swagger.annotations.ApiModelProperty;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 
-import javax.validation.constraints.NotBlank;
-import javax.validation.constraints.NotNull;
-import javax.validation.constraints.Size;
-
 /**
- * Add tag request parameters
+ * Add tag request parameters.
  */
 @Data
-@ApiModel("Add tag request parameters")
+@Schema(description = "Add tag request parameters")
 public class CreateTagRo {
 
     @NotNull(message = "Space ID cannot be empty")
-    @ApiModelProperty(value = "Space unique ID", example = "r4Arzo4YydiwsgAV", required = true, position = 1)
+    @Schema(description = "Space unique ID", example = "r4Arzo4YydiwsgAV",
+        requiredMode = RequiredMode.REQUIRED)
     private String spaceId;
 
     @NotBlank
     @Size(min = 1, max = 100, message = "Limit 1 to 100 characters and input special characters")
-    @ApiModelProperty(value = "Label Name", dataType = "string", example = "New label", required = true, position = 2)
+    @Schema(description = "Label Name", type = "string", example = "New label",
+        requiredMode = RequiredMode.REQUIRED)
     private String tagName;
 }

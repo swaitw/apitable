@@ -16,15 +16,14 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+import classNames from 'classnames';
+import dayjs from 'dayjs';
 import { FC, useEffect, useMemo, useState } from 'react';
 import * as React from 'react';
 import ReactDOM from 'react-dom';
+import { shallowEqual, useDispatch } from 'react-redux';
+import { batchActions } from 'redux-batched-actions';
 import { Button, Calendar, Tooltip, useThemeColors } from '@apitable/components';
-import { Drag } from './drag';
-import { Drop } from './drop';
-import { RecordList } from './record_list';
-import { ClearOutlined, ListOutlined, WarningTriangleNonzeroFilled } from '@apitable/icons';
-import { shallowEqual, useDispatch, useSelector } from 'react-redux';
 import {
   BasicValueType,
   CacheManager,
@@ -41,27 +40,26 @@ import {
   StoreActions,
   Strings,
   t,
-  getLanguage,
 } from '@apitable/core';
-import { CalendarSettingPanel } from './calendar_setting_panel';
-import { CreateFieldModal } from './create_field_modal';
-import { VikaSplitPanel } from '../common';
-import { getStorage, setStorage, StorageName } from 'pc/utils/storage';
-import dayjs from 'dayjs';
-import { resourceService } from 'pc/resource_service';
-import { batchActions } from 'redux-batched-actions';
-import { setColor } from 'pc/components/multi_grid/format';
-import styles from './styles.module.less';
-import classNames from 'classnames';
+import { ClearOutlined, ListOutlined, WarnCircleFilled } from '@apitable/icons';
 import { RecordMenu } from 'pc/components/multi_grid/context_menu/record_menu';
-import { CALENDAR_RECORD_MENU, DEFAULT_FIELD_HEIGHT, DEFAULT_TITLE_HEIGHT, FieldTypeHeight } from './constants';
-import { CalendarContext, IRecordModal } from './calendar_context';
-import { DragDropModal } from './drag_drop_modal';
-import { AddRecord } from '../mobile_grid/add_record';
+import { setColor } from 'pc/components/multi_grid/format';
 import { useResponsive } from 'pc/hooks';
+import { resourceService } from 'pc/resource_service';
+import { useAppSelector } from 'pc/store/react-redux';
+import { getStorage, setStorage, StorageName } from 'pc/utils/storage';
+import { VikaSplitPanel } from '../common';
 import { ScreenSize } from '../common/component_display/enum';
+import { AddRecord } from '../mobile_grid/add_record';
+import { CalendarContext } from './calendar_context';
 import { CalendarMonthPicker } from './calendar_month_picker';
-import { isClickDragDropModal } from './utils';
+import { CalendarSettingPanel } from './calendar_setting_panel';
+import { CALENDAR_RECORD_MENU, DEFAULT_FIELD_HEIGHT, DEFAULT_TITLE_HEIGHT, FieldTypeHeight } from './constants';
+import { CreateFieldModal } from './create_field_modal';
+import { Drag } from './drag';
+import { Drop } from './drop';
+import { RecordList } from './record_list';
+import styles from './styles.module.less';
 
 interface ICalendarViewProps {
   height: number;
@@ -84,18 +82,19 @@ export const CalendarView: FC<React.PropsWithChildren<ICalendarViewProps>> = () 
     columns,
     entityFieldMap,
     permissions,
-    currentSearchCell,
+    currentSearchRecordId,
     getCellValue,
     isSearching,
     fieldPermissionMap,
     viewId,
     cacheTheme,
     activeCell,
-  } = useSelector(state => {
+  } = useAppSelector((state) => {
     const dstId = Selectors.getActiveDatasheetId(state)!;
     const currSnapshot = Selectors.getSnapshot(state, dstId)!;
     const currView = Selectors.getCurrentView(state)!;
     const getCurrCellValue = (rId: string, fId: string) => Selectors.getCellValue(state, snapshot, rId, fId);
+
     return {
       calendarViewStatus: Selectors.getCalendarViewStatus(state, dstId)!,
       datasheetId: dstId,
@@ -105,15 +104,15 @@ export const CalendarView: FC<React.PropsWithChildren<ICalendarViewProps>> = () 
       view: currView,
       fieldMap: Selectors.getFieldMap(state, dstId)!,
       visibleRows: Selectors.getVisibleRows(state),
-      ignoreSearchRows: Selectors.getVisibleRowsBase(state, currSnapshot, currView, keyword),
+      ignoreSearchRows: Selectors.getVisibleRowsWithoutSearch(state),
       columns: Selectors.getCalendarVisibleColumns(state),
       entityFieldMap: Selectors.getFieldMapIgnorePermission(state)!,
       permissions: Selectors.getPermissions(state),
-      currentSearchCell: Selectors.getCurrentSearchItem(state),
+      currentSearchRecordId: Selectors.getCurrentSearchRecordId(state),
       isSearching: Boolean(Selectors.getSearchKeyword(state)),
       getCellValue: getCurrCellValue,
       fieldPermissionMap: Selectors.getFieldPermissionMap(state),
-      viewId: Selectors.getActiveView(state),
+      viewId: Selectors.getActiveViewId(state),
       cacheTheme: Selectors.getTheme(state),
       activeCell: Selectors.getActiveCell(state),
     };
@@ -122,7 +121,7 @@ export const CalendarView: FC<React.PropsWithChildren<ICalendarViewProps>> = () 
   const isDateTimeField = (field?: IField) => {
     return field ? [Field.bindModel(field).basicValueType, Field.bindModel(field).innerBasicValueType].includes(BasicValueType.DateTime) : false;
   };
-  const dateTypeAccessibleFields = Object.values(entityFieldMap).filter(field => {
+  const dateTypeAccessibleFields = Object.values(entityFieldMap).filter((field) => {
     const fieldRole = Selectors.getFieldRoleByFieldId(fieldPermissionMap, field.id);
     const isCryptoField = Boolean(fieldRole && fieldRole === ConfigConstant.Role.None);
     return isDateTimeField(field) && !isCryptoField;
@@ -145,7 +144,7 @@ export const CalendarView: FC<React.PropsWithChildren<ICalendarViewProps>> = () 
   const startField = fieldMap[startFieldId];
   const endField = fieldMap[endFieldId];
   const dispatch = useDispatch();
-  const mirrorId = useSelector(state => state.pageParams.mirrorId);
+  const mirrorId = useAppSelector((state) => state.pageParams.mirrorId);
 
   useEffect(() => {
     /**
@@ -171,8 +170,8 @@ export const CalendarView: FC<React.PropsWithChildren<ICalendarViewProps>> = () 
     // eslint-disable-next-line
   }, [view?.id]);
 
-  const onGlobalMouseDown = (e: MouseEvent) => {
-    if (isClickDragDropModal(e) || !activeCell) return;
+  const onGlobalMouseDown = () => {
+    if (!activeCell) return;
     dispatch(StoreActions.clearSelection(datasheetId));
     dispatch(StoreActions.clearActiveRowInfo(datasheetId));
   };
@@ -190,8 +189,7 @@ export const CalendarView: FC<React.PropsWithChildren<ICalendarViewProps>> = () 
   const isStartDisabled = isReaderStartField || (startField ? startField.type !== FieldType.DateTime : true);
   const isEndDisabled = isReaderEndField || (endField ? endField.type !== FieldType.DateTime : true);
 
-  const draggable =
-    ((startField || endField) &&
+  const draggable = ((startField || endField) &&
     !isReaderStartField &&
     !isReaderEndField &&
     (startField ? startField.type === FieldType.DateTime : true) &&
@@ -236,8 +234,8 @@ export const CalendarView: FC<React.PropsWithChildren<ICalendarViewProps>> = () 
       }
       const startDate = startTime && isStartDateTimeField ? new Date(startTime) : null;
       const endDate = endTime && isEndDateTimeField ? new Date(endTime) : null;
-      const isStartDateValid = startDate ? dayjs(startDate).isValid() : true;
-      const isEndDateValid = endTime ? dayjs(endTime).isValid() : true;
+      const isStartDateValid = startDate ? dayjs.tz(startDate).isValid() : true;
+      const isEndDateValid = endTime ? dayjs.tz(endTime).isValid() : true;
       // Start time, end time must be legal and one of them must not be null
       if (isStartDateValid && isEndDateValid && (startDate || endTime)) {
         records.push({
@@ -318,7 +316,7 @@ export const CalendarView: FC<React.PropsWithChildren<ICalendarViewProps>> = () 
       data.push({
         recordId,
         fieldId: startFieldId,
-        value: startTime ? dayjs(startTime).valueOf() : null,
+        value: startTime ? dayjs.tz(startTime).valueOf() : null,
       });
     }
     if (endFieldId && endField && isEndDateTimeField) {
@@ -326,7 +324,7 @@ export const CalendarView: FC<React.PropsWithChildren<ICalendarViewProps>> = () 
       data.push({
         recordId,
         fieldId: endFieldId,
-        value: endTime ? dayjs(endTime).valueOf() : null,
+        value: endTime ? dayjs.tz(endTime).valueOf() : null,
       });
     }
     resourceService.instance!.commandManager.execute({
@@ -336,31 +334,28 @@ export const CalendarView: FC<React.PropsWithChildren<ICalendarViewProps>> = () 
     });
   };
 
-  const [recordModal, setRecordModal] = React.useState<IRecordModal>();
-  const isVisible = recordModal && recordModal[1];
-
   const defaultDate = useMemo(() => {
-    const searchStartDatetime = getCellValue(currentSearchCell as string, startFieldId);
-    const searchEndDatetime = getCellValue(currentSearchCell as string, endFieldId);
+    const searchStartDatetime = currentSearchRecordId && getCellValue(currentSearchRecordId, startFieldId);
+    const searchEndDatetime = currentSearchRecordId && getCellValue(currentSearchRecordId, endFieldId);
     const searchDatetime = searchStartDatetime || searchEndDatetime;
     return searchDatetime ? new Date(searchDatetime) : undefined;
-  }, [currentSearchCell, endFieldId, getCellValue, startFieldId]);
+  }, [currentSearchRecordId, endFieldId, getCellValue, startFieldId]);
 
   useEffect(() => {
     setTimeout(() => {
-      const taskElm = document.querySelector(`#calendar_task_${currentSearchCell}`);
+      const taskElm = document.querySelector(`#calendar_task_${currentSearchRecordId}`);
       taskElm?.scrollIntoView({ block: 'nearest' });
     }, 0);
-  }, [currentSearchCell]);
+  }, [currentSearchRecordId]);
 
   const [date, setDate] = useState<dayjs.Dayjs | null>(() => {
-    return dayjs(new Date());
+    return dayjs.tz(new Date());
   });
 
   let panelRight = <React.Fragment />;
   let size = 0;
   if (!isMobile) {
-    if (settingPanelVisible && !view.lockInfo) {
+    if (settingPanelVisible) {
       panelRight = <CalendarSettingPanel calendarStyle={calendarStyle} />;
       size = settingPanelWidth;
     } else if (gridVisible) {
@@ -369,14 +364,10 @@ export const CalendarView: FC<React.PropsWithChildren<ICalendarViewProps>> = () 
     }
   }
 
-  const lang = getLanguage().split('-')[0];
-
   return (
     <CalendarContext.Provider
       value={{
-        setRecordModal,
-        recordModal,
-        currentSearchCell,
+        currentSearchRecordId,
         fieldMap,
         columns,
         snapshot,
@@ -418,8 +409,8 @@ export const CalendarView: FC<React.PropsWithChildren<ICalendarViewProps>> = () 
           }
         />
         <VikaSplitPanel
-          primary='second'
-          split='vertical'
+          primary="second"
+          split="vertical"
           style={{ overflow: 'none' }}
           size={size}
           allowResize={false}
@@ -432,7 +423,7 @@ export const CalendarView: FC<React.PropsWithChildren<ICalendarViewProps>> = () 
                   })}
                   onClick={() => onPanelSizeChange(!gridVisible)}
                 >
-                  <Button size='small' prefixIcon={<ListOutlined size={16} color={colors.fc3} />}>
+                  <Button size="small" prefixIcon={<ListOutlined size={16} color={colors.fc3} />}>
                     {t(Strings.calendar_list_toggle_btn)}
                   </Button>
                 </div>
@@ -442,7 +433,7 @@ export const CalendarView: FC<React.PropsWithChildren<ICalendarViewProps>> = () 
                 resizable={startFieldId !== endFieldId && !isMobile}
                 defaultDate={defaultDate || date?.toDate()}
                 disabled={!editable || (isStartDisabled && isEndDisabled)}
-                monthPicker={(showValue: string) => <CalendarMonthPicker lang={lang} showValue={showValue} setDate={setDate} />}
+                monthPicker={(showValue: string) => <CalendarMonthPicker showValue={showValue} setDate={setDate} />}
                 listStyle={{
                   // color: listColor || undefined,
                   height: recordHeight + 'px',
@@ -461,12 +452,11 @@ export const CalendarView: FC<React.PropsWithChildren<ICalendarViewProps>> = () 
                 moreText={isMobile ? t(Strings.calendar_view_all_records_mobile) : t(Strings.calendar_view_all_records)}
                 warnText={
                   <Tooltip content={t(Strings.calendar_error_record)}>
-                    <span className='warning'>
-                      <WarningTriangleNonzeroFilled size={16} color={colors.warningColor} />
+                    <span className="warning">
+                      <WarnCircleFilled size={16} color={colors.warningColor} />
                     </span>
                   </Tooltip>
                 }
-                lang={lang}
                 moveTaskId={activeCell?.recordId}
               />
             </div>
@@ -474,8 +464,7 @@ export const CalendarView: FC<React.PropsWithChildren<ICalendarViewProps>> = () 
           panelRight={panelRight}
         />
         {dateTypeAccessibleFields.length === 0 && <CreateFieldModal />}
-        {isVisible && <DragDropModal recordId={recordModal && recordModal[0]} style={recordModal![2]} />}
-        {isMobile && rowCreatable && ReactDOM.createPortal(<AddRecord size='large' />, document.getElementById(DATASHEET_ID.ADD_RECORD_BTN)!)}
+        {isMobile && rowCreatable && ReactDOM.createPortal(<AddRecord size="large" />, document.getElementById(DATASHEET_ID.ADD_RECORD_BTN)!)}
       </div>
     </CalendarContext.Provider>
   );

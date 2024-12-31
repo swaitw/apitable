@@ -18,13 +18,11 @@
 
 package com.apitable.shared.config;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import com.apitable.shared.interceptor.I18nInterceptor;
 import com.apitable.shared.interceptor.ResourceInterceptor;
 import com.apitable.shared.util.page.PageParamHandlerMethodArgumentResolver;
-
+import java.util.ArrayList;
+import java.util.List;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
@@ -33,42 +31,44 @@ import org.springframework.web.servlet.config.annotation.PathMatchConfigurer;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 /**
- * <p>
- * MVC config
- * </p>
- *
- * @author Shawn Deng
+ * MVC config.
  */
 @Configuration(proxyBeanMethods = false)
-@Import({ ResourceInterceptor.class, I18nInterceptor.class })
+@Import({ResourceInterceptor.class, I18nInterceptor.class})
 public class WebMvcConfig implements WebMvcConfigurer {
 
     private final ResourceInterceptor resourceInterceptor;
 
     private final I18nInterceptor i18nInterceptor;
 
+    public static final List<String> INTERCEPTOR_IGNORE_PATHS = new ArrayList<>();
+
+    static {
+        INTERCEPTOR_IGNORE_PATHS.add("/");
+        INTERCEPTOR_IGNORE_PATHS.add("/favicon.ico");
+        INTERCEPTOR_IGNORE_PATHS.add("/error/**");
+        INTERCEPTOR_IGNORE_PATHS.add("/doc.html");
+        INTERCEPTOR_IGNORE_PATHS.add("/v2/api-docs-ext");
+        INTERCEPTOR_IGNORE_PATHS.add("/webjars/**");
+        INTERCEPTOR_IGNORE_PATHS.add("/swagger-resources/**");
+        INTERCEPTOR_IGNORE_PATHS.add("/swagger-ui/**");
+        INTERCEPTOR_IGNORE_PATHS.add("/swagger-ui.html");
+        INTERCEPTOR_IGNORE_PATHS.add("/v3/api-docs/**");
+        INTERCEPTOR_IGNORE_PATHS.add("/node/readShareInfo/**");
+    }
+
     public WebMvcConfig(ResourceInterceptor resourceInterceptor,
-            I18nInterceptor i18nInterceptor) {
+                        I18nInterceptor i18nInterceptor) {
         this.resourceInterceptor = resourceInterceptor;
         this.i18nInterceptor = i18nInterceptor;
     }
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
-        List<String> excludes = new ArrayList<>();
-        excludes.add("/");
-        excludes.add("/favicon.ico");
-        excludes.add("/error/**");
-        excludes.add("/doc.html");
-        excludes.add("/v2/api-docs-ext");
-        excludes.add("/webjars/**");
-        excludes.add("/swagger-resources/**");
-        excludes.add("/swagger-ui/**");
-        excludes.add("/v3/api-docs");
         registry.addInterceptor(resourceInterceptor)
-                .excludePathPatterns(excludes);
+            .excludePathPatterns(INTERCEPTOR_IGNORE_PATHS);
         // add i18n interceptor
-        registry.addInterceptor(i18nInterceptor).excludePathPatterns(excludes);
+        registry.addInterceptor(i18nInterceptor).excludePathPatterns(INTERCEPTOR_IGNORE_PATHS);
     }
 
     @Override
@@ -77,9 +77,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
     }
 
     /**
-     * adapter "/users" -> "/users/"
-     *
-     * @param configurer path configurer
+     * adapter "/users" -> "/users/".
      */
     @Override
     public void configurePathMatch(PathMatchConfigurer configurer) {

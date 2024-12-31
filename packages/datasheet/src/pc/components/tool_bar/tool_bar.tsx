@@ -16,6 +16,13 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+import { useMount, useSize, useThrottleFn } from 'ahooks';
+import classNames from 'classnames';
+import { get } from 'lodash';
+import * as React from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { isMobile } from 'react-device-detect';
+import { shallowEqual, useDispatch } from 'react-redux';
 import { colorVars, TextButton, useThemeColors } from '@apitable/components';
 import {
   CollaCommandName,
@@ -39,32 +46,37 @@ import {
   UN_GROUP,
   ViewType,
 } from '@apitable/core';
-import { ApiOutlined, ChevronDownOutlined, RecoverOutlined, RobotOutlined, SettingFilled, WidgetOutlined } from '@apitable/icons';
-import { useMount, useSize, useThrottleFn } from 'ahooks';
-import classNames from 'classnames';
+import {
+  AddCircleOutlined,
+  ApiOutlined,
+  AutomationOutlined,
+  ChevronDownOutlined,
+  EyeOpenOutlined,
+  FilterOutlined,
+  GalleryOutlined,
+  GroupOutlined,
+  HistoryFilled,
+  ListOutlined,
+  RankOutlined,
+  RobotOutlined,
+  SettingFilled,
+  SettingOutlined,
+  ShareOutlined,
+  StyleOutlined,
+  WidgetOutlined,
+} from '@apitable/icons';
 import { ShortcutActionManager, ShortcutActionName } from 'modules/shared/shortcut_key';
-import { closeAllExpandRecord } from 'pc/components/expand_record/utils';
+import { ArchivedRecords } from 'pc/components/archive_record';
 import { MirrorList } from 'pc/components/mirror/mirror_list';
 import { getFieldTypeIcon } from 'pc/components/multi_grid/field_setting';
-import { useShowViewLockModal } from 'pc/components/view_lock/use_show_view_lock_modal';
 import { SideBarClickType, SideBarType, useSideBar } from 'pc/context';
 import { useResponsive } from 'pc/hooks';
 import { resourceService } from 'pc/resource_service';
 import { store } from 'pc/store';
+import { useAppSelector } from 'pc/store/react-redux';
+import { getEnvVariables, isIframe } from 'pc/utils/env';
 import { setStorage, StorageName } from 'pc/utils/storage/storage';
-import * as React from 'react';
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { isMobile } from 'react-device-detect';
-import { shallowEqual, useDispatch, useSelector } from 'react-redux';
-import IconAdd from 'static/icon/datasheet/addrow.svg';
-import GalleryListIcon from 'static/icon/datasheet/gallery/datasheet_icon_list.svg';
-import SettingIcon from 'static/icon/datasheet/gallery/datasheet_icon_setting.svg';
-import GalleryIcon from 'static/icon/datasheet/gallery/datasheet_icon_tiling.svg';
-import FiltrationIcon from 'static/icon/datasheet/viewtoolbar/datasheet_icon_filter_normal.svg';
-import GroupIcon from 'static/icon/datasheet/viewtoolbar/datasheet_icon_group_normal.svg';
-import HideIcon from 'static/icon/datasheet/viewtoolbar/datasheet_icon_hide_normal.svg';
-import RankIcon from 'static/icon/datasheet/viewtoolbar/datasheet_icon_rank_normal.svg';
-import ShareIcon from 'static/icon/datasheet/viewtoolbar/datasheet_icon_share_normal.svg';
+import { createdBySubscritionMessage } from '../../utils/created_by_subscrition_message';
 import { Share } from '../catalog/share';
 import { Collapse, ICollapseFunc } from '../common/collapse';
 import { ScreenSize } from '../common/component_display';
@@ -76,11 +88,9 @@ import { Find } from './find';
 import { ForeignForm } from './foreign_form';
 import { useDisabledOperateWithMirror } from './hooks';
 import { ToolHandleType } from './interface';
-import styles from './style.module.less';
 import { ToolItem } from './tool_item';
 import { Undo } from './undo';
-import { get } from 'lodash';
-import { getEnvVariables, isIframe } from 'pc/utils/env';
+import styles from './style.module.less';
 
 // Toolbar label and icon adaptation rules when in-table lookup is activated.
 // width:[1180,+infinity) -> Show all.
@@ -115,7 +125,7 @@ const ToolbarBase = () => {
   const [isFindOpen, setIsFindOpen] = useState(false);
   const [iconRotation, setIconRotation] = useState(false);
   const [winWidth, setWinWidth] = useState(0);
-  const { shareId, templateId, datasheetId, viewId, mirrorId, embedId } = useSelector(state => {
+  const { shareId, templateId, datasheetId, viewId, mirrorId, embedId } = useAppSelector((state) => {
     const { shareId, templateId, datasheetId, viewId, mirrorId, embedId } = state.pageParams;
     return {
       shareId,
@@ -123,18 +133,19 @@ const ToolbarBase = () => {
       datasheetId,
       viewId,
       mirrorId,
-      embedId
+      embedId,
     };
   }, shallowEqual);
 
-  const spaceId = useSelector(state => state.space.activeId);
-  const treeNodesMap = useSelector(state => state.catalogTree.treeNodesMap);
-  const activeView: IViewProperty = useSelector(state => Selectors.getCurrentView(state))!;
+  const fieldMap = useAppSelector((state) => Selectors.getFieldMap(state, datasheetId))!;
+  const spaceId = useAppSelector((state) => state.space.activeId);
+  const { treeNodesMap, privateTreeNodesMap } = useAppSelector((state) => state.catalogTree);
+  const activeView: IViewProperty = useAppSelector((state) => Selectors.getCurrentView(state))!;
   const actualColumnCount = activeView.columns.length;
-  const ganttViewStatus = useSelector(state => Selectors.getGanttViewStatus(state));
-  const calendarViewStatus = useSelector(state => Selectors.getCalendarViewStatus(state));
-  const orgChartViewStatus = useSelector(state => Selectors.getOrgChartViewStatus(state));
-  const kanbanViewStatus = useSelector(state => Selectors.getKanbanViewStatus(state));
+  const ganttViewStatus = useAppSelector((state) => Selectors.getGanttViewStatus(state));
+  const calendarViewStatus = useAppSelector((state) => Selectors.getCalendarViewStatus(state));
+  const orgChartViewStatus = useAppSelector((state) => Selectors.getOrgChartViewStatus(state));
+  const kanbanViewStatus = useAppSelector((state) => Selectors.getKanbanViewStatus(state));
   const hiddenGroupMap = (activeView as IKanbanViewProperty).style?.hiddenGroupMap;
   const isGalleryView = activeView && activeView.type === ViewType.Gallery;
   const isKanbanView = activeView && activeView.type === ViewType.Kanban;
@@ -142,21 +153,23 @@ const ToolbarBase = () => {
   const isGanttView = activeView && activeView.type === ViewType.Gantt;
   const isCalendarView = activeView && activeView.type === ViewType.Calendar;
   const isOrgView = activeView && activeView.type === ViewType.OrgChart;
-  const visibleColumnsCount = useSelector(state =>
+  const visibleColumnsCount = useAppSelector((state) =>
     isCalendarView ? Selectors.getCalendarVisibleColumnCount(state) : Selectors.getVisibleColumnCount(state),
   );
-  const visibleGanttColumnsCount = useSelector(state => (isGanttView ? Selectors.getGanttVisibleColumnCount(state) : 0));
+  const visibleGanttColumnsCount = useAppSelector((state) => (isGanttView ? Selectors.getGanttVisibleColumnCount(state) : 0));
   const isExitGroup = 'groupInfo' in activeView && activeView.groupInfo?.length;
-  const permissions = useSelector(state => Selectors.getPermissions(state, datasheetId));
-  const activeNodeId = useSelector(state => Selectors.getNodeId(state));
-  const isApiPanelOpen = useSelector(state => state.space.isApiPanelOpen);
-  const isWidgetPanel = useSelector(state => {
+  const permissions = useAppSelector((state) => Selectors.getPermissions(state, datasheetId));
+  const activeNodeId = useAppSelector((state) => Selectors.getNodeId(state));
+  const activeNodePrivate = useAppSelector((state) => Selectors.getActiveNodePrivate(state));
+  const activeNode = activeNodePrivate ? privateTreeNodesMap[activeNodeId] : treeNodesMap[activeNodeId];
+  const isApiPanelOpen = useAppSelector((state) => state.space.isApiPanelOpen);
+  const isWidgetPanel = useAppSelector((state) => {
     const { mirrorId, datasheetId } = state.pageParams;
     const resourceType = mirrorId ? ResourceType.Mirror : ResourceType.Datasheet;
     const resourceId = mirrorId || datasheetId || '';
     return Selectors.getResourceWidgetPanelStatus(state, resourceId, resourceType)?.opening;
   });
-  const widgetCount = useSelector(state => {
+  const widgetCount = useAppSelector((state) => {
     const { datasheetId, mirrorId } = state.pageParams;
     const resourceId = mirrorId || datasheetId;
     const resourceType = mirrorId ? ResourceType.Mirror : ResourceType.Datasheet;
@@ -171,13 +184,13 @@ const ToolbarBase = () => {
     }
     return widgetPanel.reduce((total, item) => total + item.widgets.length, 0);
   });
-  const { isRobotPanelOpen, isTimeMachinePanelOpen } = useSelector(state => {
+  const { isRobotPanelOpen, isTimeMachinePanelOpen, isCopilotPanelOpen } = useAppSelector((state) => {
     const clientState = Selectors.getDatasheetClient(state);
     return clientState || ({} as IDatasheetClientState);
   });
-  const isSideRecordOpen = useSelector(state => state.space.isSideRecordOpen);
+  const isSideRecordOpen = useAppSelector((state) => state.space.isSideRecordOpen);
   const toolbarRef = useRef<HTMLDivElement>(null);
-  const nodeShared = useSelector(state => {
+  const nodeShared = useAppSelector((state) => {
     if (mirrorId) {
       return Boolean(Selectors.getMirror(state, mirrorId)?.nodeShared);
     }
@@ -185,8 +198,8 @@ const ToolbarBase = () => {
     return datasheet!.nodeShared;
   });
   const visualizationEditable = permissions.visualizationEditable || permissions.editable;
-  const kanbanFieldId = useSelector(state => Selectors.getKanbanFieldId(state));
-  const groupIds = useSelector(Selectors.getKanbanGroupMapIds);
+  const kanbanFieldId = useAppSelector((state) => Selectors.getKanbanFieldId(state));
+  const groupIds = useAppSelector(Selectors.getKanbanGroupMapIds);
   const keepSort = activeView.sortInfo && activeView.sortInfo.keepSort;
   const size = useSize(toolbarRef);
   const { screenIsAtMost } = useResponsive();
@@ -196,32 +209,33 @@ const ToolbarBase = () => {
   const hiddenRightToolbar = Boolean(
     size && size.width && (size.width < HIDDEN_TOOLBAR_RIGHT_WIDTH || (size.width < HIDDEN_TREE_WIDTH - SIDERBAR_WIDTH && !sideBarVisible)),
   );
-  const showIconBarLabel = Boolean(size && size.width && size.width > (isGanttView ? GANTT_HIDDEN_TOOLBAR_LEFT_LABEL_WIDTH : HIDDEN_TOOLBAR_LEFT_LABEL_WIDTH) - offsetWidth);
-  const showViewLockModal = useShowViewLockModal();
+  const showIconBarLabel = Boolean(
+    size && size.width && size.width > (isGanttView ? GANTT_HIDDEN_TOOLBAR_LEFT_LABEL_WIDTH : HIDDEN_TOOLBAR_LEFT_LABEL_WIDTH) - offsetWidth,
+  );
 
   const hiddenKanbanGroupCount = useMemo(() => {
     return Object.keys(hiddenGroupMap || {})
-      .filter(id => id === UN_GROUP || (groupIds || []).includes(id))
+      .filter((id) => id === UN_GROUP || (groupIds || []).includes(id))
       .reduce((acc, key) => acc + (hiddenGroupMap?.[key] ? 1 : 0), 0);
   }, [groupIds, hiddenGroupMap]);
 
   const dispatch = useDispatch();
 
-  const embedInfo = useSelector(state => Selectors.getEmbedInfo(state));
+  const embedInfo = useAppSelector((state) => Selectors.getEmbedInfo(state));
 
   // The logic of inserting rows in the toolbar is special and is handled here by itself.
   // Always in the first, no grouped data is brought in.
   const appendRecord = () => {
     const state = store.getState();
     const view = Selectors.getCurrentView(state)!;
-    const collaCommandManager = resourceService.instance!.commandManager;
-    const result = collaCommandManager.execute({
+    const result = resourceService.instance!.commandManager.execute({
       cmd: CollaCommandName.AddRecords,
       count: 1,
       viewId: view.id,
       index: 0,
     });
     if (result.result === ExecuteResult.Success) {
+      createdBySubscritionMessage(fieldMap);
       const newRecordId = result.data && result.data[0];
       // Requirement change: Toolbar insert line, always expand the card (don't delete the following).
       expandRecordIdNavigate(newRecordId);
@@ -362,27 +376,26 @@ const ToolbarBase = () => {
   }, [setIsFindOpen, sideBarVisible, toggleType, isFindOpen, size, offsetWidth]);
 
   // Mutually exclusive with the right-hand area.
-  const handleToggleRightBar = (toggleKey: ShortcutActionName) => {
+  const handleToggleRightBar = async (toggleKey: ShortcutActionName) => {
     // Close sidebar.
     if (isSideRecordOpen) {
-      store.dispatch(StoreActions.toggleSideRecord(false));
-      closeAllExpandRecord();
+      // store.dispatch(StoreActions.toggleSideRecord(false));
+      // await closeAllExpandRecord();
     }
-
     const panelMap = {
       [ShortcutActionName.ToggleApiPanel]: isApiPanelOpen,
       [ShortcutActionName.ToggleWidgetPanel]: isWidgetPanel,
       [ShortcutActionName.ToggleRobotPanel]: isRobotPanelOpen,
+      [ShortcutActionName.ToggleCopilotPanel]: isCopilotPanelOpen,
       [ShortcutActionName.ToggleTimeMachinePanel]: isTimeMachinePanelOpen,
     };
-    Object.keys(panelMap).forEach((key: string) => {
+    for (const key in panelMap) {
       if (panelMap[key] && key !== toggleKey) {
-        ShortcutActionManager.trigger(key as ShortcutActionName);
+        await ShortcutActionManager.trigger(key as ShortcutActionName);
       }
-    });
-
+    }
     onSetClickType && onSetClickType(SideBarClickType.ToolBar);
-    ShortcutActionManager.trigger(toggleKey);
+    await ShortcutActionManager.trigger(toggleKey);
   };
 
   const embedSetting = useMemo(() => {
@@ -393,7 +406,7 @@ const ToolbarBase = () => {
       apiBtn: true,
       formBtn: true,
       historyBtn: true,
-      robotBtn: true
+      robotBtn: true,
     };
     if (!embedId) {
       return defaultValue;
@@ -405,9 +418,8 @@ const ToolbarBase = () => {
       apiBtn: get(embedInfo, 'viewControl.toolBar.apiBtn', false),
       formBtn: get(embedInfo, 'viewControl.toolBar.formBtn', false),
       historyBtn: get(embedInfo, 'viewControl.toolBar.historyBtn', false),
-      robotBtn: get(embedInfo, 'viewControl.toolBar.robotBtn', false)
+      robotBtn: get(embedInfo, 'viewControl.toolBar.robotBtn', false),
     };
-
   }, [embedInfo, embedId]);
 
   // The configuration array traversal for rendering, you need to manually specify a non-repeating key for the component,
@@ -416,7 +428,7 @@ const ToolbarBase = () => {
     {
       component: (
         <Find
-          key='find'
+          key="find"
           className={styles.toolbarItem}
           showLabel={showIconBarLabel}
           onOpen={findClick}
@@ -429,19 +441,36 @@ const ToolbarBase = () => {
       show: true,
     },
     {
-      component: <ForeignForm key='foreignForm' className={styles.toolbarItem} showLabel={showIconBarLabel} />,
-      key: 'foreignForm',
-      show: isGridView && !shareId && !templateId && !mirrorId && !embedId,
+      component: (
+        <ToolItem
+          key="copilot"
+          icon={<RobotOutlined size={16} />}
+          text={'Copilot'}
+          onClick={() => handleToggleRightBar(ShortcutActionName.ToggleCopilotPanel)}
+          className={classNames({ [styles.toolbarItem]: true, [styles.apiActive]: isCopilotPanelOpen })}
+          id={DATASHEET_ID.COPILOT_BTN}
+          showLabel={showIconBarLabel}
+          disabled={!permissions.editable} // ?
+        />
+      ),
+      label: 'Copilot',
+      key: 'copilot',
+      show:  getEnvVariables().AI_ENTRANCE_VISIBLE && getEnvVariables().IS_APITABLE && !shareId
     },
     {
-      component: <MirrorList key='mirror' className={styles.toolbarItem} showLabel={showIconBarLabel} />,
+      component: <ForeignForm key="foreignForm" className={styles.toolbarItem} showLabel={showIconBarLabel} />,
+      key: 'foreignForm',
+      show: isGridView && !shareId && !templateId && !mirrorId && embedSetting.formBtn,
+    },
+    {
+      component: <MirrorList key="mirror" className={styles.toolbarItem} showLabel={showIconBarLabel} />,
       key: 'mirror',
       show: !shareId && !templateId && !mirrorId && !embedId,
     },
     {
       component: (
         <ToolItem
-          key='api'
+          key="api"
           icon={<ApiOutlined size={16} className={styles.toolIcon} />}
           text={'API'}
           // onClick={() => ShortcutActionManager.trigger(ShortcutActionName.ToggleApiPanel)}
@@ -458,7 +487,7 @@ const ToolbarBase = () => {
     {
       component: (
         <ToolItem
-          key='widget'
+          key="widget"
           icon={<WidgetOutlined size={16} className={styles.toolIcon} />}
           text={widgetCount > 0 ? t(Strings.widget_num, { count: widgetCount }) : t(Strings.widget_tip)}
           // onClick={() => ShortcutActionManager.trigger(ShortcutActionName.ToggleWidgetPanel)}
@@ -474,9 +503,9 @@ const ToolbarBase = () => {
     {
       component: (
         <ToolItem
-          key='robot'
-          icon={<RobotOutlined size={16} />}
-          text={t(Strings.robot_feature_entry)}
+          key="robot"
+          icon={<AutomationOutlined size={16} />}
+          text={t(Strings.automation)}
           onClick={() => handleToggleRightBar(ShortcutActionName.ToggleRobotPanel)}
           className={classNames({ [styles.toolbarItem]: true, [styles.apiActive]: isRobotPanelOpen })}
           id={DATASHEET_ID.ROBOT_BTN}
@@ -490,8 +519,8 @@ const ToolbarBase = () => {
     {
       component: (
         <ToolItem
-          key='timeMachine'
-          icon={<RecoverOutlined size={16} />}
+          key="timeMachine"
+          icon={<HistoryFilled size={16} />}
           text={t(Strings.time_machine)}
           onClick={() => handleToggleRightBar(ShortcutActionName.ToggleTimeMachinePanel)}
           className={classNames({ [styles.toolbarItem]: true, [styles.apiActive]: isTimeMachinePanelOpen })}
@@ -501,25 +530,35 @@ const ToolbarBase = () => {
         />
       ),
       key: 'timeMachine',
-      show: !mirrorId && !shareId && !templateId && embedSetting.historyBtn && getEnvVariables().TIME_MACHINE_VISIBLE
+      show: !mirrorId && !shareId && !templateId && embedSetting.historyBtn && getEnvVariables().TIME_MACHINE_VISIBLE,
+    },
+    {
+      component: <ArchivedRecords
+        key="archived-records"
+        className={styles.toolbarItem}
+        showLabel={showIconBarLabel}
+      />,
+      key: 'archivedRecords',
+      show: !shareId && !mirrorId && !shareId && !templateId && permissions.manageable,
     },
   ];
-
+  const iframeShowTool = shareId ? !isIframe() : true;
   return (
-    <div className={styles.toolbar} id={DATASHEET_ID.VIEW_TOOL_BAR} ref={toolbarRef}>
-      {!isMobile && embedSetting.basicTools && !isIframe() && <Undo className={styles.toolbarLeft} />}
+    <div className={classNames(styles.toolbar, { [styles.toolbarVisible]: !!size })} id={DATASHEET_ID.VIEW_TOOL_BAR} ref={toolbarRef}>
+      {!isMobile && embedSetting.basicTools && iframeShowTool && <Undo className={styles.toolbarLeft} />}
 
       <div className={classNames(styles.toolbarMiddle, { [styles.toolbarOnlyIcon]: !showIconBarLabel })}>
-        {isGalleryView && embedSetting.basicTools &&
+        {isGalleryView &&
+          embedSetting.basicTools &&
           !isMobile &&
           GalleryLayoutNode(activeView! as IGalleryViewProperty, showIconBarLabel, !visualizationEditable || disabledWithMirror)}
-        {!isOrgView && !isCalendarView && !isGalleryView && !isKanbanView && !isMobile && embedSetting.basicTools && !isIframe() && (
+        {!isOrgView && !isCalendarView && !isGalleryView && !isKanbanView && !isMobile && embedSetting.basicTools && iframeShowTool && (
           <ToolItem
             showLabel={showIconBarLabel}
             disabled={!permissions.rowCreatable}
             className={styles.toolbarItem}
             onClick={appendRecord}
-            icon={<IconAdd width={16} height={16} fill={colors.secondLevelText} className={styles.toolIcon} />}
+            icon={<AddCircleOutlined size={16} color={colors.secondLevelText} className={styles.toolIcon} />}
             text={isGanttView ? t(Strings.gantt_add_record) : t(Strings.insert_record)}
             id={'toolInsertRecord'}
           />
@@ -536,7 +575,6 @@ const ToolbarBase = () => {
             text={t(Strings.kanban_group_tip, {
               kanban_field_id: getKanbanFieldType(kanbanFieldId),
             })}
-            showViewLockModal={showViewLockModal}
           />
         )}
         {isGanttView && !isMobile && embedSetting.basicTools && (
@@ -548,7 +586,6 @@ const ToolbarBase = () => {
             onClick={toggleGanttSetting}
             icon={<SettingFilled size={16} className={styles.toolIcon} />}
             text={t(Strings.gantt_setting)}
-            showViewLockModal={showViewLockModal}
           />
         )}
         {isCalendarView && !isMobile && embedSetting.basicTools && (
@@ -560,20 +597,18 @@ const ToolbarBase = () => {
             onClick={toggleCalendarSetting}
             icon={<SettingFilled size={16} className={styles.toolIcon} />}
             text={t(Strings.calendar_setting)}
-            showViewLockModal={showViewLockModal}
           />
         )}
         {isOrgView && !isMobile && embedSetting.basicTools && (
           <ToolItem
             id={DATASHEET_ID.TOOL_BAR_VIEW_SETTING}
             showLabel={showIconBarLabel}
-            icon={<SettingIcon width={16} height={16} fill={colors.secondLevelText} className={styles.toolIcon} />}
+            icon={<SettingOutlined size={16} color={colors.secondLevelText} className={styles.toolIcon} />}
             text={t(Strings.org_chart_setting)}
             disabled={!visualizationEditable || disabledWithMirror}
             isActive={orgChartViewStatus?.settingPanelVisible}
             className={styles.toolbarItem}
             onClick={toggleOrgChartSetting}
-            showViewLockModal={showViewLockModal}
           />
         )}
         {!((isCalendarView || isGanttView) && isMobile) && embedSetting.basicTools && (
@@ -621,7 +656,7 @@ const ToolbarBase = () => {
                 isActive={hiddenKanbanGroupCount > 0}
                 onClick={toggleKanbanGroupSettingVisible}
                 className={classNames(styles.filter, styles.toolbarItem, 'toolBarFilter')}
-                icon={<HideIcon width={16} height={16} fill={colors.primaryColor} className={styles.toolIcon} />}
+                icon={<EyeOpenOutlined size={16} color={colors.primaryColor} className={styles.toolIcon} />}
                 text={
                   hiddenKanbanGroupCount > 0 ? t(Strings.hidden_groups_by_count, { count: hiddenKanbanGroupCount }) : t(Strings.hide_kanban_grouping)
                 }
@@ -633,11 +668,7 @@ const ToolbarBase = () => {
         {!isOrgView && embedSetting.basicTools && (
           <Display type={ToolHandleType.ViewFilter}>
             <div>
-              <FilterNode
-                showLabel={showIconBarLabel}
-                disabled={!visualizationEditable || disabledWithMirror}
-                showViewLockModal={showViewLockModal}
-              />
+              <FilterNode showLabel={showIconBarLabel} disabled={!visualizationEditable || disabledWithMirror} />
             </div>
           </Display>
         )}
@@ -652,9 +683,7 @@ const ToolbarBase = () => {
               className={classNames({
                 [styles.toolbarItem]: true,
               })}
-              icon={
-                <GroupIcon width={16} height={16} className={styles.toolIcon} fill={isExitGroup ? colors.primaryColor : colors.secondLevelText} />
-              }
+              icon={<GroupOutlined size={16} className={styles.toolIcon} color={isExitGroup ? colors.primaryColor : colors.secondLevelText} />}
               text={
                 isExitGroup
                   ? t(Strings.group_amount, {
@@ -662,7 +691,6 @@ const ToolbarBase = () => {
                   })
                   : t(Strings.group)
               }
-              showViewLockModal={showViewLockModal}
             />
           </Display>
         )}
@@ -676,9 +704,8 @@ const ToolbarBase = () => {
               className={classNames({
                 [styles.toolbarItem]: true,
               })}
-              icon={<RankIcon width={16} height={16} fill={keepSort ? colors.primaryColor : colors.secondLevelText} className={styles.toolIcon} />}
+              icon={<RankOutlined size={16} color={keepSort ? colors.primaryColor : colors.secondLevelText} className={styles.toolIcon} />}
               text={keepSort && !isMobile ? t(Strings.sort_count_tip, { count: activeView.sortInfo!.rules.length }) : t(Strings.sort)}
-              showViewLockModal={showViewLockModal}
             />
           </Display>
         )}
@@ -690,28 +717,19 @@ const ToolbarBase = () => {
               disabled={!visualizationEditable || disabledWithMirror}
               className={styles.toolbarItem}
               icon={getRowHeightIcon((activeView as IGridViewProperty).rowHeightLevel || RowHeightLevel.Short, {
-                fill: colors.secondLevelText,
+                color: colors.secondLevelText,
                 className: styles.toolIcon,
-                width: '16',
-                height: '16',
+                size: 16,
               })}
               text={t(Strings.row_height)}
-              showViewLockModal={showViewLockModal}
             />
           </Display>
         )}
-        {!shareId && !templateId && activeNodeId && treeNodesMap[activeNodeId] && embedSetting.shareBtn && !isIframe() && (
+        {!shareId && !templateId && Boolean(activeNode) && !embedId && !isIframe() && (
           <Display type={ToolHandleType.Share}>
             <ToolItem
               showLabel={showIconBarLabel}
-              icon={
-                <ShareIcon
-                  width={16}
-                  height={16}
-                  fill={nodeShared ? colors.primaryColor : colors.secondLevelText}
-                  className={styles.toolIcon}
-                />
-              }
+              icon={<ShareOutlined size={16} color={nodeShared ? colors.primaryColor : colors.secondLevelText} className={styles.toolIcon} />}
               text={t(Strings.share)}
               disabled={!permissions.sharable}
               isActive={nodeShared}
@@ -731,15 +749,15 @@ const ToolbarBase = () => {
           <Collapse
             ref={collapseRef}
             wrapClick={handleWrapClick}
-            wrapClassName='COLLAPSE'
+            wrapClassName="COLLAPSE"
             wrapStyle={{ height: 30 }}
-            id='tool_bar'
+            id="tool_bar"
             collapseItemClassName={classNames({ [styles.toolbarOnlyIcon]: !showIconBarLabel })}
-            data={featureToolItems.filter(v => v.show && v.component).map(v => ({ key: v.key, text: v.component }))}
+            data={featureToolItems.filter((v) => v.show && v.component).map((v) => ({ key: v.key, text: v.component }))}
             unSortable
             trigger={
               <TextButton
-                size='x-small'
+                size="x-small"
                 suffixIcon={<ChevronDownOutlined className={classNames(styles.viewArrow, { [styles.viewArrowActive]: iconRotation })} />}
                 id={DATASHEET_ID.VIEW_LIST_SHOW_BTN}
                 data-test-id={DATASHEET_ID.VIEW_LIST_SHOW_BTN}
@@ -749,7 +767,7 @@ const ToolbarBase = () => {
               </TextButton>
             }
             onPopupVisibleChange={setIconRotation}
-            align='flex-end'
+            align="flex-end"
             fixedIndex={1}
             popupClassName={styles.collapsePopup}
             popupItemClassName={styles.collapsePopupItem}
@@ -774,9 +792,9 @@ function GalleryLayoutNode(activeView: IViewProperty, showLabel: boolean, disabl
         className={styles.toolbarItem}
         icon={
           activeView.style.layoutType === LayoutType.List ? (
-            <GalleryListIcon width={15} height={15} className={styles.toolIcon} fill={colorVars.secondLevelText} />
+            <ListOutlined size={15} className={styles.toolIcon} color={colorVars.secondLevelText} />
           ) : (
-            <GalleryIcon width={15} height={15} className={styles.toolIcon} fill={colorVars.secondLevelText} />
+            <GalleryOutlined size={15} className={styles.toolIcon} color={colorVars.secondLevelText} />
           )
         }
         text={t(Strings.layout)}
@@ -785,10 +803,10 @@ function GalleryLayoutNode(activeView: IViewProperty, showLabel: boolean, disabl
   );
 }
 
-function FilterNode(props: { showLabel: boolean; disabled: boolean; showViewLockModal: boolean }) {
+function FilterNode(props: { showLabel: boolean; disabled: boolean }) {
   const { disabled, showLabel } = props;
 
-  const { filterInfo } = useSelector(state => {
+  const { filterInfo } = useAppSelector((state) => {
     return {
       filterInfo: Selectors.getFilterInfo(state, state.pageParams.datasheetId!),
     };
@@ -800,7 +818,7 @@ function FilterNode(props: { showLabel: boolean; disabled: boolean; showViewLock
         showLabel={showLabel}
         disabled={disabled}
         className={classNames(styles.filter, styles.toolbarItem, 'toolBarFilter')}
-        icon={<FiltrationIcon width={16} height={16} fill={colorVars.secondLevelText} className={styles.toolIcon} />}
+        icon={<FilterOutlined size={16} color={colorVars.secondLevelText} className={styles.toolIcon} />}
         text={t(Strings.filter)}
       />
     );
@@ -816,7 +834,7 @@ function FilterNode(props: { showLabel: boolean; disabled: boolean; showViewLock
       disabled={disabled}
       isActive
       className={classNames(styles.filter, styles.toolbarItem, 'toolBarFilter')}
-      icon={<FiltrationIcon width={16} height={16} fill={colorVars.primaryColor} className={styles.toolIcon} />}
+      icon={<FilterOutlined size={16} color={colorVars.primaryColor} className={styles.toolIcon} />}
       text={
         isMobile
           ? t(Strings.filter)
@@ -834,7 +852,6 @@ const HideFieldNode = ({ id, type, viewType, actualColumnCount, visibleColumnsCo
   const isGridType = viewType === ViewType.Grid;
   const isGanttType = viewType === ViewType.Gantt;
   const isCalendarType = viewType === ViewType.Calendar;
-  const isOrgType = viewType === ViewType.OrgChart;
   const isExclusive = type === ToolHandleType.HideExclusiveField;
   const hideFieldString = isGanttType && isExclusive ? Strings.hide_one_graphic_field : Strings.hide_fields;
   const toolName = isMobile ? t(Strings.tool_bar_hidden) : t(hideFieldString);
@@ -851,10 +868,10 @@ const HideFieldNode = ({ id, type, viewType, actualColumnCount, visibleColumnsCo
         [styles.hide]: true,
       })}
       icon={
-        isGridType || isGanttType || isCalendarType || isOrgType ? (
-          <HideIcon width={16} height={16} fill={hasHide ? colorVars.primaryColor : colorVars.secondLevelText} className={styles.toolIcon} />
+        isGridType || isGanttType || isCalendarType ? (
+          <EyeOpenOutlined size={16} color={hasHide ? colorVars.primaryColor : colorVars.secondLevelText} className={styles.toolIcon} />
         ) : (
-          <SettingIcon width={16} height={16} fill={colorVars.secondLevelText} className={styles.toolIcon} />
+          <StyleOutlined size={16} color={colorVars.secondLevelText} className={styles.toolIcon} />
         )
       }
       text={

@@ -17,20 +17,21 @@
  */
 
 import React, { FC } from 'react';
+import { useDispatch } from 'react-redux';
 import { colors, IconButton } from '@apitable/components';
-import { Tooltip } from 'pc/components/common';
+import { RecordVision, StoreActions, Strings, t } from '@apitable/core';
 import { IIconProps, MiddlescreenOutlined, SidescreenOutlined } from '@apitable/icons';
-import styles from './style.module.less';
-import { useDispatch, useSelector } from 'react-redux';
-import { RecordVision, StoreActions, Strings, t, TrackEvents } from '@apitable/core';
+// eslint-disable-next-line no-restricted-imports
+import { Tooltip } from 'pc/components/common';
+import { useAppSelector } from 'pc/store/react-redux';
 import { setStorage, StorageMethod, StorageName } from 'pc/utils/storage';
-import { tracker } from 'pc/utils/tracker';
+import styles from './style.module.less';
 
 interface IIconButtonProps {
-  active: boolean,
-  tooltipText: string,
-  onClick: () => void,
-  icon: React.FC<React.PropsWithChildren<IIconProps>>
+  active: boolean;
+  tooltipText: string;
+  onClick: () => void;
+  icon: React.FC<React.PropsWithChildren<IIconProps>>;
 }
 
 const OptionButton = ({ active, onClick, tooltipText, icon: Icon }: IIconButtonProps): JSX.Element => {
@@ -48,9 +49,9 @@ const OptionButton = ({ active, onClick, tooltipText, icon: Icon }: IIconButtonP
 };
 
 const ExpandRecordVisionOptionBase: FC<React.PropsWithChildren<unknown>> = () => {
-  const recordVision = useSelector(state => state.recordVision);
+  const recordVision = useAppSelector((state) => state.recordVision);
   const dispatch = useDispatch();
-  const isRecordFullScreen = useSelector(state => state.space.isRecordFullScreen);
+  const isRecordFullScreen = useAppSelector((state) => state.space.isRecordFullScreen);
 
   return (
     <div className={styles.visionOptionWrap}>
@@ -63,9 +64,6 @@ const ExpandRecordVisionOptionBase: FC<React.PropsWithChildren<unknown>> = () =>
           onClick={() => {
             setStorage(StorageName.RecordVision, RecordVision.Center, StorageMethod.Set);
             dispatch(StoreActions.setRecordVision(RecordVision.Center));
-            tracker.track(TrackEvents.RecordCard, {
-              recordCardStyle: RecordVision.Center
-            });
             dispatch(StoreActions.toggleSideRecord(false));
             dispatch(StoreActions.toggleRecordFullScreen(false));
           }}
@@ -77,9 +75,6 @@ const ExpandRecordVisionOptionBase: FC<React.PropsWithChildren<unknown>> = () =>
           onClick={() => {
             setStorage(StorageName.RecordVision, RecordVision.Side, StorageMethod.Set);
             dispatch(StoreActions.setRecordVision(RecordVision.Side));
-            tracker.track(TrackEvents.RecordCard, {
-              recordCardStyle: RecordVision.Side
-            });
             dispatch(StoreActions.toggleSideRecord(true));
             // setIsFullScreen(false);
             dispatch(StoreActions.toggleRecordFullScreen(false));

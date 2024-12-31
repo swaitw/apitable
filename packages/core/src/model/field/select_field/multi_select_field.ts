@@ -22,14 +22,15 @@ import { find, isArray, isString, uniq, uniqBy } from 'lodash';
 import { getFieldOptionColor } from 'model/color';
 import { ICellValue } from 'model/record';
 import { handleEmptyCellValue, isNullValue } from 'model/utils';
-import { IReduxState } from '../../../exports/store';
+import { IReduxState } from '../../../exports/store/interfaces';
 import { BasicValueType, FieldType, IField, IMultiSelectField, ISelectFieldProperty, IStandardValue } from 'types/field_types';
 import { ISelectFieldBaseOpenValue } from 'types/field_types_open';
 import { IEffectOption, IWriteOpenSelectBaseFieldProperty } from 'types/open';
 import { FOperator, IFilterCondition, IFilterMultiSelect } from 'types/view_types';
 import { hasIntersect, isSameSet, isSelectType } from 'utils';
-import { DatasheetActions } from '../../datasheet';
+import { DatasheetActions } from '../../../commands_actions/datasheet';
 import { isOptionId, SelectField } from './common_select_field';
+import { IOpenFilterValueMultiSelect } from 'types/open/open_filter_types';
 
 export class MultiSelectField extends SelectField {
   constructor(public override field: IMultiSelectField, public override state: IReduxState) {
@@ -69,11 +70,11 @@ export class MultiSelectField extends SelectField {
   }).allow(null).required();
 
   validateCellValue(cv: ICellValue): Joi.ValidationResult {
-    return MultiSelectField.cellValueSchema.validate(cv, { context: { field: this.field }});
+    return MultiSelectField.cellValueSchema.validate(cv, { context: { field: this.field } });
   }
 
   validateOpenWriteValue(owv: string[] | ISelectFieldBaseOpenValue[] | null): Joi.ValidationResult {
-    return MultiSelectField.openWriteValueSchema.validate(owv, { context: { field: this.field }});
+    return MultiSelectField.openWriteValueSchema.validate(owv, { context: { field: this.field } });
   }
 
   override defaultValue(): string[] | null {
@@ -337,7 +338,7 @@ export class MultiSelectField extends SelectField {
     options: Joi.array().items(Joi.object({
       id: Joi.string(),
       name: Joi.string().required(),
-      color: Joi.string(),
+      color: Joi.alternatives(Joi.number(), Joi.string())
     })).required(),
     defaultValue: Joi.array().items(Joi.string())
   }).required();
@@ -348,5 +349,27 @@ export class MultiSelectField extends SelectField {
       return result;
     }
     return this.validateWriteOpenOptionsEffect(updateProperty, effectOption);
+  }
+
+  override filterValueToOpenFilterValue(value: IFilterMultiSelect): IOpenFilterValueMultiSelect {
+    if (Array.isArray(value)) {
+      const _value = value.filter(v => this.findOptionById(v));
+      return _value.length ? _value : null;
+    }
+    return value;
+  }
+
+  override openFilterValueToFilterValue(value: IOpenFilterValueMultiSelect): IFilterMultiSelect {
+    if (Array.isArray(value)) {
+      const _value = value.filter(v => this.findOptionById(v));
+      return _value.length ? _value : null;
+    }
+    return value;
+  }
+
+  static validateOpenFilterSchema = Joi.array().items(Joi.string()).allow(null);
+
+  override validateOpenFilterValue(value: IOpenFilterValueMultiSelect) {
+    return MultiSelectField.validateOpenFilterSchema.validate(value);
   }
 }

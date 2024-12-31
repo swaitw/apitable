@@ -17,11 +17,11 @@
  */
 
 import { useMemo } from 'react';
-import { ViewGanttGreyOutlined, ViewCalendarFilled, FormOutlined, MirrorOutlined } from '@apitable/icons';
 import { useThemeColors } from '@apitable/components';
+import { Strings, t } from '@apitable/core';
+import { GanttOutlined, CalendarOutlined, FormOutlined, MirrorOutlined } from '@apitable/icons';
 import { IHooksParams, IMultiLineItemProps } from '../interface';
 import { calcPercent } from './utils';
-import { Strings, t } from '@apitable/core';
 
 export const useView = ({ spaceInfo, subscription }: IHooksParams): IMultiLineItemProps[] => {
   const colors = useThemeColors();
@@ -32,7 +32,7 @@ export const useView = ({ spaceInfo, subscription }: IHooksParams): IMultiLineIt
         total: subscription?.maxGanttViewsInSpace,
         used: spaceInfo?.ganttViewNums,
         name: t(Strings.gantt_view),
-        icon: <ViewGanttGreyOutlined color={colors.black[500]} />,
+        icon: <GanttOutlined color={colors.black[500]} />,
         percent: calcPercent(spaceInfo?.ganttViewNums, subscription?.maxGanttViewsInSpace),
         showProgress: true,
       },
@@ -41,7 +41,7 @@ export const useView = ({ spaceInfo, subscription }: IHooksParams): IMultiLineIt
         total: subscription?.maxCalendarViewsInSpace,
         used: spaceInfo?.calendarViewNums,
         name: t(Strings.calendar_view),
-        icon: <ViewCalendarFilled color={colors.black[500]} />,
+        icon: <CalendarOutlined color={colors.black[500]} />,
         percent: calcPercent(spaceInfo?.calendarViewNums, subscription?.maxCalendarViewsInSpace),
         showProgress: true,
       },

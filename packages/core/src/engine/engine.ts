@@ -16,20 +16,22 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import { DatasheetApi } from '../exports/api';
-import { CollaCommandName } from 'commands';
-import { TrackEvents } from 'config';
-import { IJOTAction, ILocalChangeset, IOperation, IRemoteChangeset, jot } from 'engine';
-import { Strings, t } from '../exports/i18n';
-import { Events, Player } from '../modules/shared/player';
-import { IChangesetPack, INetworking } from '../exports/store';
-import { updateRevision } from '../exports/store/actions';
-import { ResourceType, ModalType } from 'types';
-import { ErrorCode, ErrorType, IError } from 'types/error_types';
-import { BufferStorage, ILsStore } from './buffer_storage';
-import { getResourcePack } from '../exports/store/selectors';
 import { UndoManager } from 'command_manager';
+import { CollaCommandName } from 'commands/enum';
+import { IJOTAction, ILocalChangeset, IOperation, IRemoteChangeset, jot } from 'engine';
 import { ViewPropertyFilter } from 'engine/view_property_filter';
+import { FieldType, ModalType, ResourceType } from 'types';
+import { ErrorCode, ErrorType, IError } from 'types/error_types';
+import { DatasheetApi } from '../exports/api';
+import { Strings, t } from '../exports/i18n';
+import { IChangesetPack, INetworking } from '../exports/store/interfaces';
+import { getSubscriptionsAction } from 'modules/database/store/actions/subscriptions';
+import { getFieldMap } from 'modules/database/store/selectors/resource/datasheet/calc';
+import { getResourcePack } from 'modules/database/store/selectors/resource';
+import { Events, Player } from '../modules/shared/player';
+import { BufferStorage, ILsStore } from './buffer_storage';
+import { testPath } from '../event_manager';
+import { updateRevision } from 'modules/database/store/actions/resource';
 
 export interface IEngineEvent {
   onAcceptSystemOperations: (op: IOperation[]) => void;
@@ -76,7 +78,7 @@ export class Engine {
     this.bufferStorage = new BufferStorage(resourceId, resourceType, lsStore);
     this.event = event;
     this.cancelQuit = null;
-    this.prepare();
+    void this.prepare();
     this.getState = getState;
     this.dispatch = dispatch;
     if (resourceType === ResourceType.Datasheet) {
@@ -86,7 +88,7 @@ export class Engine {
 
   /**
    * Push the operation into the send queue, SyncEngine will ensure that the data is sent to the server in version order
-   * And provide temporary local persistence capabilities to prevent users from losing data 
+   * And provide temporary local persistence capabilities to prevent users from losing data
    * in the case of accidental network disconnection and active refresh
    */
   pushOpBuffer(operation: IOperation) {
@@ -211,6 +213,42 @@ export class Engine {
   }
 
   /**
+   * Member remote changeset update record subscriptions
+   * @param remoteChangeset
+   */
+  handleSubscriptions(remoteChangeset: IRemoteChangeset) {
+    let hasCreatedFieldWithSubscription = false;
+    let otherCmdTriggerSubscription = false;
+
+    const fieldMap = getFieldMap(this.getState(), this.resourceId);
+    remoteChangeset.operations.forEach(op => {
+      // AddRecords
+      if (op.cmd === CollaCommandName.AddRecords) {
+        if (fieldMap && Object.values(fieldMap).some(field => field.type === FieldType.CreatedBy && field.property.subscription)) {
+          hasCreatedFieldWithSubscription = true;
+          return;
+        }
+      } else {
+        // other command
+        op.actions.map(action => {
+          const path = testPath(action.p, ['recordMap', ':recordId', 'data', ':fieldId']);
+          if (path.pass) {
+            const field = fieldMap?.[path.fieldId];
+            if (field?.type === FieldType.Member && Boolean(field.property.subscription)) {
+              otherCmdTriggerSubscription = true;
+              return;
+            }
+          }
+        });
+      }
+    });
+
+    if (hasCreatedFieldWithSubscription || otherCmdTriggerSubscription) {
+      this.dispatch(getSubscriptionsAction(this.resourceId));
+    }
+  }
+
+  /**
     * The submitted changeset is accepted by the service
     */
   async handleAcceptCommit(remoteChangeset: IRemoteChangeset) {
@@ -237,6 +275,7 @@ export class Engine {
       if (filteredOperations.length) {
         this.event.onAcceptSystemOperations(filteredOperations);
       }
+      this.handleSubscriptions(remoteChangeset);
 
       this.dispatch(updateRevision(revision + 1, this.resourceId, this.resourceType));
       return;
@@ -251,7 +290,7 @@ export class Engine {
    */
   private async fetchMissVersion(startRevision: number, endRevision: number): Promise<IRemoteChangeset[]> {
     console.log('fetchingMissVersion', this.resourceId, startRevision, endRevision);
-    const result = await DatasheetApi.fetchChangesets<IChangesetPack>(this.resourceId, this.resourceType, 
+    const result = await DatasheetApi.fetchChangesets<IChangesetPack>(this.resourceId, this.resourceType,
       startRevision, endRevision, this.getState().pageParams.nodeId, this.getState().pageParams.shareId);
     if (result.data.success) {
       console.log('fetchMissVersion success: ', result.data.data);
@@ -284,14 +323,14 @@ export class Engine {
   }
 
   private applyNewChanges(cs: IRemoteChangeset) {
-    // Receive newChanges from itself. This happens because the client disconnects and reconnects, 
+    // Receive newChanges from itself. This happens because the client disconnects and reconnects,
     // and the reconnected client is considered a collaborator.
-    // At this time, the changeset sent by yourself will be broadcast to yourself as newChanges again. 
+    // At this time, the changeset sent by yourself will be broadcast to yourself as newChanges again.
     // So we have to first judge the equality of messageId
     // If messageId is equal, it is regarded as ACK.
     if (this.bufferStorage.localPendingChangeset && cs.messageId === this.bufferStorage.localPendingChangeset.messageId) {
       console.error('messageId in newChanges is equal to localChangeset and has been converted to ACK');
-      this.handleAcceptCommit(cs);
+      void this.handleAcceptCommit(cs);
       return;
     }
 
@@ -383,7 +422,7 @@ export class Engine {
 
       if (transformEndIndex >= 0) {
         // 1. Discard localChangeset.
-        // 2. opBuffer becomes the new localChangeset, and baseRevision is set to the revision 
+        // 2. opBuffer becomes the new localChangeset, and baseRevision is set to the revision
         // in the changesetList where the original localChangeset is located.
         console.log('Detected that the local localPendingChangeset has been consumed, delete it directly', this.bufferStorage.localPendingChangeset);
         this.bufferStorage.deOpBuffer(revision);
@@ -423,12 +462,6 @@ export class Engine {
         operations: newOperations,
         baseRevision: cs.revision,
       };
-      Player.doTrigger(Events.app_tracker, {
-        name: TrackEvents.OpTransform,
-        props: {
-          opType: 'localChangeset',
-        },
-      });
       console.log(
         'localChangeset after transformed: ',
         { localChangeset: this.bufferStorage.localPendingChangeset, remoteActions },
@@ -447,12 +480,6 @@ export class Engine {
           cmd: op.cmd,
           actions: leftOp,
         };
-      });
-      Player.doTrigger(Events.app_tracker, {
-        name: TrackEvents.OpTransform,
-        props: {
-          opType: 'opBuffer',
-        },
       });
       console.log(
         'opBuffer after transformed: ',

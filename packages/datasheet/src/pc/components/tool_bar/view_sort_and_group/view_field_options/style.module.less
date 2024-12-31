@@ -27,7 +27,7 @@
   }
 
   .ant-select-dropdown-menu {
-    .light-scroll-bar();
+    .default-scroll-bar();
   }
 }
 
@@ -115,6 +115,14 @@
         margin-left: 8px;
         .ellipsis();
       }
+    }
+  }
+}
+
+.addSortRules {
+  &.disabled {
+    & > * {
+      opacity: 0.5;
     }
   }
 }

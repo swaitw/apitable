@@ -18,28 +18,27 @@
 
 package com.apitable.organization.ro;
 
-import javax.validation.constraints.Pattern;
-import javax.validation.constraints.Pattern.Flag;
-
-import io.swagger.annotations.ApiModel;
-import io.swagger.annotations.ApiModelProperty;
-import lombok.Data;
-
 import com.apitable.shared.constants.PatternConstants;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
+import jakarta.validation.constraints.Pattern;
+import lombok.Data;
 
 /**
  * <p>
- * User Association Invited Mailbox Parameters
+ * User Association Invited Mailbox Parameters.
  * </p>
  */
 @Data
-@ApiModel("User Association Invited Mailbox Parameters")
+@Schema(description = "User Association Invited Mailbox Parameters")
 public class UserLinkEmailRo {
 
-    @ApiModelProperty(value = "Email address, strictly checked", example = "123456@qq.com", required = true, position = 1)
-    @Pattern(regexp = PatternConstants.EMAIL, message = "Incorrect mailbox format", flags = Flag.CASE_INSENSITIVE)
+    @Schema(description = "Email address, strictly checked",
+        requiredMode = RequiredMode.REQUIRED, example = "123456@qq.com")
+    @Pattern(regexp = PatternConstants.EMAIL, flags = Pattern.Flag.CASE_INSENSITIVE,
+        message = "Incorrect mailbox format")
     private String email;
 
-    @ApiModelProperty(value = "Invited workspace", example = "spcyQkKp9XJEl", position = 3)
+    @Schema(description = "Invited workspace", example = "spcyQkKp9XJEl")
     private String spaceId;
 }

@@ -19,27 +19,38 @@
 import {
   ConfigConstant, DEFAULT_EDITOR_PERMISSION, DEFAULT_MANAGER_PERMISSION, DEFAULT_PERMISSION, DEFAULT_READ_ONLY_PERMISSION, IDPrefix,
 } from '@apitable/core';
+import { Span } from '@metinseylan/nestjs-opentelemetry';
 import { Injectable } from '@nestjs/common';
+import { MetaService } from 'database/resource/services/meta.service';
+import { NodeRepository } from 'node/repositories/node.repository';
 import { InjectLogger } from 'shared/common';
-import { PermissionException, ServerException } from 'shared/exception';
-import { IFetchDataOriginOptions } from 'shared/interfaces';
-import { IAuthHeader, NodePermission } from 'shared/interfaces/axios.interfaces';
+import { ServerException, PermissionException } from 'shared/exception';
+import { IAuthHeader, IFetchDataOriginOptions, NodePermission } from 'shared/interfaces';
 import { RestService } from 'shared/services/rest/rest.service';
 import { getConnection } from 'typeorm';
-import { Logger } from 'winston';
-import { NodeRepository } from '../repositories/node.repository';
 import { UserService } from 'user/services/user.service';
+import { Logger } from 'winston';
 import { NodeShareSettingService } from './node.share.setting.service';
 
 @Injectable()
 export class NodePermissionService {
   constructor(
-    private readonly restService: RestService,
+    // @ts-ignore
     @InjectLogger() private readonly logger: Logger,
     private readonly userService: UserService,
     private readonly nodeShareSettingService: NodeShareSettingService,
     private readonly nodeRepository: NodeRepository,
+    private readonly resourceMetaService: MetaService,
+    private readonly restService: RestService,
   ) {}
+
+  async getEmbedNodePermission(nodeId: string, auth: IAuthHeader, embedId: string): Promise<NodePermission> {
+    const fieldPermissionMap = await this.restService.getFieldPermission(auth, nodeId, embedId);
+    if (!auth.userId) {
+      return { hasRole: true, role: ConfigConstant.permission.anonymous, fieldPermissionMap, ...DEFAULT_READ_ONLY_PERMISSION };
+    }
+    return { hasRole: true, role: ConfigConstant.permission.editor, fieldPermissionMap, ...DEFAULT_EDITOR_PERMISSION };
+  }
 
   /**
    * Obtain node permissions.
@@ -71,13 +82,13 @@ export class NodePermissionService {
     }
     // Off-space access: template or share
     if (!origin.shareId) {
-      this.logger.info('template access');
+      this.logger.info(`template access ${nodeId}`);
       return { hasRole: true, role: ConfigConstant.permission.templateVisitor, ...DEFAULT_READ_ONLY_PERMISSION };
     }
     const hasLogin = await this.userService.session(auth.cookie!);
     // Unlogged-in, anonymous user permission
     if (!hasLogin) {
-      this.logger.info('Share acces, user state: unlogged-in');
+      this.logger.info(`Share access ${origin.shareId}, node ${nodeId}, user state: unlogged-in`);
       const fieldPermissionMap = await this.restService.getFieldPermission(auth, nodeId, origin.shareId);
       if (origin.main) {
         // Main datasheet returns read-only permission
@@ -86,11 +97,17 @@ export class NodePermissionService {
       // Check if linked datasheet is in sharing
       const props = await this.nodeShareSettingService.getNodeShareProps(origin.shareId, nodeId);
       if (props) {
+        if (origin.form) {
+          const { fillAnonymous } = await this.resourceMetaService.selectMetaByResourceId(nodeId);
+          if (Boolean(fillAnonymous)) {
+            return { hasRole: true, role: ConfigConstant.permission.editor, fieldPermissionMap, ...DEFAULT_EDITOR_PERMISSION };
+          }
+        }
         return { hasRole: true, role: ConfigConstant.permission.anonymous, fieldPermissionMap, ...DEFAULT_READ_ONLY_PERMISSION };
       }
       return { hasRole: true, role: ConfigConstant.permission.anonymous, fieldPermissionMap, ...DEFAULT_PERMISSION };
     }
-    this.logger.info('Share access, user state: logged-in');
+    this.logger.info(`Share access ${origin.shareId}, node ${nodeId}, user state: logged-in`);
     return await this.getNodeRole(nodeId, auth, origin.shareId);
   }
 
@@ -104,6 +121,7 @@ export class NodePermissionService {
     return +nodePermitSetCount.count > 0;
   }
 
+  @Span()
   async getNodeRole(nodeId: string, auth: IAuthHeader, shareId?: string): Promise<NodePermission> {
     // On-space permission
     if (!shareId) {

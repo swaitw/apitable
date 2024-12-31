@@ -17,15 +17,13 @@
  */
 
 import { message } from 'antd';
-import { ConfigOptions, ArgsProps } from 'antd/lib/message';
-import WarningIcon from 'static/icon/common/common_icon_warning.svg';
-import SuccessIcon from 'static/icon/common/common_icon_success.svg';
-import ErrorIcon from 'static/icon/common/common_icon_error.svg';
-import InfoIcon from 'static/icon/common/common_icon_default.svg';
-import { t, Strings } from '@apitable/core';
+import { ArgsProps, ConfigOptions } from 'antd/lib/message';
+import { Strings, t } from '@apitable/core';
+import { CheckCircleFilled, CloseCircleFilled, InfoCircleFilled, WarnCircleFilled } from '@apitable/icons';
 
 message.config({
   top: 80,
+  // maxCount: 1,
 });
 
 type IMessageProps = ConfigOptions & {
@@ -38,7 +36,7 @@ const success = (props: IMessageProps) => {
   const config = {
     content: props.content || t(Strings.operate_success),
     duration,
-    icon: <SuccessIcon />,
+    icon: <CheckCircleFilled />,
     ...props,
   };
   return message.success(config);
@@ -47,7 +45,7 @@ const error = (props: IMessageProps) => {
   const config = {
     content: props.content || t(Strings.operate_fail),
     duration,
-    icon: <ErrorIcon />,
+    icon: <CloseCircleFilled />,
     ...props,
   };
   return message.error(config);
@@ -56,7 +54,7 @@ const warning = (props: IMessageProps) => {
   const config = {
     content: props.content || t(Strings.operate_warning),
     duration,
-    icon: <WarningIcon />,
+    icon: <WarnCircleFilled />,
     ...props,
   };
   return message.warning(config);
@@ -65,7 +63,7 @@ const info = (props: IMessageProps) => {
   const config = {
     content: props.content || t(Strings.operate_info),
     duration,
-    icon: <InfoIcon />,
+    icon: <InfoCircleFilled />,
     ...props,
   };
   return message.info(config);
@@ -86,4 +84,3 @@ export const Message = {
   loading,
   destroy,
 };
-

@@ -16,15 +16,18 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import * as React from 'react';
-import { FilterConjunction as CoreFilterConjunction, FilterConjunctionDescMap, IFilterInfo, Strings, t } from '@apitable/core';
-import styles from './style.module.less';
-import { ExecuteFilterFn } from '../interface';
 import produce from 'immer';
+import * as React from 'react';
+import { useContext } from 'react';
+// eslint-disable-next-line no-restricted-imports
+import { Select, useThemeColors } from '@apitable/components';
+import { FilterConjunction as CoreFilterConjunction, FilterConjunctionDescMap, IFilterInfo, Strings, t } from '@apitable/core';
 import { MobileSelect } from 'pc/components/common';
-import { useResponsive } from 'pc/hooks';
 import { ScreenSize } from 'pc/components/common/component_display';
-import { Select } from '@apitable/components';
+import { ViewFilterContext } from 'pc/components/tool_bar/view_filter/view_filter_context';
+import { useResponsive } from 'pc/hooks';
+import { ExecuteFilterFn } from '../interface';
+import styles from './style.module.less';
 
 interface IConjunctionProps {
   conjunction: string;
@@ -32,23 +35,24 @@ interface IConjunctionProps {
   changeFilter: (cb: ExecuteFilterFn) => void;
 }
 
-export const FilterConjunction: React.FC<React.PropsWithChildren<IConjunctionProps>> = props => {
+export const FilterConjunction: React.FC<React.PropsWithChildren<IConjunctionProps>> = (props) => {
   const { conjunction, conditionIndex, changeFilter } = props;
-
+  const { isViewLock } = useContext(ViewFilterContext);
   const { screenIsAtMost } = useResponsive();
   const isMobile = screenIsAtMost(ScreenSize.md);
+  const color = useThemeColors();
 
   if (conditionIndex === 0) {
     return (
-      <div className={styles.junction} style={{ paddingLeft: '10px' }}>
-        {t(Strings.where)}
+      <div className={styles.junction} style={{ paddingLeft: '10px', color: isViewLock ? color.thirdLevelText : '' }}>
+        {t(Strings.when)}
       </div>
     );
   }
 
   if (conditionIndex !== 1) {
     return (
-      <div className={styles.junction} style={{ paddingLeft: '10px' }}>
+      <div className={styles.junction} style={{ paddingLeft: '10px', color: isViewLock ? color.thirdLevelText : '' }}>
         {FilterConjunctionDescMap[conjunction]}
       </div>
     );
@@ -56,7 +60,7 @@ export const FilterConjunction: React.FC<React.PropsWithChildren<IConjunctionPro
 
   function onChange(value: CoreFilterConjunction) {
     changeFilter((filterInfo: IFilterInfo) => {
-      return produce(filterInfo, draft => {
+      return produce(filterInfo, (draft) => {
         draft.conjunction = value;
         return draft;
       });
@@ -67,7 +71,7 @@ export const FilterConjunction: React.FC<React.PropsWithChildren<IConjunctionPro
     return (
       <MobileSelect
         defaultValue={conjunction}
-        optionData={Object.values(CoreFilterConjunction).map(item => {
+        optionData={Object.values(CoreFilterConjunction).map((item) => {
           return {
             label: FilterConjunctionDescMap[item],
             value: item,
@@ -76,6 +80,7 @@ export const FilterConjunction: React.FC<React.PropsWithChildren<IConjunctionPro
         onChange={onChange}
         title={t(Strings.please_choose)}
         style={{ marginRight: 8, background: 'none', width: '100%', padding: '12px 8px' }}
+        disabled={isViewLock}
       />
     );
   }
@@ -84,15 +89,17 @@ export const FilterConjunction: React.FC<React.PropsWithChildren<IConjunctionPro
     <Select
       triggerCls={styles.junction}
       value={conjunction}
-      options={Object.values(CoreFilterConjunction).map(item => {
+      options={Object.values(CoreFilterConjunction).map((item) => {
         return {
           label: FilterConjunctionDescMap[item],
           value: item,
         };
       })}
-      onSelected={option => onChange(option.value as CoreFilterConjunction)}
+      onSelected={(option) => onChange(option.value as CoreFilterConjunction)}
       openSearch={false}
       dropdownMatchSelectWidth={false}
+      disabled={isViewLock}
+      disabledTip={t(Strings.view_lock_setting_desc)}
     />
   );
 };

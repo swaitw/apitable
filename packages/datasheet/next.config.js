@@ -16,247 +16,108 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-/** @type {import('next').NextConfig} */
 /* eslint no-undef: 0 */
-const withLess = require('next-with-less')
-const path = require('path')
-const loaderUtils = require('loader-utils')
-const withPlugins = require('next-compose-plugins')
-const withTM = require('next-transpile-modules')
-const withBundleAnalyzer = require('@next/bundle-analyzer')
-const isProd = process.env.NODE_ENV === 'production'
+const withLess = require('next-with-less');
+const path = require('path');
+const withTM = require('next-transpile-modules');
+const withBundleAnalyzer = require('@next/bundle-analyzer');
+const isProd = process.env.NODE_ENV === 'production';
+const getWebpackConfig = require('./webpack.config');
+const { withSentryConfig } = require('@sentry/nextjs');
 
-/**
- * Stolen from https://stackoverflow.com/questions/10776600/testing-for-equality-of-regular-expressions
- */
-const regexEqual = (x, y) => {
-  return (
-    x instanceof RegExp &&
-    y instanceof RegExp &&
-    x.source === y.source &&
-    x.global === y.global &&
-    x.ignoreCase === y.ignoreCase &&
-    x.multiline === y.multiline
-  )
-}
+const sentryWebpackPluginOptions = {
+  disableServerWebpackPlugin: false,
+  widenClientFileUpload: true,
+  disableClientWebpackPlugin: false,
+  org: process.env.SENTRY_ORG ??  'sentry',
+  project: process.env.SENTRY_PROJECT  ?? 'web-server',
+  url: process.env.SENTRY_URL  ??  'https://sentry.vika.ltd',
+  // An auth token is required for uploading source maps.
+  dsn: process.env.SENTRY_CONFIG_DSN ?? 'https://51c44e606db14f34963bd4ba64d86410@sentry.vika.ltd/3',
+  authToken: process.env.SENTRY_AUTH_TOKEN_VIKA ?? '',
+  release: process.env.WEB_CLIENT_VERSION ?? '',
+  silent: false, // Suppresses all logs
+  hideSourceMaps: true,
+  debug: false
 
-/**
- * Generate context-aware class names when developing locally
- */
-const localIdent = (loaderContext, localIdentName, localName, options) => {
-  return (
-    loaderUtils
-      .interpolateName(loaderContext, `[folder]_[name]__${localName}`, options)
-      // Webpack name interpolation returns `about_about.module__root` for
-      // `.root {}` inside a file named `about/about.module.css`. Let's simplify
-      // this.
-      .replace(/\.module_/, '_')
-      // Replace invalid symbols with underscores instead of escaping
-      // https://mathiasbynens.be/notes/css-escapes#identifiers-strings
-      .replace(/[^a-zA-Z0-9-_]/g, '_')
-      // "they cannot start with a digit, two hyphens, or a hyphen followed by a digit [sic]"
-      // https://www.w3.org/TR/CSS21/syndata.html#characters
-      .replace(/^(\d|--|-\d)/, '__$1')
-  )
-}
+  // For all available options, see:
+  // https://github.com/getsentry/sentry-webpack-plugin#options.
+};
 
-// Overrides for css-loader plugin
-function cssLoaderOptions (modules) {
-  const { getLocalIdent, ...others } = modules
-  return {
-    ...others,
-    getLocalIdent: getLocalIdent || localIdent,
-    exportLocalsConvention: 'camelCaseOnly',
-    mode: 'local'
-  }
-}
-
-const plugins = [
-  [
-    withLess, {
-    lessLoaderOptions: {
-      lessOptions: {
-        paths: [path.resolve(__dirname, './src')]
-      }
-    }
-  }
-  ],
-  [
-    withTM(['@apitable/components', 'antd', 'rc-pagination', 'rc-util', 'rc-picker', 'rc-notification', '@ant-design/icons', 'rc-calendar'])
-  ],
-  [
-    withBundleAnalyzer({ enabled: process.env.ANALYZE === 'true' })
-  ]
-]
-
-// use local public folder for editions, e.g. apitable
-const getStaticFolder = () => {
-  if (process.env.USE_CUSTOM_PUBLIC_FILES === 'true') return ''
-
-  return isProd ? process.env.NEXT_PUBLIC_ASSET_PREFIX : ''
-}
-
-module.exports = withPlugins(plugins, {
+const nextConfig = {
   // Use the CDN in production and localhost for development.
   assetPrefix: isProd ? process.env.NEXT_ASSET_PREFIX : '',
-  images: {
-    domains: ['s4.vika.cn', 's1.vika.cn', 'mp.weixin.qq.com', 'localhost', 'legacy-s1.apitable.com', 's1.apitable.com'],
-    remotePatterns: [{
-      protocol: 'http',
-      hostname: '**',
-      pathname: '/vk-assets-ltd/**'
-    }, {
-      protocol: 'https',
-      hostname: '**',
-      pathname: '/vk-assets-ltd/**'
-    }, {
-      protocol: 'http',
-      hostname: '**',
-      pathname: '/assets/**'
-    }, {
-      protocol: 'https',
-      hostname: '**',
-      pathname: '/assets/**'
-    }]
+  // Possible fix for  timeout error in static page generation
+  env: {
+      SENTRY_AUTH_TOKEN: process.env.SENTRY_AUTH_TOKEN_VIKA
   },
+  staticPageGenerationTimeout: 120,
+  webpack: getWebpackConfig,
+  images: {
+    unoptimized: true,
+    domains: ['s4.vika.cn', 's1.vika.cn', 'mp.weixin.qq.com', 'localhost', 's1.apitable.com'],
+    remotePatterns: [
+      {
+        protocol: 'http',
+        hostname: '**',
+        pathname: '/vk-assets-ltd/**'
+      },
+      {
+        protocol: 'https',
+        hostname: '**',
+        pathname: '/vk-assets-ltd/**'
+      },
+      {
+        protocol: 'http',
+        hostname: '**',
+        pathname: '/assets/**'
+      },
+      {
+        protocol: 'https',
+        hostname: '**',
+        pathname: '/assets/**'
+      }
+    ]
+  },
+  swcMinify: true,
   poweredByHeader: false,
   publicRuntimeConfig: {
-    staticFolder: getStaticFolder()
+    // use local public folder for editions, e.g. apitable
+    staticFolder() {
+      if (process.env.USE_CUSTOM_PUBLIC_FILES === 'true') return '';
+
+      return isProd ? process.env.NEXT_PUBLIC_ASSET_PREFIX : '';
+    }
   },
-  webpack (config, options) {
-    config.resolve.symlinks = false
-    const originalEntry = config.entry
-
-    config.entry = async () => {
-      /**
-       * In ie11, there will be a shadow error. According to the discussion in the issue, the following polyfill can be used to solve it
-       */
-      const entries = await originalEntry()
-
-      const mainJs = entries['main.js']
-      if (mainJs && !mainJs.includes('./utils/polyfills.js')) {
-        mainJs.unshift('./utils/polyfills.js')
-      }
-
-      return entries
-    }
-
-    config.resolve.alias.react = path.resolve(__dirname, '../../', 'node_modules', 'react')
-    config.resolve.alias['react-dom'] = path.resolve(__dirname, '../../', 'node_modules', 'react-dom')
-    config.resolve.alias = {
-      ...config.resolve.alias,
-      pc: path.resolve(__dirname, './src/pc'),
-      static: path.resolve(__dirname, './public/static'),
-      enterprise: process.env.IS_ENTERPRISE === 'true' ? path.resolve(__dirname, './src/modules/enterprise') : path.resolve(__dirname, './src/noop')
-    }
-    const oneOf = config.module.rules.find((rule) => typeof rule.oneOf === 'object')
-    if (oneOf) {
-      // Find the module which targets *.scss|*.sass files
-      const moduleSassRule = oneOf.oneOf.find((rule) => {
-        return regexEqual(rule.test, /\.module\.less$/)
-      })
-      if (moduleSassRule) {
-        // Get the config object for css-loader plugin
-        const cssLoader = moduleSassRule.use.find(({ loader }) => loader.includes('css-loader'))
-        const lessLoader = moduleSassRule.use.find(({ loader }) => loader.includes('less-loader'))
-        if (cssLoader) {
-          cssLoader.options = {
-            ...cssLoader.options,
-            modules: cssLoaderOptions(cssLoader.options.modules)
-          }
-        }
-        if (lessLoader) {
-          lessLoader.options = {
-            ...lessLoader.options
-            // paths: [path.resolve(__dirname, './src/pc')],
-          }
-        }
-      }
-    }
-
-    // patchWebpackConfig(config, options)
-
-    const fallback = config.resolve.fallback || {}
-    Object.assign(fallback, {
-      path: require.resolve('https-browserify'),
-      zlib: require.resolve('browserify-zlib'),
-      http: require.resolve('stream-http'),
-      stream: require.resolve('stream-browserify'),
-      url: require.resolve('url/'),
-      util: require.resolve('util/')
-    })
-    config.resolve.fallback = fallback
-    //
-
-    if (options.isServer) {
-      // config.externals = webpackNodeExternals({
-      // Uses list to add this modules for server bundle and process.
-      // allowlist: [/design-system/],
-      // })
-    }
-
-    const { webpack } = options
-    config.plugins.push(
-      new webpack.IgnorePlugin({
-        resourceRegExp: /canvas|jsdom/,
-        contextRegExp: /konva/
-      }),
-      new webpack.NormalModuleReplacementPlugin(/node:/, (resource) => {
-        const mod = resource.request.replace(/^node:/, '')
-
-        switch (mod) {
-          case 'path':
-            resource.request = 'path-browserify'
-            break
-          default:
-            throw new Error(`Not found ${mod}`)
-        }
-      }))
-    config.module.rules.push({
-      test: /\.svg(\?v=\d+\.\d+\.\d+)?$/,
-      use: [
-        {
-          loader: 'babel-loader'
-        },
-        {
-          loader: '@svgr/webpack',
-          options: {
-            babel: false,
-            icon: true
-          }
-        },
-        {
-          loader: 'svgo-loader',
-          options: {
-            plugins: [
-              { name: 'removeNonInheritableGroupAttrs' },
-              { name: 'removeXMLNS' },
-              { name: 'collapseGroups' },
-              { name: 'removeStyleElement' },
-              { name: 'removeAttrs', params: { attrs: '(stroke|fill)' } }
-            ]
-          }
-        }
-      ]
-    })
-
-    if (!isProd) {
-      const ForkTsCheckerWebpackPlugin = require('fork-ts-checker-webpack-plugin')
-      config.plugins.push(new ForkTsCheckerWebpackPlugin({
-        typescript: {
-          memoryLimit: 5000,
-          mode: 'write-references'
-        }
-      }))
-    }
-
-    return config
+  sentry: {
+    disableServerWebpackPlugin: false,
+    disableClientWebpackPlugin: false
   },
   distDir: 'web_build',
   output: 'standalone',
   experimental: {
+    // runtime: 'nodejs', // 'node.js' (default) | experimental-edge
     esmExternals: true,
     // this includes files from the monorepo base two directories up
     outputFileTracingRoot: path.join(__dirname, '../../')
   }
-})
+};
+
+/** @type {import('next').NextConfig} */
+const plugins = [
+  (nextConfigonfig) =>
+    withLess({
+      ...nextConfigonfig,
+      lessLoaderOptions: {
+        lessOptions: {
+          paths: [path.resolve(__dirname, './src')]
+        }
+      }
+    }),
+
+  withTM(['antd', 'antd-mobile', 'rc-util', 'rc-picker', 'rc-notification', 'rc-calendar', 'purify-ts']),
+  withBundleAnalyzer({ enabled: process.env.ANALYZE === 'true' })
+];
+
+const config = () => plugins.reduce((acc, next) => next(acc), nextConfig);
+module.exports = isProd && process.env.SENTRY_AUTH_TOKEN_VIKA ? withSentryConfig(config, sentryWebpackPluginOptions, sentryWebpackPluginOptions) : config;

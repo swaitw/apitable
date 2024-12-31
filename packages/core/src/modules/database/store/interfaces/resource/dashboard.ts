@@ -16,8 +16,9 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import { ICollaborator, INodeMeta } from './datasheet';
+import { IWidget } from 'modules/database/store/interfaces/resource/widget';
 import * as ActionConstants from '../../../../shared/store/action_constants';
+import { ICollaborator, INodeMeta } from './datasheet';
 
 // support store multi states of dashboard
 export interface IDashboardMap {
@@ -28,20 +29,27 @@ export interface IDashboardPack {
   /**
    * whether the data is under collaboration
    */
-  syncing: boolean; 
+  syncing: boolean;
   /**
    * whether the data is under loading
    */
-  loading: boolean; 
+  loading: boolean;
   /**
    * whether the dashboard is connected
-   * 
+   *
    * see also the IDatasheetPack's comments
    */
-  connected: boolean; 
+  connected: boolean;
   dashboard?: IDashboard | null;
   errorCode?: number | null;
   client: IDashboardClient;
+}
+
+export type IDashboardWidgetMap = { [widgetId: string]: IWidget };
+
+export interface IServerDashboardPack {
+  dashboard: IDashboard;
+  widgetMap: IDashboardWidgetMap;
 }
 
 // INodeMeta see code below

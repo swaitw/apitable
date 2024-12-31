@@ -18,38 +18,64 @@
 
 import { FC, memo } from 'react';
 import { FieldType } from '@apitable/core';
-import { 
-  ColumnAttachmentFilled, ColumnAutonumberFilled, ColumnCheckboxFilled, ColumnCreatedbyFilled, ColumnCreatedtimeFilled,
-  ColumnCurrencyFilled, ColumnFormulaFilled, ColumnLastmodifiedbyFilled, ColumnLastmodifiedtimeFilled,
-  ColumnLongtextFilled, ColumnLookupNonzeroFilled, AccountFilled, ColumnPercentFilled, ColumnPhoneFilled, ColumnRatingFilled,
-  ColumnMultipleFilled, ColumnSingleNonzeroFilled, ColumnUrlOutlined, ColumnFigureFilled, ColumnEmailNonzeroFilled,
-  ColumnLinktableFilled, ColumnCalendarNonzeroFilled, ColumnTextNonzeroFilled, 
+import {
+  AttachmentOutlined,
+  AutonumberOutlined,
+  CheckboxOutlined,
+  UserAddOutlined,
+  TimeOutlined,
+  CurrencyUsdOutlined,
+  FormulaOutlined,
+  UserEditOutlined,
+  HistoryFilled,
+  LongtextOutlined,
+  LookupOutlined,
+  UserOutlined,
+  PercentOutlined,
+  TelephoneOutlined,
+  StarOutlined,
+  SelectMultipleOutlined,
+  SelectSingleOutlined,
+  LinkOutlined,
+  NumberOutlined,
+  EmailOutlined,
+  CalendarOutlined,
+  TextOutlined,
+  CascadeOutlined,
+  FileOutlined,
+  OneWayLinkOutlined,
+  TwoWayLinkOutlined,
+  CursorButtonOutlined,
 } from '@apitable/icons';
 import { Icon } from 'pc/components/konva_components';
 
-const ColumnLongtextFilledPath = ColumnLongtextFilled.toString();
-const ColumnTextFilledPath = ColumnTextNonzeroFilled.toString();
-const ColumnSingleFilledPath = ColumnSingleNonzeroFilled.toString();
-const ColumnMultipleFilledPath = ColumnMultipleFilled.toString();
-const ColumnCalendarFilledPath = ColumnCalendarNonzeroFilled.toString();
-const ColumnAttachmentFilledPath = ColumnAttachmentFilled.toString();
-const ColumnFigureFilledPath = ColumnFigureFilled.toString();
-const ColumnLinktableFilledPath = ColumnLinktableFilled.toString();
-const ColumnUrlOutlinedPath = ColumnUrlOutlined.toString();
-const ColumnEmailFilledPath = ColumnEmailNonzeroFilled.toString();
-const ColumnPhoneFilledPath = ColumnPhoneFilled.toString();
-const ColumnAutonumberFilledPath = ColumnAutonumberFilled.toString();
-const ColumnCheckboxFilledPath = ColumnCheckboxFilled.toString();
-const ColumnCreatedbyFilledPath = ColumnCreatedbyFilled.toString();
-const ColumnCreatedtimeFilledPath = ColumnCreatedtimeFilled.toString();
-const ColumnCurrencyFilledPath = ColumnCurrencyFilled.toString();
-const ColumnFormulaFilledPath = ColumnFormulaFilled.toString();
-const ColumnLastmodifiedbyFilledPath = ColumnLastmodifiedbyFilled.toString();
-const ColumnLastmodifiedtimeFilledPath = ColumnLastmodifiedtimeFilled.toString();
-const ColumnLookupFilledPath = ColumnLookupNonzeroFilled.toString();
-const ColumnMemberFilledPath = AccountFilled.toString();
-const ColumnPercentFilledPath = ColumnPercentFilled.toString();
-const ColumnRatingFilledPath = ColumnRatingFilled.toString();
+const ColumnLongtextFilledPath = LongtextOutlined.toString();
+const ColumnTextFilledPath = TextOutlined.toString();
+const ColumnSingleFilledPath = SelectSingleOutlined.toString();
+const ColumnMultipleFilledPath = SelectMultipleOutlined.toString();
+const ColumnCalendarFilledPath = CalendarOutlined.toString();
+const ColumnAttachmentFilledPath = AttachmentOutlined.toString();
+const ColumnFigureFilledPath = NumberOutlined.toString();
+const ColumnTwoWayLinkOutlinedPath = TwoWayLinkOutlined.toString();
+const ColumnOneWayLinkOutlinedPath = OneWayLinkOutlined.toString();
+const ColumnUrlOutlinedPath = LinkOutlined.toString();
+const ColumnEmailFilledPath = EmailOutlined.toString();
+const ColumnPhoneFilledPath = TelephoneOutlined.toString();
+const ColumnAutonumberFilledPath = AutonumberOutlined.toString();
+const ColumnCheckboxFilledPath = CheckboxOutlined.toString();
+const ColumnCreatedbyFilledPath = UserAddOutlined.toString();
+const ColumnCreatedtimeFilledPath = TimeOutlined.toString();
+const ColumnCurrencyFilledPath = CurrencyUsdOutlined.toString();
+const ColumnFormulaFilledPath = FormulaOutlined.toString();
+const ColumnLastmodifiedbyFilledPath = UserEditOutlined.toString();
+const ColumnLastmodifiedtimeFilledPath = HistoryFilled.toString();
+const ColumnLookupFilledPath = LookupOutlined.toString();
+const ColumnMemberFilledPath = UserOutlined.toString();
+const ColumnPercentFilledPath = PercentOutlined.toString();
+const ColumnRatingFilledPath = StarOutlined.toString();
+const ColumnCascadeOutlinedPath = CascadeOutlined.toString();
+const ColumnWorkdocPath = FileOutlined.toString();
+const CursorButtonOutlinedPath = CursorButtonOutlined.toString();
 
 interface IFieldIconProps {
   fieldType: FieldType;
@@ -79,7 +105,9 @@ export const FieldIcon: FC<React.PropsWithChildren<IFieldIconProps>> = memo((pro
     case FieldType.Number:
       return <Icon x={x} y={y} size={width} backgroundHeight={height} listening={false} data={ColumnFigureFilledPath} fill={fill} />;
     case FieldType.Link:
-      return <Icon x={x} y={y} size={width} backgroundHeight={height} listening={false} data={ColumnLinktableFilledPath} fill={fill} />;
+      return <Icon x={x} y={y} size={width} backgroundHeight={height} listening={false} data={ColumnTwoWayLinkOutlinedPath} fill={fill} />;
+    case FieldType.OneWayLink:
+      return <Icon x={x} y={y} size={width} backgroundHeight={height} listening={false} data={ColumnOneWayLinkOutlinedPath} fill={fill} />;
     case FieldType.URL:
       return <Icon x={x} y={y} size={width} backgroundHeight={height} listening={false} data={ColumnUrlOutlinedPath} fill={fill} />;
     case FieldType.Email:
@@ -110,6 +138,12 @@ export const FieldIcon: FC<React.PropsWithChildren<IFieldIconProps>> = memo((pro
       return <Icon x={x} y={y} size={width} backgroundHeight={height} listening={false} data={ColumnCreatedbyFilledPath} fill={fill} />;
     case FieldType.LastModifiedBy:
       return <Icon x={x} y={y} size={width} backgroundHeight={height} listening={false} data={ColumnLastmodifiedbyFilledPath} fill={fill} />;
+    case FieldType.Cascader:
+      return <Icon x={x} y={y} size={width} backgroundHeight={height} listening={false} data={ColumnCascadeOutlinedPath} fill={fill} />;
+    case FieldType.Button:
+      return <Icon x={x} y={y} size={width} backgroundHeight={height} listening={false} data={CursorButtonOutlinedPath} fill={fill} />;
+    case FieldType.WorkDoc:
+      return <Icon x={x} y={y} size={width} backgroundHeight={height} listening={false} data={ColumnWorkdocPath} fill={fill} />;
     default:
       return null;
   }

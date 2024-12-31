@@ -27,11 +27,13 @@ import {
   INodeMeta,
   IReduxState,
   IResourceOpsCollect,
+  IServerDashboardPack,
   IServerDatasheetPack,
   ISnapshot,
   IUnitValue,
   IUserInfo,
   IUserValue,
+  IWidget,
   Reducers,
   resourceOpsToChangesets,
   StoreActions,
@@ -40,8 +42,8 @@ import { Injectable } from '@nestjs/common';
 import { applyMiddleware, createStore, Store } from 'redux';
 import { batchDispatchMiddleware } from 'redux-batched-actions';
 import thunkMiddleware from 'redux-thunk';
-import { Logger } from 'winston';
 import { InjectLogger } from 'shared/common';
+import { Logger } from 'winston';
 
 /**
  * @author Zoe zheng
@@ -49,7 +51,8 @@ import { InjectLogger } from 'shared/common';
  */
 @Injectable()
 export class CommandService {
-  constructor(@InjectLogger() private readonly logger: Logger) {}
+  constructor(@InjectLogger() private readonly logger: Logger) {
+  }
 
   fullFillStore(datasheetPack: IServerDatasheetPack, userInfo?: IUserInfo): Store<IReduxState> {
     const store = createStore<IReduxState, any, unknown, unknown>(Reducers.rootReducers, applyMiddleware(thunkMiddleware, batchDispatchMiddleware));
@@ -135,6 +138,18 @@ export class CommandService {
         ),
       );
     });
+    return store;
+  }
+
+  fillDashboardStore(payload: IServerDashboardPack): Store<IReduxState> {
+    const store = createStore<IReduxState, any, unknown, unknown>(Reducers.rootReducers, applyMiddleware(thunkMiddleware, batchDispatchMiddleware));
+    store.dispatch(StoreActions.setDashboard(payload.dashboard, payload.dashboard.id));
+    store.dispatch(StoreActions.setPageParams({ dashboardId: payload.dashboard.id }));
+    if (payload.widgetMap) {
+      Object.keys(payload.widgetMap).forEach(widgetId => {
+        store.dispatch(StoreActions.receiveInstallationWidget(widgetId, payload.widgetMap[widgetId] as any as IWidget));
+      });
+    }
     return store;
   }
 

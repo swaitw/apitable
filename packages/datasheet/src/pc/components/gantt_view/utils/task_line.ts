@@ -16,154 +16,103 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import { IGroupLinearRow, IAdjacency } from '../interface';
-import { CellType, fastCloneDeep } from '@apitable/core';
 import { slice } from 'lodash';
+import { CellType, fastCloneDeep } from '@apitable/core';
+import { IAdjacency, IGroupLinearRow } from '../interface';
 
 /*
-* nodes: task recordId List
-*/
-export const getAllCycleDAG = (nodes: string[], sourceAdj: { [x: string]: string[]; }) => {
-  const pre: { [key: string]: string } = {};
-  const color: { [key: string]: number | null } = {};
-  
-  const cycles : string[][] = [];
- 
-  const buildCycle = (start: string, end: string) => {
-    const cycle : string[] = [start];
-    for(let cur = end; cur !== start; cur = pre[cur]) {
-      cycle.push(cur);
-    }
-    cycle.push(start);
-    cycles.push(cycle.reverse());
-  };
-
-  const dfs = (source: string) => {
-    if(!sourceAdj[source]) {
-      return;
-    }
-    color[source] = 1;
-    sourceAdj[source].forEach((target: string) => {
-     
-      if (color[target] == null) {
-        pre[target] = source;
-        dfs(target);
-      } else if (color[target] === 1) {
-        buildCycle(target, source);
-      }
-    });
-    color[source] = 2;
-  };
-
-  nodes.forEach(node => {
-    if (color[node] == null) {
-      dfs(node);
-    }
-  });
-
-  const cycleEdges : string[] = [];
-  cycles.forEach(element => {
-    for(let i = 1; i < element.length; i++) {
-      const taskLineName = getTaskLineName(element[i-1], element[i]);
-      cycleEdges.push(taskLineName);
-    }
-  });
- 
-  return cycleEdges;
-};
+ * nodes: task recordId List
+ */
 
 export const detectCyclesStack = (nodes: string[], sourceAdj: IAdjacency) => {
   const color: { [key: string]: number | null } = {}; // Whether the record was accessed
   const cycleStack: string[] = []; // Manual Access Stack
   const stackAdj: string[][] = []; // Record the next parameter to be accessed by the current stack
-  const cycles : string[][] = []; // Record the rings found
+  const cycles: string[][] = []; // Record the rings found
   const findCycle = (node: string) => {
     cycleStack.push(node);
     const nodeAdj = sourceAdj[node] ? sourceAdj[node] : [];
     stackAdj.push(fastCloneDeep(nodeAdj));
 
-    while(cycleStack.length > 0) {
+    while (cycleStack.length > 0) {
       const source = cycleStack[cycleStack.length - 1];
       const targets = stackAdj[stackAdj.length - 1] ? stackAdj[stackAdj.length - 1] : [];
 
-      if(targets && targets.length > 0) {
+      if (targets && targets.length > 0) {
         color[source] = 1;
         const target = targets[0];
-        if(color[target] === 1) {
-    
+        if (color[target] === 1) {
           const start = cycleStack.indexOf(target);
           const cycle = slice(cycleStack, start);
           cycle.push(target);
           cycles.push(cycle);
           const lastAdj = stackAdj[stackAdj.length - 1];
           const index = lastAdj.indexOf(target);
-          stackAdj[stackAdj.length - 1].splice(index,1);
-
-        } else if(color[target] === undefined) {
+          stackAdj[stackAdj.length - 1].splice(index, 1);
+        } else if (color[target] === undefined) {
           cycleStack.push(target);
           const nextAdj = sourceAdj[target] ? sourceAdj[target] : [];
           stackAdj.push(fastCloneDeep(nextAdj));
-        } else if(color[target] === 2) {
+        } else if (color[target] === 2) {
           const lastAdj = stackAdj[stackAdj.length - 1];
           const index = lastAdj.indexOf(target);
-          stackAdj[stackAdj.length - 1].splice(index,1);
+          stackAdj[stackAdj.length - 1].splice(index, 1);
         }
-     
       } else {
         color[source] = 2;
         cycleStack.pop();
         stackAdj.pop();
-        if(stackAdj.length > 0) {
+        if (stackAdj.length > 0) {
           const lastAdj = stackAdj[stackAdj.length - 1];
           const index = lastAdj.indexOf(source);
-          stackAdj[stackAdj.length - 1].splice(index,1);
+          stackAdj[stackAdj.length - 1].splice(index, 1);
         }
       }
-
     }
   };
 
   nodes.forEach((node: string) => {
-    
-    if(color[node] === undefined) {
+    if (color[node] === undefined) {
       findCycle(node);
     }
   });
-  const cycleEdges : string[] = [];
- 
-  cycles.forEach(element => {
-    for(let i = 1; i < element.length; i++) {
-      const taskLineName = getTaskLineName(element[i-1], element[i]);
+  const cycleEdges: string[] = [];
+
+  cycles.forEach((element) => {
+    for (let i = 1; i < element.length; i++) {
+      const taskLineName = getTaskLineName(element[i - 1], element[i]);
       cycleEdges.push(taskLineName);
     }
   });
- 
+
   return cycleEdges;
 };
 
-export const getAllTaskLine = (taskListJson: { [x: string]: any[]; }) => {
+export const getAllTaskLine = (taskListJson: { [x: string]: any[] }) => {
+  const taskLineList: string[][] = [];
 
-  const taskLineList : string[][] = [];
-  
-  Object.keys(taskListJson).forEach(taskLine => {
-    taskListJson[taskLine].forEach(element => {
-      taskLineList.push([element, taskLine]);
-    });
+  Object.keys(taskListJson).forEach((taskLine) => {
+    const listItem = taskListJson[taskLine];
+    if (Array.isArray(listItem)) {
+      listItem.forEach((element) => {
+        taskLineList.push([element, taskLine]);
+      });
+    }
   });
 
   // source adjacency list
-  const sourceAdj : IAdjacency = {}; 
-  taskLineList.forEach(edge => {
+  const sourceAdj: IAdjacency = {};
+  taskLineList.forEach((edge) => {
     const [source, target] = edge;
-    if(sourceAdj[source] == null) {
+    if (sourceAdj[source] == null) {
       sourceAdj[source] = [];
     }
     sourceAdj[source].push(target);
   });
 
-  return { 
+  return {
     taskLineList,
-    sourceAdj
+    sourceAdj,
   };
 };
 
@@ -174,46 +123,44 @@ export const getTaskLineName = (sourceId: string, targetId: string) => {
 export const getCollapsedLinearRows = (ganttLinearRows: IGroupLinearRow[], groupCollapseIds: Iterable<string> | null | undefined) => {
   const groupingCollapseSet = new Set<string>(groupCollapseIds);
   let collapsedLinearRows;
-  if(!groupCollapseIds) {
+  if (!groupCollapseIds) {
     collapsedLinearRows = ganttLinearRows;
   } else {
-    const res = ganttLinearRows.reduce<{collapsedLinearRows: IGroupLinearRow[], skip: boolean, depth: number, recordId: string}>
-    ((ctx, ganttLinearRow: IGroupLinearRow) => {
-      if(ctx.skip) {
-        if (ganttLinearRow.type === CellType.Blank && 
-        ganttLinearRow.depth === ctx.depth) {
-          ctx.depth = Infinity;
-          ctx.skip = false;
-          ctx.recordId = ganttLinearRow.recordId;
+    const res = ganttLinearRows.reduce<{ collapsedLinearRows: IGroupLinearRow[]; skip: boolean; depth: number; recordId: string }>(
+      (ctx, ganttLinearRow: IGroupLinearRow) => {
+        if (ctx.skip) {
+          if (ganttLinearRow.type === CellType.Blank && ganttLinearRow.depth === ctx.depth) {
+            ctx.depth = Infinity;
+            ctx.skip = false;
+            ctx.recordId = ganttLinearRow.recordId;
+            ctx.collapsedLinearRows.push(ganttLinearRow);
+
+            return ctx;
+          }
+          ganttLinearRow.groupHeadRecordId = ctx.recordId;
+          ganttLinearRow.groupDepth = ctx.depth;
           ctx.collapsedLinearRows.push(ganttLinearRow);
 
           return ctx;
-        } 
-        ganttLinearRow.groupHeadRecordId = ctx.recordId;
-        ganttLinearRow.groupDepth = ctx.depth;
+        }
+
+        if (ganttLinearRow.type === CellType.GroupTab && groupingCollapseSet.has(ganttLinearRow.recordId + '_' + ganttLinearRow.depth)) {
+          ctx.skip = true;
+          ctx.depth = ganttLinearRow.depth;
+          ctx.recordId = ganttLinearRow.recordId;
+        }
         ctx.collapsedLinearRows.push(ganttLinearRow);
 
         return ctx;
-      
-      }
-
-      if(ganttLinearRow.type === CellType.GroupTab && 
-      groupingCollapseSet.has(ganttLinearRow.recordId + '_' + ganttLinearRow.depth)) {
-        ctx.skip = true;
-        ctx.depth = ganttLinearRow.depth;
-        ctx.recordId = ganttLinearRow.recordId;
-      }
-      ctx.collapsedLinearRows.push(ganttLinearRow);
-
-      return ctx;
-
-    }, { collapsedLinearRows: [], skip: false, depth: Infinity, recordId: '' });
+      },
+      { collapsedLinearRows: [], skip: false, depth: Infinity, recordId: '' },
+    );
     collapsedLinearRows = res.collapsedLinearRows;
   }
   const linerMap = new Map();
 
-  collapsedLinearRows.forEach(item => {
-    if(item.type === CellType.Record) {
+  collapsedLinearRows.forEach((item) => {
+    if (item.type === CellType.Record) {
       linerMap.set(item.recordId, item);
     }
   });

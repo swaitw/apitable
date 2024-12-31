@@ -30,7 +30,7 @@ import { invite } from '../../modules/org/store/reducers/invite';
 import { spacePermissionManage } from '../../modules/org/store/reducers/space_permission_manage';
 import { notification } from '../../modules/user/store/reducers/notification';
 // @ts-ignore
-import { guide, billing } from '../../modules/enterprise';
+import { guide } from '../../modules/enterprise';
 import { toolbar } from '../../modules/database/store/reducers/toolbar';
 import { rightPane } from '../../modules/database/store/reducers/right_pane';
 import { templateCentre } from '../../modules/space/store/reducers/template_centre';
@@ -41,8 +41,17 @@ import { subscriptions } from '../../modules/database/store/reducers/subscriptio
 import { recordVision } from '../../modules/database/store/reducers/record_vision_mode';
 import { previewFile } from '../../modules/database/store/reducers/preview_file';
 import { embedInfo } from '../../modules/embed/store/reducers/embed';
+import { collaborators } from '../../modules/database/store/reducers/resource/datasheet/collaborators';
+import { billing } from '../../modules/billing/store/reducers';
 
 import { IReduxState } from './interfaces';
+
+export {
+  mirrorMap,
+  pageParams,
+  unitInfo,
+  collaborators,
+};
 
 export const onlyResourceReducers = combineReducers<Partial<IReduxState>>({
   isStateRoot: () => true,
@@ -75,6 +84,7 @@ export const rootReducers = combineReducers<IReduxState>({
   invite,
   spacePermissionManage,
   notification,
+  // @ts-ignore
   hooks: guide,
   toolbar,
   rightPane,

@@ -18,86 +18,108 @@
 
 package com.apitable.template.mapper;
 
-import java.util.List;
-
-import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import org.apache.ibatis.annotations.Param;
-
+import com.apitable.template.entity.TemplatePropertyEntity;
 import com.apitable.template.model.TemplateKeyWordSearchDto;
 import com.apitable.template.model.TemplatePropertyDto;
 import com.apitable.template.model.TemplatePropertyRelDto;
-import com.apitable.template.entity.TemplatePropertyEntity;
+import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import java.util.List;
+import org.apache.ibatis.annotations.Param;
 
 /**
  * <p>
- * Template Property Mapper
+ * Template Property Mapper.
  * </p>
  */
 public interface TemplatePropertyMapper extends BaseMapper<TemplatePropertyEntity> {
 
     /**
-     * query property names by property codes
+     * Query entity.
      */
-    List<String> selectPropertyNameByPropertyCodeIn(@Param("propertyCodes") List<String> propertyCodes);
+    TemplatePropertyEntity selectByPropertyCodeAndPropertyType(
+        @Param("propertyCode") String propertyCode, @Param("propertyType") Integer propertyType);
 
     /**
-     * Query template property dto list by i18n
+     * Query entity by property type and name.
+     */
+    TemplatePropertyEntity selectByPropertyTypeAndPropertyName(
+        @Param("propertyType") Integer propertyType, @Param("propertyName") String propertyName);
+
+    /**
+     * query property names by property codes.
+     */
+    List<String> selectPropertyNameByPropertyCodeIn(
+        @Param("propertyCodes") List<String> propertyCodes);
+
+    /**
+     * Query template property dto list by i18n.
      */
     List<TemplatePropertyDto> selectTemplatePropertiesWithI18n(@Param("lang") String lang);
 
     /**
-     * Query template property dto list by i18n after order
+     * Query property code.
      */
-    List<TemplatePropertyDto> selectTemplatePropertiesWithLangAndOrder(@Param("type") Integer type, @Param("lang") String lang);
+    List<String> selectPropertyCodeByPropertyTypeAndI18nName(
+        @Param("propertyType") Integer propertyType, @Param("i18nName") String i18nName);
 
     /**
-     * query all template property
+     * Query template property dto list by i18n after order.
+     */
+    List<TemplatePropertyDto> selectTemplatePropertiesWithLangAndOrder(@Param("type") Integer type,
+                                                                       @Param("lang") String lang);
+
+    /**
+     * query all template property.
      */
     List<TemplatePropertyDto> selectAllTemplatePropertyDto();
 
     /**
-     * update updatedBy by ids
+     * update updatedBy by ids.
      */
-    int updateUpdatedByByPropertyCodes(@Param("propertyCodes") List<String> propertyCodes, @Param("updatedBy") Long updatedBy);
+    int updateUpdatedByByPropertyCodes(@Param("propertyCodes") List<String> propertyCodes,
+                                       @Param("updatedBy") Long updatedBy);
 
     /**
-     * remove by property codes
+     * remove by property codes.
      */
-    int removeByPropertyCodes(@Param("propertyCodes") List<String> propertyCodes, @Param("updatedBy") Long updatedBy);
+    int removeByPropertyCodes(@Param("propertyCodes") List<String> propertyCodes,
+                              @Param("updatedBy") Long updatedBy);
 
     /**
-     * Batch insert
+     * Batch insert.
      */
     int insertBatch(@Param("entities") List<TemplatePropertyEntity> entities);
 
     /**
-     * Batch delete by ids
+     * Batch delete by ids.
      */
     int deleteBatchByIds(@Param("ids") List<Long> ids, @Param("updatedBy") Long updatedBy);
 
     /**
-     * Query property id by code and type
+     * Query property id by code and type.
      */
     Long selectIdByCodeAndType(@Param("code") String code, @Param("type") Integer type);
 
     /**
-     * Query properties by template id list and type
+     * Query properties by template id list and type.
      */
-    List<TemplatePropertyRelDto> selectPropertiesByTemplateIdsAndType(@Param("templateIds") List<String> templateIds,
-            @Param("type") Integer type);
+    List<TemplatePropertyRelDto> selectPropertiesByTemplateIdsAndType(
+        @Param("templateIds") List<String> templateIds,
+        @Param("type") Integer type);
 
     /**
-     * Query dto by fuzzy search
+     * Query dto by fuzzy search.
      */
-    List<TemplateKeyWordSearchDto> selectTemplateByPropertyNameAndLang(@Param("keyWord") String keyWord, @Param("lang") String lang);
+    List<TemplateKeyWordSearchDto> selectTemplateByPropertyNameAndLang(
+        @Param("keyWord") String keyWord, @Param("lang") String lang);
 
     /**
-     * Batch delete
+     * Batch delete.
      */
     int deleteBatch();
 
     /**
-     * Query count by i18n
+     * Query count by i18n.
      */
     int countByI18n(@Param("lang") String lang);
 }

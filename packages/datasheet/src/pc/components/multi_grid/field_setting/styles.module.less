@@ -51,10 +51,18 @@
     }
     &.sub {
       font-size: 12px;
-
-      :global(.ant-switch) {
+      button{
         float: right;
         margin-top: 2px;
+      }
+    }
+    .sectionTitleTip {
+      display: inline-block;
+      vertical-align: -0.25em;
+      margin-left: 8px;
+      cursor: pointer;
+      &.noCursor {
+        cursor: unset;
       }
     }
   }
@@ -102,6 +110,7 @@
 
     .icon {
       display: flex;
+      padding-right: 4px;
     }
 
     .text {
@@ -234,6 +243,14 @@
 
 :export {
   fieldSettingBoxWidth: @fieldSettingBoxWidth;
+}
+
+.cascaderMobileTip {
+  color: var(--textCommonTertiary);
+  svg {
+    vertical-align: -0.25em;
+    margin-right: 4px;
+  }
 }
 
 .requiredBox {

@@ -16,14 +16,14 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+import { FC } from 'react';
+import { Button, black, ContextMenu, useContextMenu } from '@apitable/components';
+import { Settings, Strings, t } from '@apitable/core';
+import { GotoOutlined } from '@apitable/icons';
 import { Method } from 'pc/components/route_manager/const';
 import { navigationToUrl } from 'pc/components/route_manager/navigation_to_url';
-import { FC } from 'react';
-import { Settings, Strings, t } from '@apitable/core';
-import { GotoLargeOutlined } from '@apitable/icons';
-import { Button, black, ContextMenu, useContextMenu } from '@apitable/components';
-import styles from './style.module.less';
 import { flatContextData } from 'pc/utils';
+import styles from './style.module.less';
 
 const DINGTALK_DA = 'DINGTALK_DA';
 
@@ -60,20 +60,23 @@ export const DingTalkDa: FC<React.PropsWithChildren<IDingTalkDaProps>> = (props)
     navigationToUrl(url.href, { hash: '#/app-manager/1', method: Method.NewTab });
   };
 
-  const data = flatContextData([
+  const data = flatContextData(
     [
-      {
-        icon: <></>,
-        text: t(Strings.publish_to_dingtalk_workbench),
-        onClick: linkToPublish,
-      },
-      {
-        icon: <></>,
-        text: t(Strings.go_to_dingtalk_admin),
-        onClick: linkToAdmin,
-      },
+      [
+        {
+          icon: <></>,
+          text: t(Strings.publish_to_dingtalk_workbench),
+          onClick: linkToPublish,
+        },
+        {
+          icon: <></>,
+          text: t(Strings.go_to_dingtalk_admin),
+          onClick: linkToAdmin,
+        },
+      ],
     ],
-  ], true);
+    true,
+  );
 
   return (
     <>
@@ -81,7 +84,7 @@ export const DingTalkDa: FC<React.PropsWithChildren<IDingTalkDaProps>> = (props)
         className={styles.dingTalkDaBtn}
         shape="round"
         size="small"
-        prefixIcon={<GotoLargeOutlined size={16} color={black[1000]} />}
+        prefixIcon={<GotoOutlined size={16} color={black[1000]} />}
         onClick={(e) => show(e)}
       >
         {t(Strings.dingtalk_da)}

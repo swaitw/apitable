@@ -17,7 +17,7 @@
  */
 
 import { ResourceIdPrefix } from '@apitable/core';
-import { Controller, UseFilters, UseInterceptors } from '@nestjs/common';
+import { Controller, UseFilters } from '@nestjs/common';
 import { GrpcMethod, RpcException } from '@nestjs/microservices';
 import { ILeaveRoomRo, INodeCopyRo, INodeDeleteRo } from 'database/interfaces/grpc.interface';
 import { IRoomChannelMessage } from 'database/ot/interfaces/ot.interface';
@@ -26,21 +26,22 @@ import { ApiResponse } from 'fusion/vos/api.response';
 import { Any } from 'grpc/generated/google/protobuf/any';
 import { Value } from 'grpc/generated/google/protobuf/struct';
 import {
+  DocumentAssetStatisticResult, DocumentAssetStatisticRo,
   GetActiveCollaboratorsVo, protobufPackage, UserRoomChangeRo, UserRoomChangeVo, WatchRoomRo, WatchRoomVo,
 } from 'grpc/generated/serving/RoomServingService';
 import { GrpcSocketService } from 'grpc/services/grpc.socket.service';
 import { NodeService } from 'node/services/node.service';
 import { InjectLogger } from 'shared/common';
+import { SpanAddTag } from 'shared/decorator/tracing.extend.decorator';
 import { SourceTypeEnum } from 'shared/enums/changeset.source.type.enum';
 import { GrpcExceptionFilter } from 'shared/filters/grpc.exception.filter';
-import { TracingHandlerInterceptor } from 'shared/interceptor/sentry.handlers.interceptor';
 import { Logger } from 'winston';
+import { DocumentBaseService } from 'workdoc/services/document.base.service';
 
 /**
  * grpc works for internal service
  */
 @UseFilters(new GrpcExceptionFilter())
-@UseInterceptors(new TracingHandlerInterceptor())
 @Controller(protobufPackage)
 export class GrpcController {
   constructor(
@@ -48,7 +49,14 @@ export class GrpcController {
     private readonly otService: OtService,
     private readonly nodeService: NodeService,
     private readonly grpcSocketService: GrpcSocketService,
+    private readonly documentBaseService: DocumentBaseService,
   ) {}
+
+  @GrpcMethod('RoomServingService', 'documentAssetStatistic')
+  async documentAssetStatistic(ro: DocumentAssetStatisticRo): Promise<DocumentAssetStatisticResult> {
+    const data = await this.documentBaseService.documentAssetStatistic(ro);
+    return ApiResponse.success(data);
+  }
 
   @GrpcMethod('RoomServingService', 'copyNodeEffectOt')
   async copyNodeEffectOt(data: INodeCopyRo): Promise<ApiResponse<boolean>> {
@@ -104,6 +112,9 @@ export class GrpcController {
   }
 
   @GrpcMethod('RoomServingService', 'roomChange')
+  @SpanAddTag([
+    (args: any[]) => args[1].toJSON(),
+  ])
   async userRoomChange(message: UserRoomChangeRo): Promise<UserRoomChangeVo> {
     try {
       let data: IRoomChannelMessage = {

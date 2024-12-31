@@ -18,29 +18,30 @@
 
 package com.apitable.widget.ro;
 
-import javax.validation.constraints.NotBlank;
-
-import io.swagger.annotations.ApiModel;
-import io.swagger.annotations.ApiModelProperty;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
+import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
 /**
  * <p>
- * Request parameters for widget creation
+ * Request parameters for widget creation.
  * </p>
  */
 @Data
-@ApiModel("Request parameters for widget creation")
+@Schema(description = "Request parameters for widget creation")
 public class WidgetCreateRo {
 
-    @ApiModelProperty(value = "Node ID", required = true, example = "dstAAA/dsbBBB", position = 1)
+    @Schema(description = "Node ID", requiredMode = RequiredMode.REQUIRED,
+        example = "dstAAA/dsbBBB")
     @NotBlank(message = "Node ID cannot be empty")
     private String nodeId;
 
-    @ApiModelProperty(value = "Widget Package ID", required = true, example = "wpkBBB", position = 2)
+    @Schema(description = "Widget Package ID",
+        requiredMode = RequiredMode.REQUIRED, example = "wpkBBB")
     @NotBlank(message = "The Widget package ID cannot be empty")
     private String widgetPackageId;
 
-    @ApiModelProperty(value = "Widget name", example = "This is a widget", position = 3)
+    @Schema(description = "Widget name", example = "This is a widget")
     private String name = "New Widget";
 }

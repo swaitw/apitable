@@ -18,22 +18,22 @@
 
 package com.apitable.player.ro;
 
-import io.swagger.annotations.ApiModel;
-import io.swagger.annotations.ApiModelProperty;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
-
-import javax.validation.constraints.NotNull;
 
 /**
  * <p>
- * Activity Status Parameters
+ * Activity Status Parameters.
  * </p>
  */
 @Data
-@ApiModel("Activity Status Parameters")
+@Schema(description = "Activity Status Parameters")
 public class ActivityStatusRo {
 
-    @ApiModelProperty(value = "Boot ID. See the config table of the airtable for specific information", dataType = "java.lang.Integer", example = "1", required = true)
+    @Schema(description = "Boot ID. See the config table of the airtable for specific information",
+        type = "java.lang.Integer", example = "1", requiredMode = RequiredMode.REQUIRED)
     @NotNull(message = "Boot ID cannot be empty")
     private Integer wizardId;
 

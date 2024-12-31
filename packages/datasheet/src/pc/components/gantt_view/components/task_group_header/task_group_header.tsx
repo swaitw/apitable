@@ -16,16 +16,16 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+import dynamic from 'next/dynamic';
+import { FC, useContext } from 'react';
 import { black, ILightOrDarkThemeColors, indigo } from '@apitable/components';
 import { ILinearRow, KONVA_DATASHEET_ID, StoreActions, Strings, t } from '@apitable/core';
-import { TriangleDown16Filled, TriangleRight16Filled } from '@apitable/icons';
-import dynamic from 'next/dynamic';
+import { TriangleDownFilled, TriangleRightFilled } from '@apitable/icons';
 import { DateTimeType, GanttCoordinate, getDayjs, IGanttGroupInfo, PointPosition } from 'pc/components/gantt_view';
 import { Icon, Rect } from 'pc/components/konva_components';
 import { KonvaGridContext, KonvaGridViewContext } from 'pc/components/konva_grid/context';
 import { rgbaToHex } from 'pc/utils';
 import { setStorage, StorageName } from 'pc/utils/storage/storage';
-import { FC, useContext } from 'react';
 
 const Group = dynamic(() => import('pc/components/gantt_view/hooks/use_gantt_timeline/group'), { ssr: false });
 
@@ -40,8 +40,8 @@ interface ITaskGroupHeaderProps {
 }
 
 // Icon Path
-const TriangleDown16FilledPath = TriangleDown16Filled.toString();
-const TriangleRight16FilledPath = TriangleRight16Filled.toString();
+const TriangleDown16FilledPath = TriangleDownFilled.toString();
+const TriangleRight16FilledPath = TriangleRightFilled.toString();
 
 // Constants
 const GRID_GROUP_TAB_HEIGHT = 48;
@@ -55,19 +55,19 @@ const getTaskGroupHeaderStyle = (depth: number, groupCount: number, colors: ILig
   const styleList = [
     {
       height: 8,
-      stroke: colors.warningColor,
-      background: rgbaToHex(colors.warningColor, 0.4)
+      stroke: colors.rainbowOrange3,
+      background: colors.rainbowOrange2,
     },
     {
       height: 6,
       stroke: indigo[500],
-      background: rgbaToHex(indigo[500], 0.4)
+      background: rgbaToHex(indigo[500], 0.4),
     },
     {
       height: 4,
       stroke: black[500],
-      background: black[500]
-    }
+      background: black[500],
+    },
   ];
   return Array.from({ length: groupCount }, (_, index) => {
     return styleList[groupCount - index - 1];
@@ -77,13 +77,7 @@ const getTaskGroupHeaderStyle = (depth: number, groupCount: number, colors: ILig
 const TaskGroupHeader: FC<React.PropsWithChildren<ITaskGroupHeaderProps>> = (props) => {
   const { y, row, instance, groupInfo, groupCount, pointPosition, setTooltipInfo } = props;
 
-  const {
-    view,
-    datasheetId,
-    isSearching,
-    groupCollapseIds,
-    dispatch,
-  } = useContext(KonvaGridViewContext);
+  const { view, datasheetId, isSearching, groupCollapseIds, dispatch } = useContext(KonvaGridViewContext);
   const { theme } = useContext(KonvaGridContext);
   const colors = theme.color;
 
@@ -112,10 +106,10 @@ const TaskGroupHeader: FC<React.PropsWithChildren<ITaskGroupHeaderProps>> = (pro
     // Masked collapse grouping operation for in-table lookup
     if (isSearching) return;
     dispatch(StoreActions.setGroupingCollapse(datasheetId, newState));
-    /* 
-     * QuickAppend The component display depends on the hoverRecordId, 
+    /*
+     * QuickAppend The component display depends on the hoverRecordId,
      * which should be cleared in the case of group collapses to avoid visual misleadingness
-    **/
+     **/
     dispatch(StoreActions.setHoverRecordId(datasheetId, null));
     setStorage(StorageName.GroupCollapse, { [`${datasheetId},${viewId}`]: newState });
   };
@@ -128,20 +122,15 @@ const TaskGroupHeader: FC<React.PropsWithChildren<ITaskGroupHeaderProps>> = (pro
     }
     return changeGroupCollapseState(Array.from(groupingCollapseIdsSet));
   };
-  const {
-    height,
-    stroke,
-    background,
-  } = getTaskGroupHeaderStyle(depth, groupCount, colors);
+  const groupHeaderStyle = getTaskGroupHeaderStyle(depth, groupCount, colors);
+  if (!groupHeaderStyle) {
+    return null;
+  }
+  const { height, stroke, background } = groupHeaderStyle;
 
   return (
     <>
-      <Group
-        x={(startOffset ?? endOffset)!}
-        y={y}
-        onClick={toggleExpandStatus}
-        onTap={toggleExpandStatus}
-      >
+      <Group x={(startOffset ?? endOffset)!} y={y} onClick={toggleExpandStatus} onTap={toggleExpandStatus}>
         <Icon
           name={KONVA_DATASHEET_ID.GANTT_GROUP_TOGGLE_BUTTON}
           x={-16}

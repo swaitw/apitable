@@ -16,20 +16,24 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import { FC } from 'react';
-import * as React from 'react';
-import { useSelector, useDispatch } from 'react-redux';
 import { Form } from 'antd';
-import { useRequest } from 'pc/hooks';
-import { useSetState } from 'pc/hooks';
 import classNames from 'classnames';
-import { t, Strings, IReduxState, StoreActions, ConfigConstant, StatusCode, Api } from '@apitable/core';
+import { FC, useState } from 'react';
+import * as React from 'react';
+import { useDispatch } from 'react-redux';
 import { TextInput, Button } from '@apitable/components';
-import { Message, PasswordInput, IdentifyingCodeInput, WithTipWrapper } from 'pc/components/common';
-import styles from './style.module.less';
-import { useUserRequest } from 'pc/hooks';
-import { getVerifyData, VerifyTypes, IChangePasswordConfig } from '../utils';
+import { t, Strings, IReduxState, StoreActions, ConfigConstant, StatusCode, Api } from '@apitable/core';
+import { IdentifyingCodeInput } from 'pc/components/common/input/identifying_code_input/identifying_code_input';
+import { PasswordInput } from 'pc/components/common/input/password_input/password_input';
+import { WithTipWrapper } from 'pc/components/common/input/with_tip_wrapper/with_tip_wrapper';
+import { Message } from 'pc/components/common/message/message';
+import { useRequest } from 'pc/hooks/use_request';
+import { useSetState } from 'pc/hooks/use_set_state';
+import { useUserRequest } from 'pc/hooks/use_user_request';
+import { useAppSelector } from 'pc/store/react-redux';
 import { getEnvVariables } from 'pc/utils/env';
+import { getVerifyData, VerifyTypes, IChangePasswordConfig } from '../utils';
+import styles from './style.module.less';
 
 export interface IModifyPasswordProps {
   setActiveItem: React.Dispatch<React.SetStateAction<number>>;
@@ -38,15 +42,14 @@ export interface IModifyPasswordProps {
 const defaultData = {
   identifyingCode: '',
   password: '',
-  confirmPassword: ''
+  confirmPassword: '',
 };
 
-export const ModifyPassword: FC<React.PropsWithChildren<IModifyPasswordProps>> = props => {
+export const ModifyPassword: FC<React.PropsWithChildren<IModifyPasswordProps>> = (props) => {
   const { setActiveItem } = props;
   const [data, setData] = useSetState<{
     identifyingCode: string;
     password: string;
-    confirmPassword: string;
   }>(defaultData);
 
   const [errMsg, setErrMsg] = useSetState<{
@@ -56,38 +59,31 @@ export const ModifyPassword: FC<React.PropsWithChildren<IModifyPasswordProps>> =
   }>({
     accountErrMsg: '',
     identifyingCodeErrMsg: '',
-    passwordErrMsg: ''
+    passwordErrMsg: '',
   });
 
   const dispatch = useDispatch();
-  const user = useSelector((state: IReduxState) => state.user.info)!;
+  const user = useAppSelector((state: IReduxState) => state.user.info)!;
   const { modifyPasswordReq } = useUserRequest();
   const { run: modifyPassword, loading } = useRequest(modifyPasswordReq, { manual: true });
   const env = getEnvVariables();
-  
-  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>, property: 'password' | 'confirmPassword') => {
+
+  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value.trim();
     if (errMsg.passwordErrMsg) {
       setErrMsg({ passwordErrMsg: '' });
     }
-    if (
-      (data.password && property === 'confirmPassword' && data.password !== value)
-      || (data.confirmPassword && property === 'password' && data.confirmPassword != value)
-    ) {
-      setErrMsg({ passwordErrMsg: t(Strings.password_not_identical_err) });
-    }
 
-    setData({ [property]: value });
+    setData({ password: value });
   };
 
-  const handleSubmit = async() => {
+  const handleSubmit = async () => {
     if (!data.identifyingCode.length) {
       setErrMsg({ identifyingCodeErrMsg: t(Strings.message_verification_code_empty) });
       return;
     }
 
-    const type = user.mobile ? ConfigConstant.CodeTypes.SMS_CODE :
-      ConfigConstant.CodeTypes.EMAIL_CODE;
+    const type = user.mobile ? ConfigConstant.CodeTypes.SMS_CODE : ConfigConstant.CodeTypes.EMAIL_CODE;
     const result = await modifyPassword(data.password, data.identifyingCode, type);
 
     if (!result) {
@@ -97,9 +93,8 @@ export const ModifyPassword: FC<React.PropsWithChildren<IModifyPasswordProps>> =
     const { success, code, message } = result;
 
     if (success) {
-      (Strings.message_set_password_succeed || Strings.change_password_success) && Message.success(
-        { content: user!.needPwd ? t(Strings.message_set_password_succeed) : t(Strings.change_password_success) }
-      );
+      (Strings.message_set_password_succeed || Strings.change_password_success) &&
+        Message.success({ content: user!.needPwd ? t(Strings.message_set_password_succeed) : t(Strings.change_password_success) });
       setData(defaultData);
       dispatch(StoreActions.updateUserInfo({ needPwd: false }));
       setActiveItem(0);
@@ -116,39 +111,32 @@ export const ModifyPassword: FC<React.PropsWithChildren<IModifyPasswordProps>> =
     }
   };
 
-  const handleIdentifyingCodeChange = React.useCallback((
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    if (errMsg.identifyingCodeErrMsg) {
-      setErrMsg({ identifyingCodeErrMsg: '' });
-    }
+  const handleIdentifyingCodeChange = React.useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (errMsg.identifyingCodeErrMsg) {
+        setErrMsg({ identifyingCodeErrMsg: '' });
+      }
 
-    const value = e.target.value.trim();
-    setData({ identifyingCode: value });
-  }, [setErrMsg, errMsg.identifyingCodeErrMsg, setData]);
+      const value = e.target.value.replace(/\s/g, '');
+      setData({ identifyingCode: value });
+    },
+    [setErrMsg, errMsg.identifyingCodeErrMsg, setData],
+  );
 
   const CodeContent = React.useMemo(() => {
     if (!user || !(user?.email || user?.mobile)) return null;
 
-    const { codeMode, label, accountText, smsType, emailType, areaCode, verifyAccount, prefixIcon } =
-      getVerifyData({ key: VerifyTypes.CHANGE_PASSWORD }) as IChangePasswordConfig;
+    const { codeMode, label, accountText, smsType, emailType, areaCode, verifyAccount, prefixIcon } = getVerifyData({
+      key: VerifyTypes.CHANGE_PASSWORD,
+    }) as IChangePasswordConfig;
     return (
       <>
         <div className={styles.item}>
-          <div className={styles.label}>
-            {label}:
-          </div>
-          <TextInput
-            prefix={prefixIcon}
-            value={accountText}
-            disabled
-            block
-          />
+          <div className={styles.label}>{label}:</div>
+          <TextInput prefix={prefixIcon} value={accountText} disabled block />
         </div>
         <div className={styles.item}>
-          <div className={styles.label}>
-            {t(Strings.verification_code)}:
-          </div>
+          <div className={styles.label}>{t(Strings.verification_code)}:</div>
           <div className={styles.content}>
             <WithTipWrapper tip={errMsg.identifyingCodeErrMsg} captchaVisible>
               <IdentifyingCodeInput
@@ -159,73 +147,57 @@ export const ModifyPassword: FC<React.PropsWithChildren<IModifyPasswordProps>> =
                 onChange={handleIdentifyingCodeChange}
                 setErrMsg={setErrMsg}
                 error={Boolean(errMsg.identifyingCodeErrMsg)}
-                disabled={Boolean(
-                  errMsg.accountErrMsg ||
-                  errMsg.identifyingCodeErrMsg
-                )}
+                disabled={Boolean(errMsg.accountErrMsg || errMsg.identifyingCodeErrMsg)}
+                value={data.identifyingCode}
               />
             </WithTipWrapper>
           </div>
         </div>
       </>
     );
-  }, [user, setErrMsg, errMsg.identifyingCodeErrMsg, errMsg.accountErrMsg, handleIdentifyingCodeChange]);
+  }, [user, setErrMsg, errMsg.identifyingCodeErrMsg, errMsg.accountErrMsg, handleIdentifyingCodeChange, data]);
 
-  const btnDisabled = !(data.identifyingCode && data.password && data.confirmPassword &&
-    !errMsg.accountErrMsg && !errMsg.identifyingCodeErrMsg && !errMsg.passwordErrMsg);
+  const btnDisabled = !(data.identifyingCode && data.password && !errMsg.accountErrMsg && !errMsg.identifyingCodeErrMsg && !errMsg.passwordErrMsg);
+
+  const [buttonLoading, setButtonLoading] = useState(false);
 
   const handRest = () => {
+    setButtonLoading(true);
     //@ts-ignore
-    Api?.apitableChangePasswordEmail().then(res => {
+    Api?.apitableChangePasswordEmail().then((res) => {
+      setButtonLoading(false);
       const { success, message } = res.data;
-      if (success) return;
-      Message.error({ content: message });
-      return null;
+      if (success) {
+        Message.success({ content: t(Strings.reset_password_via_emai_success) });
+      } else {
+        Message.error({ content: t(Strings.reset_password_via_emai_failed, { error_message: message }) });
+      }
+      return;
     });
   };
-  
+
   return (
     <div className={styles.modifyPasswordWrapper}>
       <div className={styles.title}>{user!.needPwd ? t(Strings.set_password) : t(Strings.change_password)}</div>
-      { env.IS_APITABLE && env.IS_ENTERPRISE ? 
+      {env.AUTH0_ENABLED ? (
         <div>
-          <Button color='primary' size='middle' onClick={handRest} >{t(Strings.reset_password_via_email)}</Button>
-        </div> 
-        :
+          <Button color="primary" size="middle" loading={buttonLoading} onClick={handRest}>
+            {t(Strings.reset_password_via_email)}
+          </Button>
+        </div>
+      ) : (
         <div className={styles.form}>
-          <Form
-            className={'modifyPassword'}
-            autoComplete='off'
-          >
+          <Form className={'modifyPassword'} autoComplete="off">
             {CodeContent}
             <div className={classNames([styles.item, styles.newPassword])}>
-              <div className={styles.label}>
-                {t(Strings.input_new_password)}:
-              </div>
+              <div className={styles.label}>{t(Strings.input_new_password)}:</div>
               <div className={styles.content}>
                 <WithTipWrapper tip={errMsg.passwordErrMsg}>
                   <PasswordInput
                     value={data.password}
-                    onChange={e => { handlePasswordChange(e, 'password'); }}
+                    onChange={handlePasswordChange}
                     placeholder={t(Strings.password_rules)}
-                    autoComplete='new-password'
-                    error={Boolean(errMsg.passwordErrMsg)}
-                    block
-                  />
-                </WithTipWrapper>
-              </div>
-            </div>
-            <div className={styles.item}>
-              <div className={styles.label}>
-                {t(Strings.input_confirmation_password)}:
-              </div>
-              <div className={styles.content}>
-                <WithTipWrapper tip={errMsg.passwordErrMsg}>
-                  <PasswordInput
-                    value={data.confirmPassword}
-                    onChange={e => { handlePasswordChange(e, 'confirmPassword'); }}
-                    placeholder={t(Strings.placeholder_input_new_password_again)}
-                    autoComplete='new-password'
+                    autoComplete="new-password"
                     error={Boolean(errMsg.passwordErrMsg)}
                     block
                   />
@@ -233,10 +205,10 @@ export const ModifyPassword: FC<React.PropsWithChildren<IModifyPasswordProps>> =
               </div>
             </div>
             <Button
-              color='primary'
+              color="primary"
               className={styles.saveBtn}
-              htmlType='submit'
-              size='large'
+              htmlType="submit"
+              size="large"
               disabled={btnDisabled}
               loading={loading}
               onClick={handleSubmit}
@@ -246,7 +218,7 @@ export const ModifyPassword: FC<React.PropsWithChildren<IModifyPasswordProps>> =
             </Button>
           </Form>
         </div>
-      }
+      )}
     </div>
   );
 };

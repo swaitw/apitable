@@ -20,10 +20,14 @@ import { MemberType } from 'types';
 import { ITeamData } from './address_list';
 
 export interface IUnitInfo {
-  unitMap: IUnitMap | null,
+  unitMap: IUnitMap | null;
   userMap: {
     [userId: string]: string | IUserValue
-  } | null
+  } | null;
+  groupList?: {
+    groupId: string;
+    groupName: string;
+  }[];
 }
 
 interface IUnitBase {
@@ -64,6 +68,8 @@ export interface IUserMap {
 export interface IUnitValue extends IUnitBase {
   unitId: string;
   type: MemberType
+  // real unitId
+  originalUnitId?: string;
 }
 
 export interface IUserValue extends IUnitBase {

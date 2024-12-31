@@ -18,27 +18,25 @@
 
 package com.apitable.workspace.ro;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
 import java.util.List;
-
-import javax.validation.constraints.NotBlank;
-import javax.validation.constraints.NotEmpty;
-
-import io.swagger.annotations.ApiModel;
-import io.swagger.annotations.ApiModelProperty;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
-
 import org.springframework.validation.annotation.Validated;
 
 /**
  * <p>
- * Get members who have no permission on the specified node when mentioning people
+ * Get members who have no permission on the specified node when mentioning people.
  * </p>
  */
-@ApiModel("Get members who have no permission on the specified node when mentioning people")
+@Schema(description = "Get members who have no permission on the specified node when mentioning "
+    + "people")
 @Setter
 @Getter
 @Builder
@@ -47,11 +45,11 @@ import org.springframework.validation.annotation.Validated;
 @Validated
 public class RemindUnitsNoPermissionRo {
 
-    @ApiModelProperty(value = "Node ID", required = true)
+    @Schema(description = "Node ID", requiredMode = RequiredMode.REQUIRED)
     @NotBlank
     private String nodeId;
 
-    @ApiModelProperty(value = "Organizational Unit ID List", required = true)
+    @Schema(description = "Organizational Unit ID List", requiredMode = RequiredMode.REQUIRED)
     @NotEmpty
     private List<Long> unitIds;
 

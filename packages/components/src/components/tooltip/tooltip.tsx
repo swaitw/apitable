@@ -16,7 +16,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import React, { FC, useEffect, useState } from 'react';
+import React, { FC, ReactElement, useEffect, useState } from 'react';
 import { Arrow, Placement, useHover, useLayer } from 'react-laag';
 import styled, { createGlobalStyle, css } from 'styled-components';
 import { Typography } from '../typography';
@@ -27,7 +27,7 @@ export interface ITooltipProps {
   /**
    * Tooltip content
    */
-  content: string;
+  content: string | ReactElement;
   /**
    * Display position
    */
@@ -63,16 +63,19 @@ export interface ITooltipProps {
   style?: React.CSSProperties;
 }
 
+const CONST_TOOLTIP_INDEX = 1201;
+
 const GlobalStyle: any = createGlobalStyle`
   .tooltip {
-    z-index: 1001;
+    z-index: ${CONST_TOOLTIP_INDEX};
   }
 `;
 
-const TooltipBase = styled.div.attrs(applyDefaultTheme)`
-  ${props => {
+export const TooltipBase = styled.div.attrs(applyDefaultTheme)`
+  ${(props) => {
     const color = props.theme.color;
     return css`
+      z-index: ${CONST_TOOLTIP_INDEX};
       background: ${color.bgReverseDefault};
       border-radius: 4px;
       padding: 8px;
@@ -88,31 +91,29 @@ function isReactText(children: React.ReactNode) {
   return ['string', 'number'].includes(typeof children);
 }
 
-export const Tooltip: FC<React.PropsWithChildren<ITooltipProps>> = (
-  {
-    children,
-    content,
-    placement = 'top-center',
-    color,
-    visible,
-    arrow = true,
-    trigger = 'hover',
-    zIndex,
-    onVisibleChange,
-    getPopupContainer = () => document.body,
-    style,
-  }
-) => {
+export const Tooltip: FC<React.PropsWithChildren<ITooltipProps>> = ({
+  children,
+  content,
+  placement = 'top-center',
+  color,
+  visible,
+  arrow = true,
+  trigger = 'hover',
+  zIndex,
+  onVisibleChange,
+  getPopupContainer = () => document.body,
+  style,
+}) => {
   const theme = useProviderTheme();
   const [isOver, hoverProps] = useHover();
   const [clickState, setClickState] = useState(false);
-  const isOpen = visible != null ? visible : ((trigger === 'hover' && isOver) || (trigger === 'click' && clickState));
+  const isOpen = visible != null ? visible : (trigger === 'hover' && isOver) || (trigger === 'click' && clickState);
   const { triggerProps, layerProps, arrowProps, renderLayer } = useLayer({
     isOpen,
     triggerOffset: 12,
     auto: true,
     placement: placement as Placement,
-    container: getPopupContainer
+    container: getPopupContainer,
   });
 
   useEffect(() => {
@@ -122,7 +123,7 @@ export const Tooltip: FC<React.PropsWithChildren<ITooltipProps>> = (
   let triggerEle;
   if (isReactText(children)) {
     triggerEle = (
-      <span className='tooltip-text-wrapper' {...triggerProps} {...hoverProps} onClick={() => setClickState(!clickState)}>
+      <span className="tooltip-text-wrapper" {...triggerProps} {...hoverProps} onClick={() => setClickState(!clickState)}>
         {children}
       </span>
     );
@@ -134,26 +135,21 @@ export const Tooltip: FC<React.PropsWithChildren<ITooltipProps>> = (
     });
   }
 
-  const tooltipBaseProps = { ...layerProps, style: { ...layerProps.style, zIndex, ...style }};
+  const tooltipBaseProps = { ...layerProps, style: { ...layerProps.style, zIndex, ...style } };
 
   return (
     <>
       {triggerEle}
       {isOpen &&
         renderLayer(
-          <TooltipBase className='tooltip' color={color || theme.color.textReverseDefault} {...tooltipBaseProps}>
-            <Typography variant='body4' color={color || theme.color.textReverseDefault}>{content}</Typography>
-            {arrow &&
-              <Arrow
-                {...arrowProps}
-                backgroundColor={style?.backgroundColor || theme.color.bgReverseDefault}
-                size={8}
-              />
-            }
+          <TooltipBase className="tooltip" color={color || theme.color.textReverseDefault} {...tooltipBaseProps}>
+            <Typography variant="body4" color={color || theme.color.textReverseDefault}>
+              {content}
+            </Typography>
+            {arrow && <Arrow {...arrowProps} backgroundColor={style?.backgroundColor || theme.color.bgReverseDefault} size={8} />}
           </TooltipBase>
         )}
       <GlobalStyle />
     </>
   );
 };
-

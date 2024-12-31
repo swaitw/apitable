@@ -16,21 +16,18 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import { I18nParser, I18nTranslation } from 'nestjs-i18n';
+import { supportedLanguages } from 'app.environment';
+import { I18nJsonLoader, I18nTranslation } from 'nestjs-i18n';
+import { util } from 'protobufjs';
+import { Observable } from 'rxjs';
+import global = util.global;
 
-export const DEFAULT_LANGUAGE = 'zh-CN';
-export const SUPPORTED_LANGUAGES = [DEFAULT_LANGUAGE, 'en-US'];
-
-export class I18nJsonParser extends I18nParser {
-  constructor() {
-    super();
+export class I18nJsonParser extends I18nJsonLoader {
+  override languages(): Promise<string[]> {
+    return Promise.resolve(supportedLanguages);
   }
 
-  languages(): Promise<string[]> {
-    return Promise.resolve(SUPPORTED_LANGUAGES);
-  }
-
-  parse(): Promise<I18nTranslation> {
+  override load(): Promise<I18nTranslation | Observable<I18nTranslation>> {
     return Promise.resolve(global['apitable_i18n']);
   }
 }

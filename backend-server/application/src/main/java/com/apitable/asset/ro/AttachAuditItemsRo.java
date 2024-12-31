@@ -18,37 +18,38 @@
 
 package com.apitable.asset.ro;
 
-import io.swagger.annotations.ApiModel;
-import io.swagger.annotations.ApiModelProperty;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
-
-import javax.validation.constraints.NotNull;
 
 /**
  * <p>
- * Image audit result request parameters
+ * Image audit result request parameters.
  * </p>
  */
 @Data
-@ApiModel("Image audit result request parameters")
+@Schema(description = "Image audit result request parameters")
 public class AttachAuditItemsRo {
 
 
-	@ApiModelProperty(value = "Operation instructions for processing file results", position = 1, required = true)
-	@NotNull(message = "Operation instructions for processing file results")
-	private String cmd;
+    @Schema(description = "Operation instructions for processing file results",
+        requiredMode = RequiredMode.REQUIRED)
+    @NotNull(message = "Operation instructions for processing file results")
+    private String cmd;
 
-	@ApiModelProperty(value = "Operation status code of processing file results", position = 2, required = true)
-	@NotNull(message = "Operation status code of processing file results")
-	private String code;
+    @Schema(description = "Operation status code of processing file results",
+        requiredMode = RequiredMode.REQUIRED)
+    @NotNull(message = "Operation status code of processing file results")
+    private String code;
 
-	@ApiModelProperty(value = "Operation description of processing file results", position = 2, required = true)
-	@NotNull(message = "Operation description of processing file results")
-	private String desc;
+    @Schema(description = "Operation description of processing file results",
+        requiredMode = RequiredMode.REQUIRED)
+    @NotNull(message = "Operation description of processing file results")
+    private String desc;
 
-	@ApiModelProperty(value = "Results of processing files", position = 3, required = true)
-	@NotNull(message = "Results of processing files")
-	private AttachAuditResultDisableRo result;
-
+    @Schema(description = "Results of processing files", requiredMode = RequiredMode.REQUIRED)
+    @NotNull(message = "Results of processing files")
+    private AttachAuditResultDisableRo result;
 
 }

@@ -17,31 +17,55 @@
  */
 
 import {
+  api,
+  IDashboardWidgetMap,
   IDatasheetFieldPermission,
   IFieldPermissionMap,
   IFieldPermissionRoleListData,
   INode,
-  INodeRoleMap,
   ISpaceInfo,
-  ISpacePermissionManage,
   IUnitValue,
   IUserInfo,
 } from '@apitable/core';
-import { ILoadOrSearchArg } from '@apitable/core/dist/modules/shared/api/api.interface';
 import { HttpService } from '@nestjs/axios';
-import { Injectable } from '@nestjs/common';
-import { InternalCreateDatasheetVo, InternalSpaceSubscriptionView, InternalSpaceUsageView, WidgetMap } from 'database/interfaces';
+import { Injectable, Logger } from '@nestjs/common';
+import { skipUsageVerification, skipApiUsageVerification } from 'app.environment';
+import {
+  InternalCreateDatasheetVo, InternalSpaceCreditUsageView,
+  InternalSpaceAutomationRunsMessageView,
+  InternalSpaceInfoVo,
+  InternalSpaceStatisticsRo,
+  InternalSpaceSubscriptionView,
+  InternalSpaceUsageView,
+} from 'database/interfaces';
 import { DatasheetCreateRo } from 'fusion/ros/datasheet.create.ro';
 import { AssetVo } from 'fusion/vos/attachment.vo';
 import { keyBy } from 'lodash';
 import { lastValueFrom } from 'rxjs';
-import { CommonStatusCode, InjectLogger } from 'shared/common';
-import { CommonException, PermissionException, ServerException } from 'shared/exception';
+import { CommonStatusCode } from 'shared/common';
+import { CommonException, ServerException } from 'shared/exception';
 import { HttpHelper } from 'shared/helpers';
-import { IAuthHeader, IHttpSuccessResponse, INotificationCreateRo, IOpAttachCiteRo, IUserBaseInfo, NodePermission } from 'shared/interfaces';
+import {
+  IApiUsage,
+  IAuthHeader,
+  IHttpSuccessResponse,
+  INotificationCreateRo,
+  IOpAttachCiteRo,
+  IUserBaseInfo,
+  NodePermission,
+  UserNodePermissionMap,
+} from 'shared/interfaces';
 import { IAssetDTO } from 'shared/services/rest/rest.interface';
 import { sprintf } from 'sprintf-js';
-import { Logger } from 'winston';
+import { responseCodeHandler } from './response.code.handler';
+import { Method } from 'axios';
+import { AttachmentTypeEnum } from '../../enums/attachment.enum';
+import fs from 'fs';
+import * as os from 'os';
+import { SUBSCRIBE_INFO } from '@apitable/core/dist/modules/space/api/url.space';
+const util = require('util');
+const stream = require('stream');
+const pipeline = util.promisify(stream.pipeline);
 
 /**
  * RestApi service
@@ -53,83 +77,87 @@ export class RestService {
   private SESSION = 'internal/user/session';
   private GET_WIDGET = 'widget/get';
   private GET_NODE_PERMISSION = 'internal/node/%(nodeId)s/permission';
+  private GET_USERS_NODE_PERMISSION = 'internal/nodes/%(nodeId)s/users/permissions';
   private GET_FIELD_PERMISSION = 'internal/node/%(nodeId)s/field/permission';
   private GET_MULTI_NODE_PERMISSION = 'internal/node/field/permission';
   private DEL_FIELD_PERMISSION = 'internal/datasheet/%(dstId)s/field/permission/disable';
   private SPACE_CAPACITY = 'internal/space/%(spaceId)s/capacity';
   private SPACE_USAGES = 'internal/space/%(spaceId)s/usages';
+  private SPACE_CREDIT_USAGES = 'internal/space/%(spaceId)s/credit/usages';
+  private SPACE_AUTOMATION_RUNS_MESSAGE = 'internal/space/%(spaceId)s/automation/run/message';
   private SPACE_SUBSCRIPTION = 'internal/space/%(spaceId)s/subscription';
   private CREATE_DATASHEET_API_URL = 'internal/spaces/%(spaceId)s/datasheets';
   private DELETE_NODE_API_URL = 'internal/spaces/%(spaceId)s/nodes/%(nodeId)s/delete';
   private API_USAGES = 'internal/space/%(spaceId)s/apiUsages';
-  private SPACE_RESOURCE = 'space/resource';
+  private API_RATE_LIMIT = 'internal/space/%(spaceId)s/apiRateLimit';
   private SPACE_LIST = 'space/list';
+  private NODE_LIST = 'internal/spaces/%(spaceId)s/nodes';
+  private NODE_CREATE = 'node/create';
   private NODE_TREE = 'node/tree';
   private NODE_DETAIL = 'node/get';
   private NODE_CHILDREN = 'node/children';
 
   // Get attachment asset
   private GET_UPLOAD_PRESIGNED_URL = 'internal/asset/upload/preSignedUrl';
+  private GET_UPLOAD_CALLBACK = 'asset/upload/callback';
   private GET_ASSET = 'internal/asset/get';
+  private GET_ASSET_SIGNATURES = 'internal/asset/signatures';
   // Calculate the references to datasheet OP attachments
   private DST_ATTACH_CITE = 'base/attach/cite';
-  private SUBSCRIBE_REMIND = 'internal/subscribe/remind';
   // Create notification
   private CREATE_NOTIFICATION = 'internal/notification/create';
   // List user infos with node permission
-  private LIST_NODE_ROLES = 'node/listRole?nodeId=%(nodeId)s';
   // List user infos with the given column permission
   private LIST_FIELD_ROLES = 'datasheet/%(dstId)s/field/%(fieldId)s/listRole';
   private UNIT_LOAD_OR_SEARCH = 'internal/org/loadOrSearch';
 
-  constructor(private readonly httpService: HttpService, @InjectLogger() private readonly logger: Logger) {
+  private SPACE_INFO = 'internal/space/%(spaceId)s';
+
+  private SPACE_STATISTICS = 'internal/space/%(spaceId)s/statistics';
+
+  private readonly logger = new Logger(RestService.name);
+
+  constructor(private readonly httpService: HttpService) {
     // Intercept request
     this.httpService.axiosRef.interceptors.request.use(
-      config => {
-        this.logger.info('Remote call address:' + config.url);
+      (config) => {
         config.headers!['X-Internal-Request'] = 'yes';
+        config.headers!['X-Request-Start-Time'] = new Date().toISOString();
         return config;
       },
-      error => {
+      (error) => {
         this.logger.error('Remote call failed', error);
         throw new ServerException(CommonException.SERVER_ERROR);
       },
     );
     this.httpService.axiosRef.interceptors.response.use(
-      res => {
+      (res) => {
+        const startTimeHeader = res.config.headers!['X-Request-Start-Time'];
+        if (startTimeHeader) {
+          const startTime = new Date(startTimeHeader);
+          const duration = new Date().getTime() - startTime.getTime();
+          // 在这里你可以记录或处理请求的耗时信息
+          this.logger.log(`RPC Request uri:${res.config.url}, took duration: ${duration}ms`);
+        }
         const restResponse = res.data as IHttpSuccessResponse<any>;
+        if(containSkipHeader(res.config.headers)) {
+          return res;
+        }
+        function containSkipHeader( headers: any) {
+          if (!headers) {
+            return false;
+          }
+          return headers['Skip-Interceptor'];
+        }
         if (!restResponse.success) {
-          this.logger.error(`Server request failed, error code:[${restResponse.code}], error:[${restResponse.message}]`);
-          // 403 not in this space
-          if (restResponse.code === 201 || restResponse.code === 403) {
-            throw new ServerException(CommonException.UNAUTHORIZED);
-          }
-          // node not exist
-          if (restResponse.code === 600) {
-            throw new ServerException(PermissionException.NODE_NOT_EXIST);
-          }
-          // access to node is denied
-          if (restResponse.code === 601) {
-            throw new ServerException(PermissionException.ACCESS_DENIED);
-          }
-          // operation on node is denied
-          if (restResponse.code === 602) {
-            throw new ServerException(PermissionException.OPERATION_DENIED);
-          }
-          if (restResponse.code === PermissionException.SPACE_NOT_EXIST.code) {
-            throw new ServerException(PermissionException.SPACE_NOT_EXIST);
-          }
-          if (restResponse.code === PermissionException.NO_ALLOW_OPERATE.code) {
-            throw new ServerException(PermissionException.NO_ALLOW_OPERATE);
-          }
-          throw new ServerException(CommonException.SERVER_ERROR);
+          this.logger.error(`Server request ${res.config.url} failed, error code:[${restResponse.code}], error:[${restResponse.message}]`);
+          responseCodeHandler(restResponse.code);
         }
         return restResponse;
       },
-      error => {
+      (error) => {
         // Request failed, may be network issue or HttpException
-        this.logger.error('Request failed, may be network issue or server issue.');
-        this.logger.error(error);
+        this.logger.error('Request failed, may be network issue or server issue', error);
         throw new ServerException(CommonException.SERVER_ERROR);
       },
     );
@@ -139,64 +167,67 @@ export class RestService {
    * Obtain user info of the current user in a given space, including basic info and member info in the space.
    */
   async getUserInfoBySpaceId(headers: IAuthHeader, spaceId: string): Promise<IUserInfo> {
-    const response = await this.httpService
-      .get(this.GET_USER_INFO, {
+    const response = await lastValueFrom(
+      this.httpService.get(this.GET_USER_INFO, {
         headers: HttpHelper.createAuthHeaders(headers),
         params: {
           spaceId,
         },
-      })
-      .toPromise();
-    if (this.logger.isDebugEnabled()) {
-      this.logger.debug(`Obtain self user info in a space : ${JSON.stringify(response!.data)}`);
-    }
+      }),
+    );
     return response!.data;
   }
 
   async fetchMe(headers: IAuthHeader): Promise<IUserBaseInfo> {
-    const response = await this.httpService
-      .get(this.GET_ME, {
+    const response = await lastValueFrom(
+      this.httpService.get(this.GET_ME, {
         headers: HttpHelper.createAuthHeaders(headers),
-      })
-      .toPromise();
-    if (this.logger.isDebugEnabled()) {
-      this.logger.debug(`Obtain self own info: ${JSON.stringify(response!.data)}`);
-    }
+      }),
+    );
     return response!.data;
   }
 
   async hasLogin(cookie: string): Promise<boolean> {
-    const response = await this.httpService
-      .get(this.SESSION, {
+    const response = await lastValueFrom(
+      this.httpService.get(this.SESSION, {
         headers: HttpHelper.createAuthHeaders({ cookie }),
-      })
-      .toPromise();
+      }),
+    );
     return response!.data;
   }
 
   async getNodePermission(headers: IAuthHeader, nodeId: string, shareId?: string): Promise<NodePermission> {
-    const response = await this.httpService
-      .get(sprintf(this.GET_NODE_PERMISSION, { nodeId }), {
+    const response = await lastValueFrom(
+      this.httpService.get(sprintf(this.GET_NODE_PERMISSION, { nodeId }), {
         headers: HttpHelper.createAuthHeaders(headers),
         params: { shareId },
-      })
-      .toPromise();
-    if (this.logger.isDebugEnabled()) {
-      this.logger.debug(`[${nodeId}] Obtain node permission: ${JSON.stringify(response!.data)}`);
-    }
+      }),
+    );
+    return response!.data;
+  }
+
+  async getUsersNodePermission(headers: IAuthHeader, nodeId: string, userIds: string[]): Promise<UserNodePermissionMap> {
+    const response = await lastValueFrom(
+      this.httpService.post(
+        sprintf(this.GET_USERS_NODE_PERMISSION, { nodeId }),
+        {
+          userIds,
+        },
+        {
+          headers: HttpHelper.createAuthHeaders(headers),
+        },
+      ),
+    );
     return response!.data;
   }
 
   async getFieldPermission(headers: IAuthHeader, nodeId: string, shareId?: string): Promise<IFieldPermissionMap> {
-    const response = await this.httpService
-      .get(sprintf(this.GET_FIELD_PERMISSION, { nodeId }), {
+    const response = await lastValueFrom(
+      this.httpService.get(sprintf(this.GET_FIELD_PERMISSION, { nodeId }), {
         headers: HttpHelper.createAuthHeaders(headers),
         params: { shareId, userId: headers.userId },
-      })
-      .toPromise();
-    if (this.logger.isDebugEnabled()) {
-      this.logger.debug(`[${nodeId}] Obtain field permission: ${JSON.stringify(response!.data)}`);
-    }
+      }),
+    );
     return response!.data?.fieldPermissionMap;
   }
 
@@ -214,38 +245,87 @@ export class RestService {
   }
 
   async delFieldPermission(headers: IAuthHeader, dstId: string, fieldIds: string[]) {
-    await this.httpService
-      .post(sprintf(this.DEL_FIELD_PERMISSION, { dstId }), null, {
+    await lastValueFrom(
+      this.httpService.post(sprintf(this.DEL_FIELD_PERMISSION, { dstId }), null, {
         headers: HttpHelper.createAuthHeaders(headers),
         params: { fieldIds: fieldIds.join(',') },
-      })
-      .toPromise();
+      }),
+    );
   }
 
   async capacityOverLimit(headers: IAuthHeader, spaceId: string): Promise<boolean> {
+    if (skipUsageVerification) {
+      this.logger.log(`skipCapacityOverLimit:${spaceId}`);
+      return false;
+    }
     const authHeaders = HttpHelper.createAuthHeaders(headers);
     // No headers, internal request does not relate to attachment field temporarily
     if (!authHeaders) {
       return false;
     }
     authHeaders['X-Space-Id'] = spaceId;
-    const response = await this.httpService
-      .get(sprintf(this.SPACE_CAPACITY, { spaceId }), {
+    const response = await lastValueFrom(
+      this.httpService.get(sprintf(this.SPACE_CAPACITY, { spaceId }), {
         headers: authHeaders,
-      })
-      .toPromise();
+      }),
+    );
     if (response!.data?.isAllowOverLimit) {
       return false;
     }
     return response!.data.currentBundleCapacity - response!.data.usedCapacity < 0;
   }
 
-  async getUploadPresignedUrl(headers: IAuthHeader, nodeId: string, count: number | undefined): Promise<AssetVo[]> {
+  async uploadFile(buffer: any, uploadUrl: string, uploadRequestMethod: string, fileSize: number) {
+    const r = await this.httpService.axiosRef.request({
+      method: uploadRequestMethod as Method,
+      url: uploadUrl,
+      baseURL: '',
+      data: buffer,
+      validateStatus: null,
+      headers: {
+        'Skip-Interceptor': 'true',
+        'Content-Length': fileSize.toString(),
+      },
+    });
+    return r.status;
+  }
+
+  async downloadFile(host: string, url: string, fileName: string) {
+    const response = await this.httpService.axiosRef.request(
+      {
+        url: host + '/' + url,
+        method: 'GET',
+        responseType: 'stream',
+        baseURL: host,
+        validateStatus: null,
+        headers: {
+          'Skip-Interceptor': 'true'
+        },
+      });
+    const filePath = `${os.tmpdir()}/${fileName}`; // Replace with the desired file path and name
+    const writer = fs.createWriteStream(filePath);
+    await pipeline(response.data, writer);
+    return filePath;
+  }
+
+  async getUploadPresignedUrl(headers: IAuthHeader, nodeId: string, count: number | undefined,
+    type: number = AttachmentTypeEnum.DATASHEET_ATTACH): Promise<AssetVo[]> {
     const response = await lastValueFrom(
       this.httpService.get(this.GET_UPLOAD_PRESIGNED_URL, {
         headers: HttpHelper.createAuthHeaders(headers),
-        params: { nodeId, count },
+        params: { nodeId, count, type },
       }),
+    );
+    return response.data;
+  }
+
+  async getUploadCallBack(headers: IAuthHeader, resourceKeys: string[], type: number): Promise<AssetVo[]> {
+    const response = await lastValueFrom(
+      this.httpService.post(this.GET_UPLOAD_CALLBACK, { resourceKeys, type },
+        {
+          headers: HttpHelper.createAuthHeaders(headers),
+        }
+      )
     );
     return response.data;
   }
@@ -259,31 +339,17 @@ export class RestService {
     return response.data;
   }
 
-  async checkSpacePermission(headers: IAuthHeader): Promise<boolean> {
-    const response = await this.httpService
-      .get(this.SPACE_RESOURCE, {
-        headers: HttpHelper.createAuthHeaders(headers),
-      })
-      .toPromise();
-    const data: ISpacePermissionManage = response!.data;
-    if (!data.spaceResource) {
-      return false;
-    }
-    const spacePermissions = data.spaceResource.permissions;
-    return spacePermissions && spacePermissions.includes('MANAGE_WORKBENCH');
-  }
-
-  async fetchWidget(headers: IAuthHeader, widgetIds: string | string[], linkId?: string): Promise<WidgetMap> {
-    const response = await this.httpService
-      .get(this.GET_WIDGET, {
+  async fetchWidget(headers: IAuthHeader, widgetIds: string | string[], linkId?: string): Promise<IDashboardWidgetMap> {
+    const response = await lastValueFrom(
+      this.httpService.get(this.GET_WIDGET, {
         headers: HttpHelper.createAuthHeaders(headers),
         params: {
           widgetIds,
           linkId,
-          userId: headers.userId
+          userId: headers.userId,
         },
-      })
-      .toPromise();
+      }),
+    );
     const data = response!.data;
     return keyBy(data, 'id');
   }
@@ -291,7 +357,7 @@ export class RestService {
   /**
    * Calculates the number of references of attachments in a datasheet
    *
-   * @param auth Authorization info
+   * @param _auth Authorization info
    * @param ro request parameters
    * @return
    * @author Zoe Zheng
@@ -309,7 +375,7 @@ export class RestService {
     const retryTimes = 1;
     for (let i = 0; i <= retryTimes; i++) {
       try {
-        const res: any = await this.httpService.post(this.DST_ATTACH_CITE, ro).toPromise();
+        const res: any = await lastValueFrom(this.httpService.post(this.DST_ATTACH_CITE, ro));
         // Successful response, quit retry
         if (res.code && res.code == CommonStatusCode.DEFAULT_SUCCESS_CODE) {
           break;
@@ -332,61 +398,132 @@ export class RestService {
    * @param headers Authorization info
    * @param spaceId space ID
    */
-  getApiUsage(headers: IAuthHeader, spaceId: string): Promise<any> {
-    return this.httpService
-      .get(sprintf(this.API_USAGES, { spaceId }), {
+  async getApiUsage(headers: IAuthHeader, spaceId: string): Promise<IApiUsage> {
+    if (skipUsageVerification) {
+      this.logger.log(`skipApiUsage:${spaceId}`);
+      return Promise.resolve({
+        isAllowOverLimit: true
+      });
+    }
+    if (skipApiUsageVerification) {
+      this.logger.log(`skipApiUsage:${spaceId}`);
+      return Promise.resolve({
+        isAllowOverLimit: true
+      });
+    }
+    const res = await lastValueFrom(
+      this.httpService.get(sprintf(this.API_USAGES, { spaceId }), {
         headers: HttpHelper.createAuthHeaders(headers),
-      })
-      .toPromise();
+      }),
+    );
+
+    return res.data;
+  }
+
+  /**
+   * Obtain the api qps info of the given space
+   *
+   * @param headers Authorization info
+   * @param spaceId space ID
+   */
+  async getApiRateLimit(headers: IAuthHeader, spaceId: string): Promise<any> {
+    const response = await lastValueFrom(
+      this.httpService.get(sprintf(this.API_RATE_LIMIT, { spaceId }), {
+        headers: HttpHelper.createAuthHeaders(headers),
+      }),
+    );
+    return response!.data;
   }
 
   async getSpaceList(headers: IAuthHeader): Promise<ISpaceInfo[]> {
-    const response = await this.httpService
-      .get(this.SPACE_LIST, {
+    const response = await lastValueFrom(
+      this.httpService.get(this.SPACE_LIST, {
         headers: HttpHelper.createAuthHeaders(headers),
-      })
-      .toPromise();
+      }),
+    );
     return response!.data;
+  }
+
+  async createNode(headers: IAuthHeader, spaceId: string, payload: any): Promise<INode> {
+    // create node
+    const res = await lastValueFrom(
+      this.httpService.post<INode>(this.NODE_CREATE, payload, {
+        headers: HttpHelper.withSpaceIdHeader(HttpHelper.createAuthHeaders(headers), spaceId),
+      })
+    );
+    return res.data;
   }
 
   async getNodeDetail(headers: IAuthHeader, nodeId: string, spaceId?: string): Promise<INode> {
     // node detail
-    const nodeInfo = await this.httpService
-      .get<INode>(this.NODE_DETAIL, {
+    const nodeInfo = await lastValueFrom(
+      this.httpService.get<INode>(this.NODE_DETAIL, {
         headers: HttpHelper.withSpaceIdHeader(HttpHelper.createAuthHeaders(headers), spaceId),
         params: {
           nodeIds: nodeId,
         },
-      })
-      .toPromise();
+      }),
+    );
 
     const res = nodeInfo!.data[0];
     // children nodes of a directory
     if (res.hasChildren) {
-      const nodeChildren = await this.httpService
-        .get<INode[]>(this.NODE_CHILDREN, {
+      const nodeChildren = await lastValueFrom(
+        this.httpService.get<INode[]>(this.NODE_CHILDREN, {
           headers: HttpHelper.withSpaceIdHeader(HttpHelper.createAuthHeaders(headers), spaceId),
           params: {
             nodeId,
           },
-        })
-        .toPromise();
+        }),
+      );
       res.children = nodeChildren!.data;
     }
     return res;
   }
 
+  async getNodesList(headers: IAuthHeader, spaceId: string, type: number, nodePermissions: number[], keyword?: string): Promise<INode[]> {
+    // Obtain node list
+    const url = sprintf(this.NODE_LIST, { spaceId });
+    const response = await lastValueFrom(
+      this.httpService.get<INode>(url, {
+        headers: HttpHelper.createAuthHeaders(headers),
+        params: {
+          type,
+          nodePermissions: nodePermissions.join(','),
+          keyword,
+        },
+      }),
+    );
+    return response!.data as any;
+  }
+
   async getNodeList(headers: IAuthHeader, spaceId: string): Promise<INode[] | undefined> {
     // Obtain node list
-    const response = await this.httpService
-      .get<INode>(this.NODE_TREE, {
+    const response = await lastValueFrom(
+      this.httpService.get<INode>(this.NODE_TREE, {
         headers: HttpHelper.withSpaceIdHeader(HttpHelper.createAuthHeaders(headers), spaceId),
         params: {
           depth: 1,
         },
-      })
-      .toPromise();
+      }),
+    );
     return response!.data.children;
+  }
+
+  /**
+   * Gets subscription information for the space.
+   *
+   * @param {string} cookie
+   * @param {string} spaceId
+   * @returns {Promise<any>}
+   */
+  async getSpaceSubscriptionInfo(cookie: string, spaceId: string): Promise<any> {
+    const response = await lastValueFrom(
+      this.httpService.get<any>(SUBSCRIBE_INFO + spaceId, {
+        headers: HttpHelper.withSpaceIdHeader(HttpHelper.createAuthHeaders({ cookie }), spaceId)
+      })
+    );
+    return response!.data;
   }
 
   /**
@@ -396,7 +533,24 @@ export class RestService {
    * @returns {Promise<InternalSpaceSubscriptionView>}
    */
   async getSpaceSubscription(spaceId: string): Promise<InternalSpaceSubscriptionView> {
-    const response = await this.httpService.get<InternalSpaceSubscriptionView>(sprintf(this.SPACE_SUBSCRIPTION, { spaceId })).toPromise();
+    if (skipUsageVerification) {
+      this.logger.log(`skipSpaceSubscription:${spaceId}`);
+      return {
+        maxRowsPerSheet: -1,
+        maxArchivedRowsPerSheet: -1,
+        maxRowsInSpace: -1,
+        maxGalleryViewsInSpace: -1,
+        maxKanbanViewsInSpace: -1,
+        maxGanttViewsInSpace: -1,
+        maxCalendarViewsInSpace: -1,
+        maxMessageCredits: 0,
+        maxWidgetNums: -1,
+        maxAutomationRunsNums: -1,
+        allowEmbed: true,
+        allowOrgApi: true,
+      };
+    }
+    const response = await lastValueFrom(this.httpService.get<InternalSpaceSubscriptionView>(sprintf(this.SPACE_SUBSCRIPTION, { spaceId })));
     return response!.data;
   }
 
@@ -407,85 +561,69 @@ export class RestService {
    * @returns {Promise<InternalSpaceUsageView>}
    */
   async getSpaceUsage(spaceId: string): Promise<InternalSpaceUsageView> {
-    const response = await this.httpService.get<InternalSpaceUsageView>(sprintf(this.SPACE_USAGES, { spaceId })).toPromise();
+    if (skipUsageVerification) {
+      this.logger.log(`skipSpaceUsage:${spaceId}`);
+      return {
+        recordNums: 0,
+        galleryViewNums: 0,
+        kanbanViewNums: 0,
+        ganttViewNums: 0,
+        calendarViewNums: 0,
+        usedCredit: 0,
+      };
+    }
+    const response = await lastValueFrom(this.httpService.get<InternalSpaceUsageView>(sprintf(this.SPACE_USAGES, { spaceId })));
+    return response!.data;
+  }
+
+  /**
+   * Obtain the credit usage of the space
+   * @param spaceId space id
+   */
+  async getSpaceCreditUsage(spaceId: string): Promise<InternalSpaceCreditUsageView> {
+    const response = await lastValueFrom(this.httpService.get<InternalSpaceCreditUsageView>(sprintf(this.SPACE_CREDIT_USAGES, { spaceId })));
+    return response!.data;
+  }
+
+  public async getSpaceAutomationRunsMessage(spaceId: string): Promise<InternalSpaceAutomationRunsMessageView> {
+    const response = await lastValueFrom(this.httpService.get<InternalSpaceAutomationRunsMessageView>(sprintf(this.SPACE_AUTOMATION_RUNS_MESSAGE, { spaceId })));
     return response!.data;
   }
 
   public async createDatasheet(spaceId: string, headers: IAuthHeader, creareDatasheetRo: DatasheetCreateRo): Promise<InternalCreateDatasheetVo> {
     const url = sprintf(this.CREATE_DATASHEET_API_URL, { spaceId });
-    const response = await this.httpService
-      .post<InternalCreateDatasheetVo>(url, creareDatasheetRo, {
+    const response = await lastValueFrom(
+      this.httpService.post<InternalCreateDatasheetVo>(url, creareDatasheetRo, {
         headers: HttpHelper.withSpaceIdHeader(HttpHelper.createAuthHeaders(headers)),
-      })
-      .toPromise();
+      }),
+    );
     return response!.data;
   }
 
   public async deleteNode(spaceId: string, datasheetId: string, headers: IAuthHeader): Promise<InternalCreateDatasheetVo> {
     const url = sprintf(this.DELETE_NODE_API_URL, { spaceId, nodeId: datasheetId });
-    const response = await this.httpService
-      .post<InternalCreateDatasheetVo>(
+    const response = await lastValueFrom(
+      this.httpService.post<InternalCreateDatasheetVo>(
         url,
         {},
         {
           headers: HttpHelper.withSpaceIdHeader(HttpHelper.createAuthHeaders(headers)),
         },
-      )
-      .toPromise();
+      ),
+    );
     return response!.data;
-  }
-
-  /**
-   *
-   * @param {IAuthHeader} headers
-   * @param {string} spaceId
-   * @param {string} nodeId
-   * @param {"space_record_limit" | "datasheet_record_limit" | "max_gallery_views_in_space" |
-   *  "max_kanban_views_in_space" | "space_gantt_limit" | "space_calendar_limit"} templateId
-   * @param {number} specification
-   * @param {number} usage
-   */
-  sendSubscribeRemind(
-    headers: IAuthHeader,
-    spaceId: string,
-    nodeId: string,
-    templateId:
-      | 'space_record_limit'
-      | 'datasheet_record_limit'
-      | 'max_gallery_views_in_space'
-      | 'max_kanban_views_in_space'
-      | 'space_gantt_limit'
-      | 'space_calendar_limit',
-    specification: number,
-    usage: number,
-  ) {
-    this.httpService
-      .post<any>(
-        this.SUBSCRIBE_REMIND,
-        {
-          nodeId,
-          spaceId,
-          specification: specification + '',
-          templateId,
-          usage: usage + '',
-        },
-        {
-          headers: HttpHelper.withSpaceIdHeader(HttpHelper.createAuthHeaders(headers)),
-        },
-      )
-      .toPromise();
   }
 
   /**
    * Create notification
    *
-   * @param auth token
+   * @param _auth token
    * @param ro notification parameters
    * @return boolean
    */
   async createNotification(_auth: IAuthHeader, ro: INotificationCreateRo[]) {
     try {
-      const res: any = await this.httpService.post(this.CREATE_NOTIFICATION, ro).toPromise();
+      const res: any = await lastValueFrom(this.httpService.post(this.CREATE_NOTIFICATION, ro));
       // Successful response, quit retry
       if (res.code && res.code == CommonStatusCode.DEFAULT_SUCCESS_CODE) {
         return true;
@@ -524,22 +662,6 @@ export class RestService {
   }
 
   /**
-   * Obtain the node rules of the given node
-   *
-   * @param {IAuthHeader} auth header
-   * @param {string} spaceId space ID
-   * @param {string} nodeId node ID
-   * @returns {Promise<INodeRoleMap>}
-   */
-  async getNodePermissionRoleList(auth: IAuthHeader, spaceId: string, nodeId: string): Promise<INodeRoleMap> {
-    const url = sprintf(this.LIST_NODE_ROLES, { nodeId });
-    const response = await this.httpService
-      .get(url, { headers: HttpHelper.withSpaceIdHeader(HttpHelper.createAuthHeaders(auth), spaceId) })
-      .toPromise();
-    return response!.data;
-  }
-
-  /**
    * Obtain the node rules of the given field
    *
    * @param {IAuthHeader} auth header
@@ -549,11 +671,11 @@ export class RestService {
    */
   async getFieldPermissionRoleList(auth: IAuthHeader, dstId: string, fieldId: string): Promise<IFieldPermissionRoleListData> {
     const url = sprintf(this.LIST_FIELD_ROLES, { dstId, fieldId });
-    const response = await this.httpService.get(url, { headers: HttpHelper.createAuthHeaders(auth) }).toPromise();
+    const response = await lastValueFrom(this.httpService.get(url, { headers: HttpHelper.createAuthHeaders(auth) }));
     return response!.data;
   }
 
-  async unitLoadOrSearch(auth: IAuthHeader, spaceId: string, params: ILoadOrSearchArg & { userId: string }): Promise<IUnitValue[]> {
+  async unitLoadOrSearch(auth: IAuthHeader, spaceId: string, params: api.ILoadOrSearchArg & { userId: string }): Promise<IUnitValue[]> {
     const response = await lastValueFrom(
       this.httpService.get(this.UNIT_LOAD_OR_SEARCH, {
         headers: HttpHelper.withSpaceIdHeader(HttpHelper.createAuthHeaders(auth), spaceId),
@@ -562,4 +684,26 @@ export class RestService {
     );
     return response.data;
   }
+
+  async getSpaceInfo(spaceId: string): Promise<InternalSpaceInfoVo> {
+    const response = await lastValueFrom(this.httpService.get(sprintf(this.SPACE_INFO, { spaceId })));
+    return response.data;
+  }
+
+  async updateSpaceStatistics(spaceId: string, ro: InternalSpaceStatisticsRo): Promise<void> {
+    await lastValueFrom(this.httpService.post(sprintf(this.SPACE_STATISTICS, { spaceId }), ro));
+  }
+
+  public async getSignatures(keys: string[]): Promise<Array<{ resourceKey: string; url: string }>> {
+    const queryParams = new URLSearchParams();
+    keys.forEach(key => queryParams.append('resourceKeys', key));
+
+    const url = `${this.GET_ASSET_SIGNATURES}?${queryParams.toString()}`;
+
+    const response = await lastValueFrom(
+      this.httpService.get<Array<{ resourceKey: string; url: string }>>(url),
+    );
+    return response.data;
+  }
+
 }

@@ -1,6 +1,6 @@
 <p align="center">
     <a href="https://apitable.com" target="_blank">
-        <img src="docs/static/cover.png" alt="適用可能なカバー画像" />
+        <img src="docs/static/cover.png" alt="APITable Cover Image" />
     </a>
 </p>
 
@@ -31,7 +31,7 @@
         <img src="https://img.shields.io/badge/LICENSE-AGPL--3.0-ff69b4" alt="APITable License Badge AGPL" />
     </a>
     <!-- Discord -->
-    <a target="_blank" href="https://discord.gg/TwNb9nfdBU">
+    <a target="_blank" href="https://discord.gg/zYWYTHXR4f">
         <img src="https://img.shields.io/discord/1016320471010115666?label=discord&logo=discord&style=social" />
     </a>
     <!-- Twitter -->
@@ -42,43 +42,46 @@
     <a target="_blank" href="https://github.com/apitable/apitable/actions/workflows/build.yaml">
         <img src="https://github.com/apitable/apitable/actions/workflows/build.yaml/badge.svg" />
     </a>
+    <!-- Better Uptime-->
+    <a target="_blank" href="https://apitable.betteruptime.com/">
+        <img src="https://betteruptime.com/status-badges/v1/monitor/a1a9.svg" />
+    </a>
 </p>
 
 <p align="center">
-  English
+  <a href="../../../README.md">English</a>
   | 
-  <a href="docs/readme/fr-FR/README.md">Français</a>
+  <a href="../fr-FR/README.md">Français</a>
   | 
-  <a href="docs/readme/es-ES/README.md">Español</a>
+  <a href="../es-ES/README.md">Español</a>
   | 
-  <a href="docs/readme/de-DE/README.md">Deutsch</a>
+  <a href="../de-DE/README.md">Deutsch</a>
   | 
-  <a href="docs/readme/zh-CN/README.md">简体中文</a>
+  <a href="../zh-CN/README.md">简体中文</a>
   | 
-  <a href="docs/readme/zh-HK/README.md">繁體中文</a>
+  <a href="../zh-HK/README.md">繁體中文</a>
   | 
-  <a href="docs/readme/ja-JP/README.md">日本語</a>
+  日本語
 </p>
 
-## ✨ クイックスタート
+## クイックスタート
 
-> APITableは現在 `作業中`です。
-> 
-> 最初のリリースは2023年1月下旬に公開されます。
-> 
-> [Discord](https://discord.gg/TwNb9nfdBU) や [Twitter](https://twitter.com/apitable_com) に参加して連絡を取り合いましょう。<!-- If you just want try out APITable\[^info], using our hosted version at [apitable.com\](https://apitable.com). -->APITable[^info]を試してみたい場合は、 [⚡Gitpod Online Demo](https://gitpod.io/#https://github.com/apitable/apitable) をクリックしてください。
+APITable[^info]を試してみたい場合は、 [apitable.com](https://apitable.com) でクラウドホストのバージョンを使用してください。
 
-ローカルまたはクラウドコンピューティング環境にAPITableをインストールしたい場合は、 [💾 インストール](#installation) を参照してください。
+この APITable オープンソースプロジェクトをデモしたい場合は、こちらをクリックしてください [⚡Gitpod Online Demo](https://gitpod.io/#https://github.com/apitable/apitable).
+
+ローカルまたはクラウドコンピューティング環境に APITable をインストールしたい場合は、 [💾 インストール](#インストール) を参照してください。
 
 ローカルの開発環境を設定したい場合は、 [🧑<unk> 💻 開発者ガイド](./docs/contribute/developer-guide.md) をご覧ください。
 
-## 🔥 機能
+[Discord](https://discord.gg/TwNb9nfdBU) や [Twitter](https://twitter.com/apitable_com) に参加して連絡を取り合いましょう。
+## 🔥 特徴
 
 <table>
   
   <tr>
     <th>
-      <a href="#">リアルタイムでのコラボレーション</a>
+      <a href="#">リアルタイムコラボレーション</a>
     </th>
     <th>
       <a href="#">自動フォーム</a>
@@ -101,10 +104,10 @@
 
   <tr>
     <th>
-      <a href="#">API第1パネル</a>
+      <a href="#">API ファーストパネル</a>
     </th>
     <th>
-      <a href="#">無制限のクロステーブルリンク</a>
+      <a href="#">無制限のテーブル間リンク</a>
     </th>
 </tr>
 
@@ -123,10 +126,10 @@
 
  <tr>
     <th>
-      <a href="#">強力な行/列の権限</a>
+      <a href="#">強力な行/列の権限管理</a>
     </th>
     <th>
-      <a href="#">埋め込み</a>
+      <a href="#">Embed</a>
     </th>
   </tr>
 
@@ -145,25 +148,25 @@
 
 </table>
 
-APITableは、個人から企業まで、さまざまな素晴らしい機能を提供します。
+APITable は、個人から企業まで幅広い機能を提供します。
 
-- 高度なテクノロジースタックとオープンソース
-  - `リアルタイムコラボレーション` では、複数のユーザーがリアルタイムで、または `運用変換(OT)` アルゴリズムと同時に編集することができます。
+- 高度な技術スタックとオープンソース
+  - リアルタイムコラボレーションにより、複数のユーザーが同時に編集したり、Operational Transformation (OT) アルゴリズムで同時に編集したりできます。
   - `<canvas> レンダリングエンジン` で、非常にスムーズで使いやすく、超高速なデータベース表計算インターフェイス。
-  - データベースネイティブアーキテクチャ:Changeset / Operation / Action / Snapshotなど。
-  - **リアルタイムのコラボレーションによる100k+** データ行。
+  - データベースネイティブアーキテクチャ: Changeset / Operation / Action / Snapshotなど。
+  - **リアルタイムのコラボレーションによる 100k+** データ行。
   - `データ` から `メタデータ` まで、フルスタック API アクセス。
   - 一方向/双方向テーブルリンクと `無限クロスリンク`
-  - コミュニティに優しいプログラミング言語とフレームワーク, TypeScript ([NextJS](https://nextjs.org/) + [NestJS](https://nestjs.com/)) and Java ([Spring Boot](https://spring.io/projects/spring-boot))
-- 美しくリッチなデータベース表計算用UI
+  - コミュニティに優しいプログラミング言語とフレームワーク, TypeScript ([NextJS](https://nextjs.org/) + [NestJS](https://nestjs.com/)) そして Java ([Spring Boot](https://spring.io/projects/spring-boot))
+- 美しくリッチなデータベース表計算用 UI
   - `CRUD`: 作成、読み込み、更新、テーブル、列、行の削除
   - `フィールド操作`: ソート、フィルター、グループ化、非表示/非表示、高さ設定。
   - `Space based`: アプリ/ベース構造の代わりに、分離されたワークスペースを使用し、テーブルを無制限にリンクできるようにします。
   - `ダークモード` とテーマのカスタマイズが可能です。
   - `7 種類のビュータイプ`: グリッドビュー (データシート) / ギャラリービュー / マインドマップビュー / カンバンビュー / フル機能 ガントビュー / カレンダー ビュー
-  - ワンクリックAPIパネル
+  - ワンクリック API パネル
 - バッテリーが付属しています
-  - 10以上の公式テンプレートを内蔵しています。
+  - 10 以上の公式テンプレートを内蔵しています。
   - ロボットの自動化と利用可能なカスタマイズ。
   - BI ダッシュボード
   - ワンクリック自動生成フォーム
@@ -195,41 +198,41 @@ APITableは、個人から企業まで、さまざまな素晴らしい機能を
 
 ## 💥 ユース・ケース
 
-次のソフトウェアでAPITableを知る必要があるのはなぜですか?
+次のソフトウェアで APITable を知る必要があるのはなぜですか?
 
 - スーパーマネージメントソフトウェアとして
   - 柔軟なプロジェクト管理 & タスク/課題管理
   - マーケティングリード管理
-  - 最も柔軟で接続可能なCRM。
+  - 最も柔軟で接続可能な CRM。
   - 柔軟なビジネスインテリジェンス(BI)。
   - 人気のフォームと調査
-  - 柔軟なERP。
+  - 柔軟な ERP。
   - ローコードとノーコードプラットフォーム。
   - ...その他、APITable はあなたのポケットに 1000 ソフトウェアを入れています。
 - 視覚データベースのインフラストラクチャとして
-  - **ご自身のソフトウェアUIに** APITableを埋め込む。
+  - **ご自身のソフトウェア UI に** APITable を埋め込む。
   - REST API を使用したビジュアルデータベース。
   - 管理ダッシュボード
   - 中央の構成管理
-  - すべてのソフトウェアを **** 接続するオールインワンエンタープライズデータベース
-  - ...その他、APITableはすべてを接続します。
+  - **すべての** ソフトウェアを接続するオールインワンエンタープライズデータベース
+  - ...その他、APITable はすべてを接続します。
 - また、オープンソースで拡張可能
 
-## 💞 API 指定
+## 💞 API 指向
 
-#### API UI Panel
+#### API UI パネル
 
 右隅にある `API` ボタンをクリックすると、API パネル が表示されます。
 
-#### SQL-like query
+#### SQL に似たクエリ
 
-APITableは、データベースのスプレッドシートの内容を照会するためのDatasheet Query Language(DQL)を提供します。
+APITable は、データベースのスプレッドシートの内容を照会するための Datasheet Query Language(DQL) を提供します。
 
 ## 💝 フレンドリーな
 
 #### 共有して埋め込み
 
-データシートのテーブルまたはフォルダを共有します。 HTMLスクリプトをコピーして貼り付けることで埋め込みます。
+データシートのテーブルまたはフォルダを共有します。 HTML スクリプトをコピーして貼り付けることで埋め込みます。
 
 #### エンタープライズ対応の埋め込み
 
@@ -237,38 +240,67 @@ APITableは、データベースのスプレッドシートの内容を照会す
 
 ## インストール
 
-ローカルに `docker` & `curl` がインストールされていることを確認してください。
+始める前に:
+* Dockerとdocker-compose v2がインストールされたホストが必要です。
+* 推奨されるCPU数は4つ以上、RAMは8GB以上です。
+* curlなどの基本的なユーティリティが備わったbashシェルが必要です。
+* arm64 (apple silicon) のコンテナイメージはまだ準備ができておらず、パフォーマンスが低下する可能性があります。
 
-Docker Machineがインストールされている場合は、ターミナルを開いて以下を実行してください。
+Docker Composeを使用してapitableをインストールするには、ターミナルを開いて、以下を実行してください:
 
 ```
 curl https://apitable.github.io/install.sh | bash
 ```
 
-ブラウザで [https://localhost:80](https://localhost:80) を開きます。 (デフォルトのユーザー名 `admin@apitable.com` とパスワード `Apitable2022`)
+ブラウザで [http://localhost:80](http://localhost:80) を開きます。
+
+また、 [pm2](https://pm2.keymetrics.io/) をベースにしたオールインワンの画像をデモやテスト用に提供しています(企業や本番での使用には推奨されません)。
+
+```bash
+sudo docker run -d -v ${PWD}/.data:/apitable -p 80:80 --name apitable apitable/all-in-one:latest
+```
+
+環境によっては、すべてのサービスが開始されるまでに数分かかる場合があります。 この画像は amd64 (x86_64) のみで、arm64 や appleシリコンでかなりパフォーマンスが悪くなることがあります。
 
 ローカルの開発環境を設定したい場合は、 [🧑<unk> 💻 開発者ガイド](./docs/contribute/developer-guide.md) をご覧ください。
 
-## 🧑<unk> 💻 コントリビュート
+## 🧑‍💻 Contributing
 
 APITableに貢献していただき、ありがとうございます！
 
 コードを書く以外にも、貢献できる方法はたくさんあります。
 
+以下の方法で貢献することができます：
+- [Crowdin 翻訳プロジェクト](https://crowdin.com/project/apitablecode/invite?h=f48bc26f9eb188dcd92d5eb4a66f2c1f1555185)に参加し、翻訳を修正する
+- [Issues](https://github.com/apitable/apitable/issues/new/choose) を作成する
+- [Twitter](https://twitter.com/apitable_com) をフォロー
+- [ドキュメント](./docs) を作成する
+- [コードを貢献する](./docs/contribute/developer-guide.md)
+
+
+以下のようになります。
+- [Crowdin 翻訳プロジェクト](https://crowdin.com/project/apitablecom/invite?h=4a985ea532a01d973acc03f2f1c960951693577)に参加する
+- [Issues](https://github.com/apitable/apitable/issues/new/choose) を作成する
+- [Twitter](https://twitter.com/apitable_com) をフォロー
+- [ドキュメント](./docs) を作成する
+- [コードの貢献](./docs/contribute/developer-guide.md)
+
+
 このリポジトリの [コントリビューションガイドライン](./CONTRIBUTING.md) を読んで、コントリビューションの方法を学ぶことができます。
 
-APITableに貢献するためのクイックガイドはこちらです。
+APITable に貢献するためのクイックガイドはこちらです。
+
 
 ### 開発環境
 
-ローカル環境の設定方法については、 [開発者ガイド](./docs/contribute/developer-guide.md) をご覧ください。
+ローカルの開発環境を設定したい場合は、 [ 開発者ガイド](./docs/contribute/developer-guide.md) をご覧ください。
 
 ### Git ワークフロー 基本
 
 一般的な APITable git ワークフローは次のとおりです。
 
 1. 課題を作成し、必要な機能を記述してください -> [APITableの問題](https://github.com/apitable/apitable/issues)
-2. Fork this project -> [Fork APITable project](https://github.com/apitable/apitable/fork)
+2. このプロジェクトをフォーク -> [Fork APITable project](https://github.com/apitable/apitable/fork)
 3. フィーチャーブランチを作成する (`git checkout -b my-new-feature`)
 4. 変更をコミットする (`git commit -am '機能を追加'`)
 5. ブランチを公開する (`git push origin my-new-feature`)
@@ -276,9 +308,9 @@ APITableに貢献するためのクイックガイドはこちらです。
 
 ### 作業条件
 
-これらの一般的な規約を使用できます。
+APITable では、以下の共通規約を使用しています:
 
-- Gitのブランチモデルは何ですか？ [Gitflow](https://nvie.com/posts/a-successful-git-branching-model/)
+- Git のブランチモデルは何ですか？ [Gitflow](https://nvie.com/posts/a-successful-git-branching-model/)
 - フォークプロジェクトでコラボレーションする方法は? [Github Flow](https://docs.github.com/en/get-started/quickstart/github-flow)
 - 良いコミットメッセージを書く方法は? [従来のコミット](https://www.conventionalcommits.org/)
 - 更新履歴のフォーマットは何ですか? [変更履歴を保持](https://keepachangelog.com/en/1.0.0/)
@@ -291,10 +323,13 @@ APITableに貢献するためのクイックガイドはこちらです。
 - [ヘルプセンター](https://help.apitable.com/)
 - [👩‍💻 開発者センター](https://developers.apitable.com/)
   - [<unk> REST API ドキュメント](https://developers.apitable.com/api/introduction/)
-  - ウィジェット SDK (近日公開予定...)
-  - スクリプト (近日公開...)
+  - [ウィジェットSDK](https://developers.apitable.com/widget/introduction/)
+  - [Scripting Widget](https://developers.apitable.com/script/introduction/)
+- [Design System](https://figma.com/@apitable)
 
 ## 🛣 Roadmap
+
+[APITableのロードマップ](https://apitable.com/roadmap)を参照してください
 
 ### 今後の機能
 
@@ -302,6 +337,7 @@ APITableに貢献するためのクイックガイドはこちらです。
 - 埋め込み可能なサードパーティ製ドキュメントコンポーネント
 - SQLのようなドメイン固有の言語
 - IdPとして
+- 高度な自動化ロボット
 - Web 3の機能
 - ...
 
@@ -312,16 +348,17 @@ APITableに貢献するためのクイックガイドはこちらです。
 - シングルサインオン
 - Audit
 - データベースバックアップ
+- ChatGPT、Zapier、Slack、Google Workspaceなどに統合します。
 - ウォーターマーク
 
-詳細については、 <support@apitable.com> までご連絡ください。
+エンタープライズセルフホストライセンスを含む弊社製品の詳細については、<support@apitable.com> または[デモの予約](https://apitable.com/share/shrdaGGppsfg3pjQLXALG?fldy5ZmHYGZx2=salesteam@apitable.com)までお問い合わせください。
 
 ## 👫 参加する
 
 ### 🌏 なぜAPITableでオープンソースを作るのですか?
 
 - 我々は、 `データベースがすべてのソフトウェアの礎石` であると信じています。
-- We believe that making a `Visual Database with rich and easy user interface for everyone` can reduce the difficulty of software industry and increase the world's digitalization adoption.
+- 私たちは、誰でも使いやすく豊富なユーザーインターフェースを持つ `ビジュアルデータベースを作ることが`、ソフトウェア産業の難しさを軽減し、世界のデジタル化の採用を増やすことにつながると信じています。
 - 私たちは、オープンソーシング `APITable` が `Push Human Beings Forward`を行うことができると信じています。
 
 ### 私たちはリモートで雇用しています!
@@ -330,9 +367,9 @@ APITableに貢献するためのクイックガイドはこちらです。
 
 - **Full-stack 開発者**: React, NestJS, TypeScript, Spring Boot, Java, Terraformの経験があります。 そして、明確なドキュメントと単体テストで高品質のコードを書くのが好きです。
 - **バックエンド開発者**: NestJS, TypeScript, Spring Boot, Java, SQL, Kubernetes, Terraformの経験があります。 そして、明確なドキュメントと単体テストで高品質のコードを書くのが好きです。
-- **フロントエンド開発者**: React, NextJS, TypeScript, WebPackの経験があります。 そして、明確なドキュメントと単体テストで高品質のコードを書くのが好きです。
+- **フロントエンド開発者**: React, NextJS, TypeScript, WebPackの経験があります。 And you like to write high quality code with clear documentation and unit tests.
 
-Regardless of time and conditions, if you want to get involved to the team of APITable, do not hesitate and send your CV to <talent@apitable.com>.
+時間や状況に関係なく、APITableのチームに参加したい場合は、ためらわずに履歴書を talent@apitable.com に送信してください。
 
 ## 📺 スクリーンショット
 
@@ -364,7 +401,7 @@ Regardless of time and conditions, if you want to get involved to the team of AP
     <img src="docs/static/screenshot-it.png" alt="APITableスクリーンショット画像" />
 </p>
 <p align="center">
-    <img src="docs/static/screenshot-sales.png" alt="APITableスクリーンショット画像" />
+    <img src="docs/static/screenshot-sales.png" alt="APITable Screenshot Image" />
 </p>
 
 ## 🥰 ライセンス
@@ -375,7 +412,7 @@ Regardless of time and conditions, if you want to get involved to the team of AP
 > 
 > 詳細は [ライセンス](./LICENSING.md) を参照してください。
 > 
-> If you want to use APITable online then you don't need to run this code, we offer a hosted version of the app at [APITable.com](https://apitable.com) which optimized for global accelerator.
+> もしオンラインでAPITableを使用したい場合は、このコードを実行する必要はありません。 私たちは、グローバルアクセラレータに最適化されたアプリのホスティングサービス「APITable.com」を提供しています。
 
 <br/>
 

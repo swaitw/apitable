@@ -19,7 +19,7 @@
 import { IJsonSchema } from '@apitable/core';
 import { IUiSchema } from '../actions/interface/base.action';
 
-export interface ActionTypeDetailVo {
+export interface IActionTypeDetailVo {
   actionTypeId: string,
   name: string,
   description: string,
@@ -29,7 +29,8 @@ export interface ActionTypeDetailVo {
   service: {
     serviceId: string,
     name: string,
-    logo: string,
+    logo?: string,
+    themeLogo: { light: string, dark?: string },
     slug: string
   }
 }

@@ -17,29 +17,18 @@
  */
 
 import { SelectValue } from 'antd/lib/select';
-import { useThemeColors } from '@apitable/components';
+import classNames from 'classnames';
 import { useCallback, useState } from 'react';
 import * as React from 'react';
-import ArrowIcon from 'static/icon/common/common_icon_pulldown_line.svg';
-import IconChecked from 'static/icon/common/common_icon_select.svg';
-import styles from './style.module.less';
+import { useThemeColors } from '@apitable/components';
 import { Strings, t } from '@apitable/core';
-import classNames from 'classnames';
+import { CheckOutlined, ChevronDownOutlined } from '@apitable/icons';
 import { Popup } from '../mobile/popup';
 import { IMobileSelectProps } from './interface';
+import styles from './style.module.less';
 
-const MobileSelectBase: React.FC<React.PropsWithChildren<IMobileSelectProps>> = props => {
-  const {
-    optionData,
-    triggerComponent,
-    onClose,
-    title,
-    renderList,
-    defaultValue,
-    onChange: _onChange,
-    className,
-    style
-  } = props;
+const MobileSelectBase: React.FC<React.PropsWithChildren<IMobileSelectProps>> = (props) => {
+  const { optionData, triggerComponent, onClose, title, renderList, defaultValue, onChange: _onChange, className, style, disabled } = props;
   const colors = useThemeColors();
   const onChange = useCallback(
     (value: SelectValue, options?: any) => {
@@ -58,29 +47,23 @@ const MobileSelectBase: React.FC<React.PropsWithChildren<IMobileSelectProps>> = 
     <>
       {!hasOuterTrigger && (
         <div
-          className={classNames(styles.trigger, className)}
-          onClick={() => setVisible(true)}
+          className={classNames(styles.trigger, className, { [styles.disabled]: disabled })}
+          onClick={() => !disabled && setVisible(true)}
           style={style}
         >
-          <span>{optionData?.find(item => item.value === defaultValue)?.label}</span>
-          <ArrowIcon
-            className={styles.arrow}
-            width={16}
-            height={16}
-            fill={colors.fourthLevelText}
-          />
+          <span>{optionData?.find((item) => item.value === defaultValue)?.label}</span>
+          <ChevronDownOutlined className={styles.arrow} size={16} color={colors.fourthLevelText} />
         </div>
       )}
       {hasOuterTrigger && (
         <div
-          className={classNames('outerTrigger', styles.outerTrigger)}
-          onClick={() => setVisible(true)}
+          className={classNames('outerTrigger', styles.outerTrigger, { [styles.disabled]: disabled })}
+          onClick={() => !disabled && setVisible(true)}
         >
           {triggerComponent}
         </div>
       )}
-      {
-        visible &&
+      {visible && (
         <Popup
           open={visible}
           title={title || t(Strings.please_choose)}
@@ -89,13 +72,13 @@ const MobileSelectBase: React.FC<React.PropsWithChildren<IMobileSelectProps>> = 
             setVisible(false);
             onClose?.();
           }}
-          className={styles.optionsListMenu}
+          className={classNames(styles.optionsListMenu, styles.mobileSelect)}
         >
           <div className={styles.optionsListWrapper}>
-            {
-              renderList ? renderList({ setVisible }) : (
-                optionData?.length ? optionData.map(item => {
-
+            {renderList
+              ? renderList({ setVisible })
+              : optionData?.length
+                ? optionData.map((item) => {
                   const selectedVal = selectedValue || defaultValue;
                   const isChecked = item.value === selectedVal;
 
@@ -117,21 +100,21 @@ const MobileSelectBase: React.FC<React.PropsWithChildren<IMobileSelectProps>> = 
                     >
                       <div className={styles.fieldItem}>
                         {item.prefixIcon}
-                        <span className={styles.fieldName}>
-                          {item.label}
-                        </span>
+                        <span className={styles.fieldName}>{item.label}</span>
                         {item.suffixIcon}
                       </div>
-                      {isChecked && <IconChecked fill={colors.primaryColor} style={{ marginRight: 8 }} />}
+                      {isChecked && (
+                        <span style={{ marginRight: 8 }}>
+                          <CheckOutlined color={colors.primaryColor} />
+                        </span>
+                      )}
                     </div>
                   );
-                }
-                ) : t(Strings.no_option)
-              )
-            }
+                })
+                : t(Strings.no_option)}
           </div>
         </Popup>
-      }
+      )}
     </>
   );
 };

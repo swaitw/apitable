@@ -18,12 +18,10 @@
 
 package com.apitable.shared.config;
 
-import java.time.Duration;
-import java.util.Locale;
-
 import com.apitable.shared.config.properties.ConstProperties;
 import com.apitable.shared.config.properties.CookieProperties;
-
+import java.time.Duration;
+import java.util.Locale;
 import org.springframework.boot.autoconfigure.session.DefaultCookieSerializerCustomizer;
 import org.springframework.boot.autoconfigure.session.SessionProperties;
 import org.springframework.context.annotation.Bean;
@@ -33,7 +31,7 @@ import org.springframework.web.servlet.i18n.CookieLocaleResolver;
 
 /**
  * <p>
- * session cookie config
+ * session cookie config.
  * </p>
  *
  * @author Shawn Deng
@@ -47,12 +45,25 @@ public class SessionCookieConfig {
 
     private final SessionProperties sessionProperties;
 
-    public SessionCookieConfig(ConstProperties constProperties, CookieProperties cookieProperties, SessionProperties sessionProperties) {
+    /**
+     * construct.
+     *
+     * @param constProperties   const properties
+     * @param cookieProperties  cookies properties
+     * @param sessionProperties session properties
+     */
+    public SessionCookieConfig(ConstProperties constProperties, CookieProperties cookieProperties,
+                               SessionProperties sessionProperties) {
         this.constProperties = constProperties;
         this.cookieProperties = cookieProperties;
         this.sessionProperties = sessionProperties;
     }
 
+    /**
+     * init cookies serializer customizer.
+     *
+     * @return CookieSerializerCustomizer
+     */
     @Bean
     public DefaultCookieSerializerCustomizer customizer() {
         return cookieSerializer -> {
@@ -62,10 +73,14 @@ public class SessionCookieConfig {
                 cookieSerializer.setCookieName(cookieName);
             }
             cookieSerializer.setDomainName(cookieProperties.getDomainName());
-            cookieSerializer.setUseHttpOnlyCookie(true);
+            cookieSerializer.setUseHttpOnlyCookie(cookieProperties.getHttpOnly());
             cookieSerializer.setUseSecureCookie(cookieProperties.getSecure());
             // SamSite set null，old browser not support，default Lax
-            cookieSerializer.setSameSite(null);
+            if (cookieProperties.getSameSite() != null) {
+                cookieSerializer.setSameSite(cookieProperties.getSameSite().attributeValue());
+            } else {
+                cookieSerializer.setSameSite(null);
+            }
             Duration timeout = sessionProperties.getTimeout();
             if (timeout != null) {
                 cookieSerializer.setCookieMaxAge((int) timeout.getSeconds());
@@ -73,16 +88,21 @@ public class SessionCookieConfig {
         };
     }
 
+    /**
+     * locale resolver bean.
+     *
+     * @return LocaleResolver
+     */
     @Bean
     public LocaleResolver localeResolver() {
         // cache locale using cookies
-        CookieLocaleResolver localeResolver = new CookieLocaleResolver();
+        CookieLocaleResolver localeResolver =
+            new CookieLocaleResolver(cookieProperties.getI18nCookieName());
         localeResolver.setDefaultLocale(Locale.forLanguageTag(constProperties.getLanguageTag()));
-        localeResolver.setCookieName(cookieProperties.getI18nCookieName());
         localeResolver.setCookieDomain(cookieProperties.getDomainName());
         Duration timeout = sessionProperties.getTimeout();
         if (timeout != null) {
-            localeResolver.setCookieMaxAge((int) timeout.getSeconds());
+            localeResolver.setCookieMaxAge(Duration.ofSeconds(timeout.getSeconds()));
         }
         return localeResolver;
     }

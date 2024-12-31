@@ -16,91 +16,139 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+import { shallowEqual } from 'react-redux';
 import {
-  Api, ConfigConstant, INodesMapItem, IOptNode, IReduxState, IUpdateRoleData, Navigation, ResourceIdPrefix, ResourceType, Selectors, StatusCode,
-  StoreActions, Strings, t,
+  Api,
+  ConfigConstant,
+  IAxiosResponse,
+  INode,
+  INodesMapItem,
+  IOptNode,
+  IReduxState,
+  IUpdateRoleData,
+  Navigation,
+  ResourceIdPrefix,
+  ResourceType,
+  Selectors,
+  StatusCode,
+  StoreActions,
+  Strings,
+  t,
 } from '@apitable/core';
-import { Message } from 'pc/components/common';
+import { Message } from 'pc/components/common/message/message';
 import { Router } from 'pc/components/route_manager/router';
 import { useAppDispatch } from 'pc/hooks/use_app_dispatch';
 import { resourceService } from 'pc/resource_service';
-import { shallowEqual, useSelector } from 'react-redux';
+import { useAppSelector } from 'pc/store/react-redux';
 // @ts-ignore
-import { SubscribeUsageTipType, triggerUsageAlert } from 'enterprise';
+import { SubscribeUsageTipType, triggerUsageAlert } from 'enterprise/billing/trigger_usage_alert';
 
 export const useCatalogTreeRequest = () => {
   const dispatch = useAppDispatch();
-  const {
-    spaceId,
-    formId,
-    datasheetId,
-    dashboardId,
-    mirrorId,
-    embedId
-  } = useSelector((state: IReduxState) => {
+  const { spaceId, formId, datasheetId, dashboardId, mirrorId, embedId } = useAppSelector((state: IReduxState) => {
     const spaceId = state.space.activeId;
-    const { datasheetId, formId, dashboardId, mirrorId, embedId } = state.pageParams;
+    const { datasheetId, formId, automationId, dashboardId, mirrorId, embedId } = state.pageParams;
     return {
+      automationId,
       spaceId,
       formId,
       datasheetId,
       dashboardId,
       mirrorId,
-      embedId
+      embedId,
     };
   }, shallowEqual);
-  const activedNodeId = useSelector(state => Selectors.getNodeId(state));
-  const treeNodesMap = useSelector((state: IReduxState) => state.catalogTree.treeNodesMap);
-  const expandedKeys = useSelector((state: IReduxState) => state.catalogTree.expandedKeys);
-  const spaceInfo = useSelector(state => state.space.curSpaceInfo)!;
+  const activedNodeId = useAppSelector((state) => Selectors.getNodeId(state));
+  const treeNodesMap = useAppSelector((state: IReduxState) => state.catalogTree.treeNodesMap);
+  const favoriteTreeNodeIds = useAppSelector((state: IReduxState) => state.catalogTree.favoriteTreeNodeIds);
+  const privateTreeNodesMap = useAppSelector((state: IReduxState) => state.catalogTree.privateTreeNodesMap);
+  const expandedKeys = useAppSelector((state: IReduxState) => state.catalogTree.expandedKeys);
+  const spaceInfo = useAppSelector((state) => state.space.curSpaceInfo)!;
+  const userUnitId = useAppSelector((state) => state.user.info?.unitId);
 
   const checkNodeNumberLimit = (nodeType: ConfigConstant.NodeType) => {
     // First check that the total number of nodes is as required
     // Folders are not the type of node that needs to be counted
     if (nodeType !== ConfigConstant.NodeType.FOLDER) {
-      const result1 = triggerUsageAlert?.('maxSheetNums', { usage: spaceInfo!.sheetNums + 1, alwaysAlert: true }, SubscribeUsageTipType.Alert);
+      const result1 = triggerUsageAlert?.(
+        'maxSheetNums',
+        {
+          usage: spaceInfo!.sheetNums + 1,
+          alwaysAlert: true,
+        },
+        SubscribeUsageTipType.Alert,
+      );
       if (result1) {
         return true;
       }
     }
     if (nodeType === ConfigConstant.NodeType.FORM) {
       // Next, check that the number of forms or mirrors meets the requirements according to the node type
-      const result1 = triggerUsageAlert?.('maxFormViewsInSpace',
-        { usage: spaceInfo!.formViewNums + 1, alwaysAlert: true }, SubscribeUsageTipType.Alert);
+      const result1 = triggerUsageAlert?.(
+        'maxFormViewsInSpace',
+        { usage: spaceInfo!.formViewNums + 1, alwaysAlert: true },
+        SubscribeUsageTipType.Alert,
+      );
       if (result1) {
         return true;
       }
     }
     if (nodeType === ConfigConstant.NodeType.MIRROR) {
       // Next, check that the number of forms or mirrors meets the requirements according to the node type
-      const result1 = triggerUsageAlert?.('maxMirrorNums',
-        { usage: spaceInfo!.mirrorNums + 1, alwaysAlert: true }, SubscribeUsageTipType.Alert);
+      const result1 = triggerUsageAlert?.('maxMirrorNums', { usage: spaceInfo!.mirrorNums + 1, alwaysAlert: true }, SubscribeUsageTipType.Alert);
       if (result1) {
         return true;
       }
     }
+    // if (nodeType === ConfigConstant.NodeType.AI) {
+    //   // Next, check that the number of forms or mirrors meets the requirements according to the node type
+    //   const result1 = triggerUsageAlert?.('maxSeats',
+    //     { usage: spaceInfo!.seats + 1, alwaysAlert: true }, SubscribeUsageTipType.Alert);
+    //   if (result1) {
+    //     return true;
+    //   }
+    // }
     return false;
   };
 
   /**
    * Add Node
-   * @param parentId 
+   * @param parentId
    * @param type Node Type(datasheet Folders)
    * @param nodeName Optional
    * @param preNodeId Optional
+   * @param extra
+   * @param unitId
    */
-  const addNodeReq = (parentId: string, type: number, nodeName?: string, preNodeId?: string, extra?: { [key: string]: any }) => {
+  const addNodeReq = (
+    parentId: string,
+    type: ConfigConstant.NodeType,
+    nodeName?: string,
+    preNodeId?: string,
+    extra?: {
+      [key: string]: any;
+    },
+    unitId?: string,
+  ) => {
     const result = checkNodeNumberLimit(type);
     if (result) {
       return Promise.resolve();
     }
-    return Api.addNode({ parentId, type, nodeName, preNodeId, extra }).then(res => {
+
+    return Api.addNode({
+      parentId,
+      type,
+      nodeName,
+      preNodeId,
+      extra,
+      unitId,
+    }).then((res: IAxiosResponse) => {
       const { data, code, success } = res.data;
       if (success) {
         const node: INodesMapItem = { ...data, children: [] };
-        dispatch(StoreActions.addNode(node));
+        dispatch(StoreActions.addNode(node, Boolean(unitId) ? ConfigConstant.Modules.PRIVATE : undefined));
         dispatch(StoreActions.getSpaceInfo(spaceId || '', true));
-        Router.push(Navigation.WORKBENCH, { params: { spaceId, nodeId: data.nodeId }});
+        Router.push(Navigation.WORKBENCH, { params: { spaceId, nodeId: data.nodeId } });
       } else {
         if (code === StatusCode.NODE_NOT_EXIST) {
           return;
@@ -112,14 +160,15 @@ export const useCatalogTreeRequest = () => {
 
   /**
    * Delete Node
-   * Note: Consider that if the node being deleted is a folder (and in the case of a working directory that is loaded), 
+   * Note: Consider that if the node being deleted is a folder (and in the case of a working directory that is loaded),
    * its child node may be an asterisk.
    * So at this point the child nodes that are starred are deleted.
-   * @param nodeId Node ID to be deleted
+   * @param optNode
    */
   const deleteNodeReq = (optNode: IOptNode) => {
-    const { nodeId } = optNode;
-    return Api.delNode(nodeId).then(res => {
+    const { nodeId, module } = optNode;
+    const nodeMaps = module === ConfigConstant.Modules.PRIVATE ? privateTreeNodesMap : treeNodesMap;
+    return Api.delNode(nodeId).then((res) => {
       if (res.data.success) {
         // Remove engine after successful deletion
         if (nodeId.startsWith(ResourceIdPrefix.Datasheet)) {
@@ -127,25 +176,25 @@ export const useCatalogTreeRequest = () => {
           resourceService.instance?.reset(nodeId);
         }
         dispatch(StoreActions.getSpaceInfo(spaceId || '', true));
-        updateNextNode(nodeId);
-        const tree = treeNodesMap[nodeId];
+        updateNextNode(nodeId, module);
+        const tree = nodeMaps[nodeId];
         if (!tree) {
           return;
         }
         // Determine if the deleted node contains the currently active node
-        const hasChildren = activedNodeId === nodeId || (activedNodeId && isFindNodeInTree(tree, activedNodeId));
+        const hasChildren = activedNodeId === nodeId || (activedNodeId && isFindNodeInTree(tree, activedNodeId, module));
         dispatch(StoreActions.deleteNode(optNode));
         if (hasChildren) {
           dispatch(StoreActions.updateUserInfo({ activeNodeId: '', activeViewId: '' }));
           Api.keepTabbar({});
-          Router.push(Navigation.WORKBENCH, { params: { spaceId }});
+          Router.push(Navigation.WORKBENCH, { params: { spaceId } });
         }
-        if (treeNodesMap[nodeId].type === ConfigConstant.NodeType.DATASHEET) {
+        if (nodeMaps[nodeId].type === ConfigConstant.NodeType.DATASHEET) {
           dispatch(StoreActions.datasheetErrorCode(nodeId!, StatusCode.NODE_DELETED));
           if (activedNodeId === nodeId) {
-            Api.keepTabbar({}).then(res => {
+            Api.keepTabbar({}).then((res) => {
               if (res.data.success) {
-                Router.push(Navigation.SPACE, { params: { spaceId }});
+                Router.push(Navigation.WORKBENCH, { params: { spaceId } });
               }
             });
             return;
@@ -159,19 +208,21 @@ export const useCatalogTreeRequest = () => {
 
   /**
    * Copy nodes
-   * @param nodeId 
-   * @param copyAll 
+   * @param nodeId
+   * @param copyAll
+   * @param module
    */
-  const copyNodeReq = (nodeId: string, copyAll = true) => {
-    const result = checkNodeNumberLimit(treeNodesMap[nodeId].type);
+  const copyNodeReq = (nodeId: string, copyAll = true, module?: ConfigConstant.Modules) => {
+    const nodesMap = module === ConfigConstant.Modules.PRIVATE ? privateTreeNodesMap : treeNodesMap;
+    const result = checkNodeNumberLimit(nodesMap[nodeId].type);
     if (result) {
       return Promise.resolve();
     }
-    return Api.copyNode(nodeId, copyAll).then(res => {
+    return Api.copyNode(nodeId, copyAll).then((res) => {
       const { data, success, message } = res.data;
       if (success) {
-        dispatch(StoreActions.addNodeToMap([data]));
-        Router.push(Navigation.WORKBENCH, { params: { spaceId, nodeId: data.nodeId }});
+        dispatch(StoreActions.addNodeToMap([data], undefined, module));
+        Router.push(Navigation.WORKBENCH, { params: { spaceId, nodeId: data.nodeId } });
         dispatch(StoreActions.getSpaceInfo(spaceId || '', true));
         return;
       }
@@ -181,24 +232,25 @@ export const useCatalogTreeRequest = () => {
 
   /**
    * Update Nodes
-   * @param nodeId 
-   * @param data 
+   * @param nodeId
+   * @param data
    */
   const updateNodeReq = (
     nodeId: string,
     data: {
-      nodeName?: string,
-      icon?: string,
-      cover?: string,
-      showRecordHistory?: ConfigConstant.ShowRecordHistory
+      nodeName?: string;
+      icon?: string;
+      cover?: string;
+      showRecordHistory?: ConfigConstant.ShowRecordHistory;
+      embedPage?: { url: string };
     },
   ) => {
-    return Api.editNode(nodeId, data).then(res => {
-      const { success, data } = res.data;
+    return Api.editNode(nodeId, data).then((res) => {
+      const { success, data, message } = res.data;
       if (success) {
         return data;
       }
-      return null;
+      throw new Error(message);
     });
   };
 
@@ -210,26 +262,24 @@ export const useCatalogTreeRequest = () => {
 
   /**
    * Modify node name
-   * @param nodeId 
-   * @param nodeName 
+   * @param nodeId
+   * @param nodeName
+   * @param module
    */
-  const renameNodeReq = (nodeId: string, nodeName: string) => {
-    return Api.editNode(nodeId, { nodeName }).then(res => {
+  const renameNodeReq = (nodeId: string, nodeName: string, module?: ConfigConstant.Modules) => {
+    const nodesMap = module === ConfigConstant.Modules.PRIVATE ? privateTreeNodesMap : treeNodesMap;
+    return Api.editNode(nodeId, { nodeName }).then((res) => {
       const { success, message } = res.data;
       if (success) {
-        dispatch(StoreActions.setNodeName(nodeId, nodeName));
-        const nodeType = treeNodesMap[nodeId].type;
+        dispatch(StoreActions.setNodeName(nodeId, nodeName, module));
+        const nodeType = nodesMap[nodeId].type;
         if (formId) {
           dispatch(StoreActions.updateForm(nodeId, { name: nodeName }));
         }
         if ([ConfigConstant.NodeType.DASHBOARD, ConfigConstant.NodeType.DATASHEET, ConfigConstant.NodeType.MIRROR].includes(nodeType)) {
-          dispatch(StoreActions.updateResourceName(
-            nodeName,
-            nodeId,
-            nodeRefResourceMap[nodeType],
-          ));
+          dispatch(StoreActions.updateResourceName(nodeName, nodeId, nodeRefResourceMap[nodeType]));
         }
-        dispatch(StoreActions.setEditNodeId(''));
+        dispatch(StoreActions.setEditNodeId('', module));
         dispatch(StoreActions.setEditNodeId('', ConfigConstant.Modules.FAVORITE));
       } else {
         dispatch(StoreActions.setErr(message));
@@ -238,7 +288,7 @@ export const useCatalogTreeRequest = () => {
   };
 
   const updateNodeIconReq = (nodeId: string, type: ConfigConstant.NodeType, icon: string) => {
-    return Api.editNode(nodeId, { icon }).then(res => {
+    return Api.editNode(nodeId, { icon }).then((res) => {
       const { success, message } = res.data;
       if (success) {
         dispatch(StoreActions.updateNodeInfo(nodeId, type, { icon }));
@@ -250,14 +300,16 @@ export const useCatalogTreeRequest = () => {
 
   // The receiving socket updates the history status of the corresponding table in redux
   const updateNodeRecordHistoryReq = (nodeId: string, type: ConfigConstant.NodeType, showRecordHistory: ConfigConstant.ShowRecordHistory) => {
-    return Api.editNode(nodeId, { showRecordHistory }).then(res => {
+    return Api.editNode(nodeId, { showRecordHistory }).then((res) => {
       const { success, message } = res.data;
       if (success) {
-        dispatch(StoreActions.updateNodeInfo(nodeId, type, {
-          extra: {
-            showRecordHistory: showRecordHistory === ConfigConstant.ShowRecordHistory.OPEN,
-          },
-        }));
+        dispatch(
+          StoreActions.updateNodeInfo(nodeId, type, {
+            extra: {
+              showRecordHistory: showRecordHistory === ConfigConstant.ShowRecordHistory.OPEN,
+            },
+          }),
+        );
       } else {
         Message.error({ content: message });
       }
@@ -269,7 +321,7 @@ export const useCatalogTreeRequest = () => {
    * @param nodeId
    */
   const getChildNodeListReq = (nodeId: string) => {
-    return Api.getChildNodeList(nodeId).then(res => {
+    return Api.getChildNodeList(nodeId).then((res) => {
       const { success, data } = res.data;
       if (success) {
         return data;
@@ -281,10 +333,27 @@ export const useCatalogTreeRequest = () => {
   /**
    * Search for sub-departments and members under a department
    * @param teamId
+   * @param linkId
    */
   const getSubUnitListReq = (teamId?: string, linkId?: string) => {
-    if(embedId) linkId = undefined;
-    return Api.getSubUnitList(teamId, linkId).then(res => {
+    if (embedId) linkId = undefined;
+    return Api.getSubUnitList(teamId, linkId).then((res) => {
+      const { success, data } = res.data;
+      if (success) {
+        return data;
+      }
+      return null;
+    });
+  };
+
+  const getOrgYachGroupListReq = (pageNo: number, groupName?: string) => {
+    return Api.getOrgYachGroupList({
+      pageObjectParams: {
+        pageSize: 100,
+        pageNo
+      },
+      groupName
+    }).then((res) => {
       const { success, data } = res.data;
       if (success) {
         return data;
@@ -295,13 +364,13 @@ export const useCatalogTreeRequest = () => {
 
   /**
    * Get node roles list
-   * @param nodeId 
+   * @param nodeId
+   * @param includeAdmin
+   * @param includeExtend
+   * @param includeSelf
    */
-  const getNodeRoleListReq = (
-    nodeId: string, includeAdmin?: boolean,
-    includeExtend?: boolean, includeSelf?: string,
-  ) => {
-    return Api.listRole(nodeId, includeAdmin, includeExtend, includeSelf).then(res => {
+  const getNodeRoleListReq = (nodeId: string, includeAdmin?: boolean, includeExtend?: boolean, includeSelf?: string) => {
+    return Api.listRole(nodeId, includeAdmin, includeExtend, includeSelf).then((res) => {
       const { success, code, data } = res.data;
       if (success) {
         return data;
@@ -317,9 +386,10 @@ export const useCatalogTreeRequest = () => {
   /**
    * Search Organizational Resources
    * @param keyword Keyword (label/sector)
+   * @param linkId
    */
   const searchUnitReq = (keyword: string, linkId?: string) => {
-    return Api.searchUnit(keyword, linkId).then(res => {
+    return Api.searchUnit(keyword, linkId).then((res) => {
       const { success, data } = res.data;
       if (success) {
         return data;
@@ -333,7 +403,7 @@ export const useCatalogTreeRequest = () => {
    * @param data
    */
   const updateRoleReq = (data: IUpdateRoleData) => {
-    return Api.updateRole(data).then(res => {
+    return Api.updateRole(data).then((res) => {
       const { success } = res.data;
       if (success) {
         Message.success({ content: t(Strings.permission_change_success) });
@@ -347,7 +417,7 @@ export const useCatalogTreeRequest = () => {
    * Get a list of organizational units to which members belong
    */
   const getUnitsByMemberReq = () => {
-    return Api.getUnitsByMember().then(res => {
+    return Api.getUnitsByMember().then((res) => {
       const { success, data } = res.data;
       if (success) {
         return data;
@@ -362,7 +432,7 @@ export const useCatalogTreeRequest = () => {
    * @param shareId
    */
   const getNodeShowcaseReq = (nodeId: string, shareId?: string) => {
-    return Api.nodeShowcase(nodeId, shareId).then(res => {
+    return Api.nodeShowcase(nodeId, shareId).then((res) => {
       const { success, data } = res.data;
       if (success) {
         return data;
@@ -373,11 +443,11 @@ export const useCatalogTreeRequest = () => {
 
   /**
    * Update node description
-   * @param nodeId 
-   * @param desc 
+   * @param nodeId
+   * @param desc
    */
   const updateNodeDescriptionReq = (nodeId: string, desc: string) => {
-    return Api.changeNodeDesc(nodeId, desc).then(res => {
+    return Api.changeNodeDesc(nodeId, desc).then((res) => {
       const { success } = res.data;
       if (success) {
         return true;
@@ -392,8 +462,8 @@ export const useCatalogTreeRequest = () => {
   /**
    * Get a directory tree (template)
    */
-  const getNodeTreeReq = (depth?: number) => {
-    return Api.getNodeTree(depth).then(res => {
+  const getNodeTreeReq = (unitType: number, depth?: number) => {
+    return Api.getNodeTree(unitType, depth).then((res) => {
       const { success, data } = res.data;
       if (success) {
         return data;
@@ -404,19 +474,23 @@ export const useCatalogTreeRequest = () => {
 
   /**
    * Get location node data
-   * @param nodeId 
+   * @param nodeId
    */
   const getPositionNodeReq = (nodeId: string) => {
-    return Api.positionNode(nodeId).then(res => {
+    return Api.positionNode(nodeId).then((res) => {
       const { success, data } = res.data;
       if (success) {
         if (data) {
-          dispatch(StoreActions.addNodeToMap(Selectors.flatNodeTree([data]), false));
-          dispatch(StoreActions.collectionNodeAndExpand(nodeId));
+          const nodeTree = Selectors.flatNodeTree([data]);
+          const nodePrivate = nodeTree.some((node) => node.nodeId === nodeId && node.nodePrivate);
+          const _module = nodePrivate ? ConfigConstant.Modules.PRIVATE : undefined;
+          dispatch(StoreActions.addNodeToMap(nodeTree, false, _module));
+          dispatch(StoreActions.collectionNodeAndExpand(nodeId, _module));
+          return { nodePrivate };
         }
-        return true;
+        return { nodePrivate: false };
       }
-      return false;
+      return null;
     });
   };
 
@@ -425,7 +499,7 @@ export const useCatalogTreeRequest = () => {
    * @param nodeId
    */
   const getShareSettingsReq = (nodeId: string) => {
-    return Api.getShareSettings(nodeId).then(res => {
+    return Api.getShareSettings(nodeId).then((res) => {
       const { data, success, message } = res.data;
       if (success) {
         return data;
@@ -442,24 +516,36 @@ export const useCatalogTreeRequest = () => {
    * @param nodeId
    * @param targetNodeId
    * @param pos -1: indicates moving above the target node; 0: indicates moving inside the target node; 1: indicates moving below the target node
+   * @param module
    */
-  const nodeMoveReq = (nodeId: string, targetNodeId: string, pos: number) => {
-    const parentId = pos === 0 ? targetNodeId : treeNodesMap[targetNodeId].parentId;
+  const nodeMoveReq = (nodeId: string, targetNodeId: string, pos: number, module?: ConfigConstant.Modules) => {
+    const nodeMaps = module === ConfigConstant.Modules.PRIVATE ? privateTreeNodesMap : treeNodesMap;
+    const parentId = pos === 0 ? targetNodeId : nodeMaps[targetNodeId].parentId;
     let preNodeId;
     if (pos !== 0) {
-      preNodeId = pos === -1 ? treeNodesMap[targetNodeId].preNodeId : targetNodeId;
+      preNodeId = pos === -1 ? nodeMaps[targetNodeId].preNodeId : targetNodeId;
     }
-    const targetNode = treeNodesMap[targetNodeId];
-    return Api.nodeMove(nodeId, parentId, preNodeId).then(res => {
+    const targetNode = nodeMaps[targetNodeId];
+    const _unitId = module === ConfigConstant.Modules.PRIVATE ? userUnitId : undefined;
+    return Api.nodeMove(nodeId, parentId, preNodeId, _unitId).then((res) => {
       const { success, data, message } = res.data;
       if (success) {
-        if (pos === 0 && targetNode.type === ConfigConstant.NodeType.FOLDER &&
-          !expandedKeys.includes(targetNodeId) && targetNode.hasChildren && !targetNode.children.length) {
-          (dispatch(StoreActions.deleteNodeAction({ parentId: treeNodesMap[nodeId].parentId, nodeId })));
+        if (
+          pos === 0 &&
+          targetNode.type === ConfigConstant.NodeType.FOLDER &&
+          !expandedKeys.includes(targetNodeId) &&
+          targetNode.hasChildren &&
+          !targetNode.children.length
+        ) {
+          dispatch(StoreActions.deleteNodeAction({
+            parentId: nodeMaps[nodeId].parentId,
+            nodeId,
+            module,
+          }));
           return;
         }
-        dispatch(StoreActions.moveTo(nodeId, targetNodeId, pos));
-        dispatch(StoreActions.addNodeToMap(data));
+        dispatch(StoreActions.moveTo(nodeId, targetNodeId, pos, module));
+        dispatch(StoreActions.addNodeToMap(data, undefined, module));
       } else {
         dispatch(StoreActions.setErr(message));
       }
@@ -467,7 +553,7 @@ export const useCatalogTreeRequest = () => {
   };
 
   const shareSettingsReq = (nodeId: string) => {
-    return Api.getShareSettings(nodeId).then(res => {
+    return Api.getShareSettings(nodeId).then((res) => {
       const { success, data } = res.data;
       if (success) {
         return data;
@@ -479,16 +565,18 @@ export const useCatalogTreeRequest = () => {
 
   /**
    * Retrieves whether a node exists in the tree
-   * @param tree 
+   * @param tree
    * @param nodeId
+   * @param module
    */
-  function isFindNodeInTree(tree: INodesMapItem, nodeId: string): boolean {
-    return tree.children.some(id => {
+  function isFindNodeInTree(tree: INodesMapItem, nodeId: string, module?: ConfigConstant.Modules): boolean {
+    const nodeMaps = module === ConfigConstant.Modules.PRIVATE ? privateTreeNodesMap : treeNodesMap;
+    return tree.children.some((id) => {
       if (id === nodeId) {
         return true;
       }
-      if (treeNodesMap[id].children.length) {
-        return isFindNodeInTree(treeNodesMap[id], nodeId);
+      if (nodeMaps[id].children.length) {
+        return isFindNodeInTree(nodeMaps[id], nodeId, module);
       }
       return false;
     });
@@ -496,12 +584,17 @@ export const useCatalogTreeRequest = () => {
 
   // Get starred list
   const getFavoriteNodeListReq = () => {
-    return Api.getFavoriteNodeList().then(res => {
+    return Api.getFavoriteNodeList().then((res) => {
       const { data, success, message } = res.data;
       if (success) {
+        // multi level tree node need cache primary data
+        data.forEach((node: INode) => {
+          const flatTreeData = Selectors.flatNodeTree([node]);
+          dispatch(StoreActions.addNodeToMap(flatTreeData, true, node.nodePrivate ? ConfigConstant.Modules.PRIVATE : undefined));
+        });
         dispatch(StoreActions.generateFavoriteTree(Selectors.flatNodeTree(data)));
         dispatch(StoreActions.setTreeLoading(false, ConfigConstant.Modules.FAVORITE));
-        return;
+        return data;
       }
       dispatch(StoreActions.setTreeLoading(false, ConfigConstant.Modules.FAVORITE));
       Message.error({ content: message });
@@ -509,18 +602,19 @@ export const useCatalogTreeRequest = () => {
   };
 
   // Set starred/unstarred
-  const updateNodeFavoriteStatusReq = (nodeId: string) => {
-    const oldStatus = treeNodesMap[nodeId].nodeFavorite;
-    return Api.updateNodeFavoriteStatus(nodeId).then(res => {
+  const updateNodeFavoriteStatusReq = (nodeId: string, nodePrivate?: boolean) => {
+    const nodesMap = nodePrivate ? privateTreeNodesMap : treeNodesMap;
+    const oldStatus = nodesMap[nodeId].nodeFavorite || favoriteTreeNodeIds.includes(nodeId);
+    return Api.updateNodeFavoriteStatus(nodeId).then((res) => {
       const { success } = res.data;
-      const node = treeNodesMap[nodeId];
+      const node = nodesMap[nodeId];
       if (!success) {
         Message.error({ content: t(Strings.add_or_cancel_favorite_fail) });
         return;
       }
       // If the starred status was previously true, the request was to cancel the starred operation.
       if (oldStatus) {
-        dispatch(StoreActions.removeFavorite(nodeId));
+        dispatch(StoreActions.removeFavorite(nodeId, nodePrivate));
         Message.success({ content: t(Strings.cancel_favorite_success) });
         return;
       }
@@ -535,7 +629,7 @@ export const useCatalogTreeRequest = () => {
   };
 
   const moveFavoriteNodeReq = (nodeId: string, preNodeId?: string) => {
-    return Api.moveFavoriteNode(nodeId, preNodeId).then(res => {
+    return Api.moveFavoriteNode(nodeId, preNodeId).then((res) => {
       const { success } = res.data;
       if (!success) {
         Message.warning({ content: t(Strings.move_favorite_node_fail) });
@@ -546,16 +640,17 @@ export const useCatalogTreeRequest = () => {
     });
   };
 
-  const updateNextNode = (nodeId: string) => {
-    const nextNode = Object.values(treeNodesMap).find(node => node.preNodeId === nodeId);
+  const updateNextNode = (nodeId: string, module?: ConfigConstant.Modules) => {
+    const nodeMaps = module === ConfigConstant.Modules.PRIVATE ? privateTreeNodesMap : treeNodesMap;
+    const nextNode = Object.values(nodeMaps).find((node) => node.preNodeId === nodeId);
     if (nextNode) {
-      dispatch(StoreActions.updateTreeNodesMap(nextNode.nodeId, { preNodeId: treeNodesMap[nodeId].preNodeId }));
+      dispatch(StoreActions.updateTreeNodesMap(nextNode.nodeId, { preNodeId: nodeMaps[nodeId].preNodeId }, module));
     }
   };
 
-  const getTreeDataReq = () => {
+  const getTreeDataReq = (unitType?: number) => {
     dispatch(StoreActions.setTreeLoading(true));
-    return Api.getNodeTree().then(res => {
+    return Api.getNodeTree(unitType).then((res) => {
       const { data, success } = res.data;
       dispatch(StoreActions.setTreeLoading(false));
       if (success) {
@@ -571,8 +666,25 @@ export const useCatalogTreeRequest = () => {
     });
   };
 
+  const getPrivateTreeDataReq = () => {
+    dispatch(StoreActions.setTreeLoading(true, ConfigConstant.Modules.PRIVATE));
+    return Api.getNodeTree(3).then((res) => {
+      const { data, success } = res.data;
+      dispatch(StoreActions.setTreeLoading(false, ConfigConstant.Modules.PRIVATE));
+      if (success) {
+        if (data) {
+          const flatTreeData = Selectors.flatNodeTree([data]);
+          dispatch(StoreActions.addNodeToMap(flatTreeData, true, ConfigConstant.Modules.PRIVATE));
+          dispatch(StoreActions.setPrivateTreeRootId(data.nodeId));
+        }
+        return data;
+      }
+      Message.error({ content: t(Strings.load_tree_failed) });
+    });
+  };
+
   const disableShareReq = (nodeId: string) => {
-    return Api.disableShare(nodeId).then(res => {
+    return Api.disableShare(nodeId).then((res) => {
       const { success } = res.data;
       if (success) {
         return true;
@@ -582,12 +694,63 @@ export const useCatalogTreeRequest = () => {
     });
   };
 
+  const getCollaboratorListPageReq = (pageNo: number, nodeId: string) => {
+    const pageObjectParams = {
+      pageSize: ConfigConstant.MEMBER_LIST_PAGE_SIZE,
+    };
+    return Api.getCollaboratorListPage(JSON.stringify({ ...pageObjectParams, pageNo }), nodeId).then((res) => {
+      const { success, data, message } = res.data;
+      if (success) {
+        return data;
+      }
+      Message.error({ content: message });
+    });
+  };
+
+  const getFieldPermissionMemberListPage = (dstId: string, fieldId: string, pageNo: number) => {
+    const pageObjectParams = {
+      pageSize: ConfigConstant.MEMBER_LIST_PAGE_SIZE,
+    };
+    return Api.getFieldPermissionPageMemberList(dstId, fieldId, JSON.stringify({ ...pageObjectParams, pageNo })).then((res) => {
+      const { success, data, message } = res.data;
+      if (success) {
+        return data;
+      }
+      Message.error({ content: message });
+    });
+  };
+
   return {
-    addNodeReq, deleteNodeReq, copyNodeReq, getChildNodeListReq, getSubUnitListReq,
-    getNodeRoleListReq, searchUnitReq, updateRoleReq, getUnitsByMemberReq,
-    getNodeShowcaseReq, updateNodeReq, updateNodeDescriptionReq, getNodeTreeReq,
-    getPositionNodeReq, getShareSettingsReq, nodeMoveReq, shareSettingsReq,
-    getFavoriteNodeListReq, updateNodeFavoriteStatusReq, moveFavoriteNodeReq, updateNextNode, getTreeDataReq,
-    renameNodeReq, updateNodeIconReq, updateNodeRecordHistoryReq, disableShareReq,
+    checkNodeNumberLimit,
+    addNodeReq,
+    deleteNodeReq,
+    copyNodeReq,
+    getChildNodeListReq,
+    getSubUnitListReq,
+    getOrgYachGroupListReq,
+    getNodeRoleListReq,
+    searchUnitReq,
+    updateRoleReq,
+    getUnitsByMemberReq,
+    getNodeShowcaseReq,
+    updateNodeReq,
+    updateNodeDescriptionReq,
+    getNodeTreeReq,
+    getPositionNodeReq,
+    getShareSettingsReq,
+    nodeMoveReq,
+    shareSettingsReq,
+    getFavoriteNodeListReq,
+    updateNodeFavoriteStatusReq,
+    moveFavoriteNodeReq,
+    updateNextNode,
+    getTreeDataReq,
+    getPrivateTreeDataReq,
+    renameNodeReq,
+    updateNodeIconReq,
+    updateNodeRecordHistoryReq,
+    disableShareReq,
+    getCollaboratorListPageReq,
+    getFieldPermissionMemberListPage,
   };
 };

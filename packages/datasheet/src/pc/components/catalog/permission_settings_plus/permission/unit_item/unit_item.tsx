@@ -16,23 +16,23 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import { FC, useState } from 'react';
-import { AvatarType, InfoCard } from 'pc/components/common';
-import styles from './style.module.less';
 import { Dropdown } from 'antd';
-import { ConfigConstant, Strings, t } from '@apitable/core';
 import classnames from 'classnames';
-import { IRoleOption, IUnitItemProps } from './interface';
-import { useThemeColors, Box, Tooltip, Typography, Space } from '@apitable/components';
-import { useSelector } from 'react-redux';
-// @ts-ignore
-import { getSocialWecomUnitName } from 'enterprise';
-import { Menu, MenuItem } from '../menu';
-import { ChevronDownOutlined, ChevronUpOutlined } from '@apitable/icons';
-import { ComponentDisplay, ScreenSize } from 'pc/components/common/component_display';
-import { PermissionSelectMobile } from './permission_select_mobile';
-import { useResponsive } from 'pc/hooks';
 import { get } from 'lodash';
+import { FC, useState } from 'react';
+import { useThemeColors, Box, Tooltip, Typography, Space } from '@apitable/components';
+import { ConfigConstant, Strings, t } from '@apitable/core';
+import { ChevronDownOutlined, ChevronUpOutlined } from '@apitable/icons';
+import { AvatarType, InfoCard } from 'pc/components/common';
+import { ComponentDisplay, ScreenSize } from 'pc/components/common/component_display';
+import { useResponsive } from 'pc/hooks';
+import { useAppSelector } from 'pc/store/react-redux';
+import { Menu, MenuItem } from '../menu';
+import { IRoleOption, IUnitItemProps } from './interface';
+import { PermissionSelectMobile } from './permission_select_mobile';
+// @ts-ignore
+import { getSocialWecomUnitName } from 'enterprise/home/social_platform/utils';
+import styles from './style.module.less';
 
 export const DEFAULT_ROLE: IRoleOption[] = [
   {
@@ -59,24 +59,37 @@ const triggerBase = {
     points: ['tl', 'bl'],
     offset: [0, 18],
     overflow: { adjustX: true, adjustY: true },
-  }
+  },
 };
 
-export const UnitItem: FC<React.PropsWithChildren<IUnitItemProps>> = props => {
+export const UnitItem: FC<React.PropsWithChildren<IUnitItemProps>> = (props) => {
   const colors = useThemeColors();
-  const { unit, role, identity, className, roleOptions = DEFAULT_ROLE, isAppointMode, 
-    disabled, onChange, onRemove, isDetail, teamData, memberId } = props;
+  const {
+    unit,
+    role,
+    identity,
+    className,
+    roleOptions = DEFAULT_ROLE,
+    isAppointMode,
+    disabled,
+    onChange,
+    onRemove,
+    isDetail,
+    teamData,
+    memberId,
+  } = props;
   const isAdmin = identity?.admin;
   const isOwner = identity?.permissionOpener;
 
-  const spaceInfo = useSelector(state => state.space.curSpaceInfo);
-  const curUnitId = useSelector(state => state.user.info?.unitId);
- 
-  const title = getSocialWecomUnitName?.({
-    name: unit.name,
-    isModified: unit.isMemberNameModified,
-    spaceInfo,
-  }) || unit.name;
+  const spaceInfo = useAppSelector((state) => state.space.curSpaceInfo);
+  const curUnitId = useAppSelector((state) => state.user.info?.unitId);
+
+  const title =
+    getSocialWecomUnitName?.({
+      name: unit.name,
+      isModified: unit.isMemberNameModified,
+      spaceInfo,
+    }) || unit.name;
 
   const { screenIsAtMost } = useResponsive();
   const isMobile = screenIsAtMost(ScreenSize.md);
@@ -88,18 +101,18 @@ export const UnitItem: FC<React.PropsWithChildren<IUnitItemProps>> = props => {
       return <></>;
     }
     // Defaults to isAdmin && !isOwner
-    let backgroundColor = colors.deepPurple[100];
-    let color = colors.deepPurple[500];
+    let backgroundColor: string = colors.rainbowPurple1;
+    let color: string = colors.rainbowPurple5;
     let str = t(Strings.space_admin);
 
     if (!isAdmin && isOwner) {
-      backgroundColor = colors.teal[100];
-      color = colors.teal[500];
+      backgroundColor = colors.rainbowTeal1;
+      color = colors.rainbowTeal4;
       str = t(Strings.share_permisson_model_node_owner);
     }
     if (isAdmin && isOwner) {
-      backgroundColor = colors.indigo[100];
-      color = colors.indigo[500];
+      backgroundColor = colors.rainbowIndigo1;
+      color = colors.rainbowIndigo5;
       str = t(Strings.node_permission_label_space_and_file);
     }
     return (
@@ -119,13 +132,12 @@ export const UnitItem: FC<React.PropsWithChildren<IUnitItemProps>> = props => {
     if (isOwner) {
       return unit.id === curUnitId ? t(Strings.node_permission_item_tips_file_you) : t(Strings.node_permission_item_tips_file_he);
     }
-    const label = roleOptions.find(v => v.value === role)?.label;
+    const label = roleOptions.find((v) => v.value === role)?.label;
     if (unit.id === curUnitId) {
       return t(Strings.node_permission_item_tips_other_you, { role: label });
     }
     return `${t(Strings.node_permission_item_tips_other_he, { role: label })}${disabled ? '' : t(Strings.node_permission_item_tips_other_he_edit)}`;
   };
-
   const itemContentMain = (
     <div className={classnames(styles.unitItem, className, !disabled && styles.unitItemOperation, (isDetail || isMobile) && styles.unitItemMobile)}>
       <div className={styles.unitInfo}>
@@ -138,7 +150,7 @@ export const UnitItem: FC<React.PropsWithChildren<IUnitItemProps>> = props => {
           }
           triggerBase={unit.isTeam ? undefined : triggerBase}
           memberId={unit.memberId || memberId}
-          description={get(teamData, '0.fullHierarchyTeamName', '')}
+          description={get(teamData, '0.fullHierarchyTeamName', '') || unit.info}
           extra={!isAppointMode ? t(Strings.node_permission_extend_desc) : ''}
           style={{ backgroundColor: 'transparent', height: 'auto' }}
           avatarProps={{
@@ -153,7 +165,7 @@ export const UnitItem: FC<React.PropsWithChildren<IUnitItemProps>> = props => {
       </div>
       <div className={classnames(styles.permission)}>
         <span className={classnames(styles.onlyShowPermission, disabled && styles.onlyShowPermissionDisabled)}>
-          {roleOptions.find(item => item.value === role)!.label}
+          {roleOptions.find((item) => item.value === role)!.label}
         </span>
         {!disabled && arrow}
       </div>
@@ -198,7 +210,7 @@ export const UnitItem: FC<React.PropsWithChildren<IUnitItemProps>> = props => {
           overlay={
             <div style={{ maxWidth: '240px' }}>
               <Menu>
-                {roleOptions.map(v => (
+                {roleOptions.map((v) => (
                   <MenuItem key={v.value} onClick={() => clickRole(unit.id, v.value)} active={role === v.value} item={v} />
                 ))}
                 <MenuItem

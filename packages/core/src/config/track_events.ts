@@ -36,4 +36,13 @@ export enum TrackEvents {
   RecordCard = 'RecordCard',
   // Template center search keyword report
   TemplateKeyword = 'TemplateKeyword',
+
+  // posthug event name
+  TemplateSearchKeyword = 'templateSearchKeyword',
+  TemplatePageView='templatePageView',
+  TemplateUse='templateUse',
+  TemplateConfirmUse='templateConfirmUse',
+  InviteByContacts='inviteByContacts',
+  InviteByWorkbench='inviteByWorkbench',
+  FormPrefill='formPrefill'
 }

@@ -17,20 +17,16 @@
  */
 
 import classNames from 'classnames';
-import dynamic from 'next/dynamic';
-import { stylizeIcon } from 'pc/utils/dom';
 import * as React from 'react';
+import { LoadingOutlined } from '@apitable/icons';
+import { stylizeIcon } from 'pc/utils/dom';
 import { IButtonBase } from './button_base.interface';
 import { ButtonPrefixCls } from './constants';
 
-const LoadingOutlined = dynamic(() => import('@ant-design/icons/LoadingOutlined'), { ssr: false });
 const DEFAULT_ICON_SIZE = 16;
 
 export const ButtonBase: React.FC<React.PropsWithChildren<IButtonBase>> = (props) => {
-  const {
-    size, loading, htmlType = 'button', className, shape,
-    block, border, icon, children, prefixCls, shadow, ...rest
-  } = props;
+  const { size, loading, htmlType = 'button', className, shape, block, border, icon, children, prefixCls, shadow, ...rest } = props;
   const hasIcon = loading || icon;
   const isOnlyIcon = !children && children !== 0 && hasIcon;
 
@@ -55,30 +51,24 @@ export const ButtonBase: React.FC<React.PropsWithChildren<IButtonBase>> = (props
   });
   const propsNode = finalIcon ? (
     <>
-      <span className={`${classKey}-icon`}>
-        {finalIcon}
-      </span>
-      <span>
-        {children}
-      </span>
+      <span className={`${classKey}-icon`}>{finalIcon}</span>
+      <span>{children}</span>
     </>
   ) : (
-    <>
-      {children}
-    </>
+    <>{children}</>
   );
   const finalKidsNode = loading ? (
     <>
-      <LoadingOutlined style={{ marginRight: finalIcon || children ? '4px' : '0px' }} />
+      <span style={{ marginRight: finalIcon || children ? '4px' : '0px' }}>
+        <LoadingOutlined className="circle-loading" />
+      </span>
       {propsNode}
     </>
-  ) : <>{propsNode}</>;
+  ) : (
+    <>{propsNode}</>
+  );
   return (
-    <button
-      type={htmlType}
-      className={classes}
-      {...rest}
-    >
+    <button type={htmlType} className={classes} {...rest}>
       {finalKidsNode}
     </button>
   );

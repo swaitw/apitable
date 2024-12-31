@@ -16,29 +16,29 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+import { useKeyPress } from 'ahooks';
+import mime from 'mime-types';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import * as React from 'react';
+import { stopPropagation, useThemeColors } from '@apitable/components';
 import { Api, IAttachmentValue, isImage, IUserInfo, IReduxState } from '@apitable/core';
-import NextFilled from 'static/icon/common/next_filled.svg';
-import PreviousFilled from 'static/icon/common/previous_filled.svg';
+import { RotateOutlined } from '@apitable/icons';
+import { Message } from 'pc/components/common';
 import { ComponentDisplay, ScreenSize } from 'pc/components/common/component_display';
 import { useResponsive } from 'pc/hooks';
+import { useAppSelector } from 'pc/store/react-redux';
 import { DOC_MIME_TYPE, getDownloadSrc, isSupportImage, KeyCode } from 'pc/utils';
-import { useCallback, useEffect, useState } from 'react';
-import * as React from 'react';
+import NextFilled from 'static/icon/common/next_filled.svg';
+import PreviousFilled from 'static/icon/common/previous_filled.svg';
 import { Header } from '../mobile/header';
 import { PreviewDisplayList } from '../preview_display_list';
-import { ToolBar } from '../tool_bar';
-import styles from './style.module.less';
-import IconRotate from 'static/icon/datasheet/datasheet_icon_rotate.svg';
-import { Swiper } from './swiper';
 import { ITransFormInfo } from '../preview_file.interface';
-import { Message } from 'pc/components/common';
-import mime from 'mime-types';
 import useFrameSetState from '../preview_type/preview_image/hooks/use_frame_state';
-import { stopPropagation, useThemeColors } from '@apitable/components';
-import { useKeyPress } from 'ahooks';
-import { useSelector } from 'react-redux';
-import { isFocusingInput } from './util';
+import { ToolBar } from '../tool_bar';
 import { initTransformInfo, initTranslatePosition, MAX_SCALE, MIN_SCALE } from './constant';
+import { Swiper } from './swiper';
+import { isFocusingInput } from './util';
+import styles from './style.module.less';
 
 interface IPreviewMain {
   activeIndex: number;
@@ -55,7 +55,7 @@ interface IPreviewMain {
   toggleIsFullScreen: () => void;
 }
 
-export const PreviewMain: React.FC<React.PropsWithChildren<IPreviewMain>> = props => {
+export const PreviewMain: React.FC<React.PropsWithChildren<IPreviewMain>> = (props) => {
   const {
     activeIndex,
     setActiveIndex,
@@ -72,7 +72,7 @@ export const PreviewMain: React.FC<React.PropsWithChildren<IPreviewMain>> = prop
   } = props;
   const colors = useThemeColors();
   const { screenIsAtMost, clientWidth: _clientWidth } = useResponsive();
-  const rightPaneWidth = useSelector((state: IReduxState) => state.rightPane.width);
+  const rightPaneWidth = useAppSelector((state: IReduxState) => state.rightPane.width);
   const isMobile = screenIsAtMost(ScreenSize.md);
   const clientWidth = typeof rightPaneWidth == 'number' && !isFullScreen ? _clientWidth - rightPaneWidth : _clientWidth;
 
@@ -83,10 +83,18 @@ export const PreviewMain: React.FC<React.PropsWithChildren<IPreviewMain>> = prop
 
   const [transformInfo, setTransformInfo] = useFrameSetState<ITransFormInfo>(initTransformInfo);
 
-  const isDocType = DOC_MIME_TYPE.includes(mime.lookup(activeFile.name) as string);
-  const isPdf = mime.lookup(activeFile.name) === 'application/pdf';
+  const mimeType = useMemo(() => {
+    const name2Type = mime.lookup(activeFile.name);
+    if (typeof name2Type == 'string') {
+      return name2Type;
+    }
+    return activeFile.mimeType;
+  }, [activeFile.mimeType, activeFile.name]);
 
-  const fetchPreviewUrl = async() => {
+  const isDocType = DOC_MIME_TYPE.includes(mimeType);
+  const isPdf = mimeType === 'application/pdf';
+
+  const fetchPreviewUrl = async () => {
     if (activeFile && (isDocType || isPdf) && officePreviewEnable) {
       const res = await Api.getAttachPreviewUrl(spaceId!, activeFile.token, activeFile.name);
       const { data, message, success } = res.data;
@@ -102,7 +110,7 @@ export const PreviewMain: React.FC<React.PropsWithChildren<IPreviewMain>> = prop
     setOfficePreviewUrl(null);
     fetchPreviewUrl();
     // eslint-disable-next-line
-  }, [activeIndex]);
+  }, [activeIndex,officePreviewEnable]);
 
   const handlePrev = useCallback(
     (e: any) => {
@@ -117,7 +125,7 @@ export const PreviewMain: React.FC<React.PropsWithChildren<IPreviewMain>> = prop
   );
 
   const handleNext = useCallback(
-  (e: any) => {
+    (e: any) => {
       e.stopPropagation();
 
       if (activeIndex + 1 < files.length) {
@@ -128,11 +136,11 @@ export const PreviewMain: React.FC<React.PropsWithChildren<IPreviewMain>> = prop
     [activeIndex, files.length, setActiveIndex, setTransformInfo],
   );
 
-  useKeyPress([KeyCode.Left], e => {
+  useKeyPress([KeyCode.Left], (e) => {
     if (isFocusingInput()) return;
     handlePrev(e);
   });
-  useKeyPress([KeyCode.Right], e => {
+  useKeyPress([KeyCode.Right], (e) => {
     if (isFocusingInput()) return;
     handleNext(e);
   });
@@ -144,7 +152,7 @@ export const PreviewMain: React.FC<React.PropsWithChildren<IPreviewMain>> = prop
       const minTransformScale = MIN_SCALE / initActualScale;
       const maxTransformScale = MAX_SCALE / initActualScale;
 
-      setTransformInfo(state => {
+      setTransformInfo((state) => {
         if (newScale <= minTransformScale) {
           return {
             ...state,
@@ -171,7 +179,7 @@ export const PreviewMain: React.FC<React.PropsWithChildren<IPreviewMain>> = prop
   );
 
   const onRotate = useCallback(() => {
-    setTransformInfo(state => {
+    setTransformInfo((state) => {
       const rotate = state.rotate || 0;
       return {
         ...state,
@@ -222,19 +230,18 @@ export const PreviewMain: React.FC<React.PropsWithChildren<IPreviewMain>> = prop
         />
         {isImage({ name: activeFile.name, type: activeFile.mimeType }) && isSupportImage(activeFile.mimeType) && (
           <div onClick={onRotate} className={styles.rotate}>
-            <IconRotate fill={colors.defaultBg} width={16} height={16} />
+            <RotateOutlined color={colors.defaultBg} size={16} />
           </div>
         )}
       </ComponentDisplay>
 
       <main className={styles.container} onMouseDown={onClose}>
         <div className={styles.left}>
-          {
-            showPrevBtn && (
-              <div className={styles.iconPre} onClick={handlePrev} onMouseDown={stopPropagation}>
-                <PreviousFilled width={40} height={40} className={styles.prev} />
-              </div>
-            )}
+          {showPrevBtn && (
+            <div className={styles.iconPre} onClick={handlePrev} onMouseDown={stopPropagation}>
+              <PreviousFilled width={40} height={40} className={styles.prev} />
+            </div>
+          )}
         </div>
         <div className={styles.middle}>
           <Swiper
@@ -256,18 +263,17 @@ export const PreviewMain: React.FC<React.PropsWithChildren<IPreviewMain>> = prop
         </div>
 
         <div className={styles.right}>
-          {
-            showNextBtn && (
-              <div className={styles.iconNext} onClick={handleNext} onMouseDown={stopPropagation}>
-                <NextFilled width={40} height={40} className={styles.next} />
-              </div>
-            )}
+          {showNextBtn && (
+            <div className={styles.iconNext} onClick={handleNext} onMouseDown={stopPropagation}>
+              <NextFilled width={40} height={40} className={styles.next} />
+            </div>
+          )}
         </div>
       </main>
 
       <PreviewDisplayList
         activeIndex={activeIndex}
-        setActiveIndex={newActiveIndex => {
+        setActiveIndex={(newActiveIndex) => {
           if (newActiveIndex !== activeIndex) {
             setTransformInfo(initTransformInfo, true);
             setActiveIndex(newActiveIndex);

@@ -16,21 +16,20 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import { FC, useContext, useEffect } from 'react';
-import * as React from 'react';
-import styles from './style.module.less';
-import { ConfigConstant, INodesMapItem, StoreActions, Strings, t } from '@apitable/core';
 import classnames from 'classnames';
+import * as React from 'react';
+import { FC, useContext, useEffect } from 'react';
 import { useDispatch } from 'react-redux';
-import { useCatalogTreeRequest, useResponsive } from 'pc/hooks';
-import { useRequest } from 'pc/hooks';
-import { TComponent } from 'pc/components/common/t_component';
-import { ScreenSize } from 'pc/components/common/component_display';
+import { ConfigConstant, INodesMapItem, StoreActions, Strings, t } from '@apitable/core';
 import { Popconfirm } from 'pc/components/common';
-import { getContextTypeByNodeType } from 'pc/utils';
+import { ScreenSize } from 'pc/components/common/component_display';
 import { Modal } from 'pc/components/common/mobile/modal';
+import { TComponent } from 'pc/components/common/t_component';
 import { WorkbenchSideContext } from 'pc/components/common_side/workbench_side/workbench_side_context';
+import { useRequest, useCatalogTreeRequest, useResponsive } from 'pc/hooks';
+import { getContextTypeByNodeType } from 'pc/utils';
 import { ItemRender } from './node_item_render';
+import styles from './style.module.less';
 
 export interface INodeItemProps {
   node: INodesMapItem;
@@ -41,9 +40,22 @@ export interface INodeItemProps {
   deleting: boolean;
   from: ConfigConstant.Modules;
   level: string;
+  isPrivate?: boolean;
 }
 
-const NodeItemBase: FC<React.PropsWithChildren<INodeItemProps>> = ({ node, expanded = false, actived = false, hasChildren = false, editing, deleting, from, level }) => {
+let mobileModalClose: () => void;
+
+const NodeItemBase: FC<React.PropsWithChildren<INodeItemProps>> = ({
+  node,
+  expanded = false,
+  actived = false,
+  hasChildren = false,
+  editing,
+  deleting,
+  from,
+  level,
+  isPrivate,
+}) => {
   const { deleteNodeReq } = useCatalogTreeRequest();
   const { run: deleteNode } = useRequest(deleteNodeReq, { manual: true });
   const dispatch = useDispatch();
@@ -52,6 +64,7 @@ const NodeItemBase: FC<React.PropsWithChildren<INodeItemProps>> = ({ node, expan
   const isMobile = screenIsAtMost(ScreenSize.md);
   const currentLevel = level.split('-').length - 1;
   const childCreatable = node.type === ConfigConstant.NodeType.FOLDER && node.permissions.childCreatable && currentLevel < 5;
+  const moduleType = isPrivate ? ConfigConstant.Modules.PRIVATE : undefined;
   useEffect(() => {
     if (actived) {
       const activeElem = document.getElementById(`${ConfigConstant.Modules.CATALOG}${node.nodeId}`);
@@ -80,13 +93,14 @@ const NodeItemBase: FC<React.PropsWithChildren<INodeItemProps>> = ({ node, expan
   };
 
   const cancelDeleteModalHandler = () => {
-    dispatch(StoreActions.setDelNodeId(''));
+    mobileModalClose?.();
+    dispatch(StoreActions.setDelNodeId('', moduleType));
     dispatch(StoreActions.setDelNodeId('', ConfigConstant.Modules.FAVORITE));
   };
 
   const deleteNodeHandler = () => {
     const { nodeId, parentId } = node;
-    deleteNode({ nodeId, parentId });
+    deleteNode({ nodeId, parentId, module: moduleType });
     cancelDeleteModalHandler();
   };
 
@@ -94,7 +108,7 @@ const NodeItemBase: FC<React.PropsWithChildren<INodeItemProps>> = ({ node, expan
     <div className={styles.deleteTitle}>
       {
         <TComponent
-          tkey={t(Strings.confirm_delete_node_name_as)}
+          tkey={isPrivate ? t(Strings.confirm_delete_private_node_name_as) : t(Strings.confirm_delete_node_name_as)}
           params={{
             nodeNameDiv: <div className={styles.deleteNodeName}>{node.nodeName}</div>,
           }}
@@ -105,12 +119,13 @@ const NodeItemBase: FC<React.PropsWithChildren<INodeItemProps>> = ({ node, expan
 
   useEffect(() => {
     if (deleting && isMobile) {
-      Modal.warning({
+      const { close } = Modal.warning({
         title: t(Strings.delete),
         content: ConfirmContent,
         onOk: deleteNodeHandler,
         onCancel: cancelDeleteModalHandler,
       });
+      mobileModalClose = close;
     }
     // eslint-disable-next-line
   }, [deleting]);
@@ -136,6 +151,7 @@ const NodeItemBase: FC<React.PropsWithChildren<INodeItemProps>> = ({ node, expan
         expanded={expanded}
         hasChildren={hasChildren}
         node={node}
+        isPrivate={isPrivate}
       />
     </Popconfirm>
   ) : (
@@ -151,6 +167,7 @@ const NodeItemBase: FC<React.PropsWithChildren<INodeItemProps>> = ({ node, expan
       expanded={expanded}
       hasChildren={hasChildren}
       node={node}
+      isPrivate={isPrivate}
     />
   );
 };

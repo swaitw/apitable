@@ -18,30 +18,30 @@
 
 package com.apitable.organization.ro;
 
-import io.swagger.annotations.ApiModel;
-import io.swagger.annotations.ApiModelProperty;
-import lombok.Data;
-
-import javax.validation.constraints.NotEmpty;
-import javax.validation.constraints.NotNull;
-import javax.validation.constraints.Size;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import java.util.List;
+import lombok.Data;
 
 /**
  * <p>
- * Remove tag member request parameters
+ * Remove tag member request parameters.
  * </p>
  */
 @Data
-@ApiModel("Remove tag member request parameters")
+@Schema(description = "Remove tag member request parameters")
 public class DeleteTagMemberRo {
 
     @NotNull
-    @ApiModelProperty(value = "Member ID", example = "1", required = true, position = 2)
+    @Schema(description = "Member ID", example = "1", requiredMode = RequiredMode.REQUIRED)
     private Long tagId;
 
     @NotEmpty
     @Size(max = 100)
-    @ApiModelProperty(value = "Member ID Collection", dataType = "List", example = "[1,2,3,4]", required = true, position = 3)
+    @Schema(description = "Member ID Collection", type = "List", example = "[1,2,3,4]",
+        requiredMode = RequiredMode.REQUIRED)
     private List<Long> memberId;
 }

@@ -18,31 +18,32 @@
 
 package com.apitable.asset.ro;
 
-import io.swagger.annotations.ApiModel;
-import io.swagger.annotations.ApiModelProperty;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
-
-import javax.validation.constraints.NotNull;
 
 /**
  * <p>
- * Image audit result request parameters
+ * Image audit result request parameters.
  * </p>
  */
 @Data
-@ApiModel("Image audit result request parameters")
+@Schema(description = "Image audit result request parameters")
 public class AttachAuditScenesRo {
 
-	@ApiModelProperty(value = "Audit results of image sensitive persons", position = 1, required = true)
-	@NotNull(message = "Yellow identification results of pictures")
-	private String politician;
+    @Schema(description = "Audit results of image sensitive persons",
+        requiredMode = RequiredMode.REQUIRED)
+    @NotNull(message = "Yellow identification results of pictures")
+    private String politician;
 
-	@ApiModelProperty(value = "Photo Yellow Identification Review Results", position = 2, required = true)
-	@NotNull(message = "Yellow identification results of pictures")
-	private AttachAuditPulpResultRo pulp;
+    @Schema(description = "Photo Yellow Identification Review Results",
+        requiredMode = RequiredMode.REQUIRED)
+    @NotNull(message = "Yellow identification results of pictures")
+    private AttachAuditPulpResultRo pulp;
 
 
-	@ApiModelProperty(value = "Audit Results of Photo Violence", position = 3, required = true)
-	@NotNull(message = "Audit Results of Photo Violence")
-	private String terror;
+    @Schema(description = "Audit Results of Photo Violence", requiredMode = RequiredMode.REQUIRED)
+    @NotNull(message = "Audit Results of Photo Violence")
+    private String terror;
 }

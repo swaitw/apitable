@@ -16,17 +16,29 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import { DateFormat, IDateTimeFieldProperty, IField, Strings, t, TimeFormat } from '@apitable/core';
 import classNames from 'classnames';
+import { omit } from 'lodash';
 import { Dispatch, SetStateAction } from 'react';
 import * as React from 'react';
-import styles from '../styles.module.less';
-import { Switch } from 'antd';
-import settingStyles from '../../field_setting/styles.module.less';
-import { Divider } from 'pc/components/common/divider';
-import { ComponentDisplay, ScreenSize } from 'pc/components/common/component_display';
+// eslint-disable-next-line no-restricted-imports
+import { Checkbox, colorVars, Select, Switch } from '@apitable/components';
+import {
+  DateFormat,
+  formatTimeZone,
+  getUtcOptionList,
+  IDateTimeFieldProperty,
+  IField,
+  Selectors,
+  Strings,
+  t,
+  TimeFormat,
+} from '@apitable/core';
 import { MobileSelect } from 'pc/components/common';
-import { Select } from '@apitable/components';
+import { ComponentDisplay, ScreenSize } from 'pc/components/common/component_display';
+import { Divider } from 'pc/components/common/divider';
+import { useAppSelector } from 'pc/store/react-redux';
+import settingStyles from '../../field_setting/styles.module.less';
+import styles from '../styles.module.less';
 
 interface IFormatDateTime {
   currentField: IField;
@@ -50,7 +62,9 @@ const optionData4Time = [
 ];
 
 export const LookUpFormatDateTime: React.FC<React.PropsWithChildren<IFormatDateTime>> = (props: IFormatDateTime) => {
-  const { includeTime, dateFormat, autoFill, timeFormat } = (props.currentField.property.formatting as IDateTimeFieldProperty) || {};
+  const formatting = props.currentField.property.formatting as IDateTimeFieldProperty;
+  const { includeTime, dateFormat, timeFormat, timeZone = '', includeTimeZone } = formatting || {};
+  const userTimeZone = useAppSelector(Selectors.getUserTimeZone)!;
 
   const handleDateFormatChange = (value: DateFormat) => {
     props.setCurrentField({
@@ -58,10 +72,21 @@ export const LookUpFormatDateTime: React.FC<React.PropsWithChildren<IFormatDateT
       property: {
         ...props.currentField.property,
         formatting: {
-          autoFill,
-          includeTime,
+          ...formatting,
           dateFormat: value,
-          timeFormat,
+        },
+      },
+    });
+  };
+
+  const handleTimeZoneChange = ({ value }: any) => {
+    props.setCurrentField({
+      ...props.currentField,
+      property: {
+        ...props.currentField.property,
+        formatting: {
+          ...formatting,
+          timeZone: value,
         },
       },
     });
@@ -73,9 +98,7 @@ export const LookUpFormatDateTime: React.FC<React.PropsWithChildren<IFormatDateT
       property: {
         ...props.currentField.property,
         formatting: {
-          autoFill,
-          includeTime,
-          dateFormat,
+          ...formatting,
           timeFormat: value,
         },
       } as any,
@@ -83,15 +106,27 @@ export const LookUpFormatDateTime: React.FC<React.PropsWithChildren<IFormatDateT
   };
 
   const handleIncludeTimeChange = (checked: boolean) => {
+    const omitFormatting = omit(formatting, ['timeZone', 'includeTimeZone']);
     props.setCurrentField({
       ...props.currentField,
       property: {
         ...props.currentField.property,
         formatting: {
-          autoFill,
+          ...omitFormatting,
           includeTime: checked,
-          dateFormat,
-          timeFormat,
+        },
+      },
+    });
+  };
+
+  const handleIncludeTimeZoneChange = (checked: boolean) => {
+    props.setCurrentField({
+      ...props.currentField,
+      property: {
+        ...props.currentField.property,
+        formatting: {
+          ...formatting,
+          includeTimeZone: checked,
         },
       },
     });
@@ -104,7 +139,7 @@ export const LookUpFormatDateTime: React.FC<React.PropsWithChildren<IFormatDateT
         <Select
           triggerCls={styles.customSelect}
           value={dateFormat}
-          onSelected={option => {
+          onSelected={(option) => {
             handleDateFormatChange(option.value as DateFormat);
           }}
           dropdownMatchSelectWidth={false}
@@ -130,12 +165,55 @@ export const LookUpFormatDateTime: React.FC<React.PropsWithChildren<IFormatDateT
               triggerCls={styles.customSelect}
               dropdownMatchSelectWidth={false}
               value={timeFormat}
-              onSelected={option => handleTimeFormatChange(option.value as TimeFormat)}
+              onSelected={(option) => handleTimeFormatChange(option.value as TimeFormat)}
               options={optionData4Time}
             />
+            <Select
+              triggerCls={styles.timeZoneSelect}
+              dropdownMatchSelectWidth={false}
+              value={timeZone}
+              onSelected={handleTimeZoneChange}
+              renderValue={(option) => {
+                if (!option.value) {
+                  return `${option.label} ${formatTimeZone(userTimeZone)}`;
+                }
+                return option.label;
+              }}
+              options={[
+                {
+                  label: t(Strings.follow_system_time_zone),
+                  value: '',
+                },
+                ...getUtcOptionList(),
+              ]}
+              openSearch
+              searchPlaceholder={t(Strings.search)}
+              highlightStyle={{ backgroundColor: colorVars.primaryColor, color: colorVars.black[50] }}
+            />
+            <div className={styles.showTimeZone}>
+              <Checkbox checked={includeTimeZone} size={14} onChange={handleIncludeTimeZoneChange}>
+                {t(Strings.field_display_time_zone)}
+              </Checkbox>
+            </div>
           </ComponentDisplay>
           <ComponentDisplay maxWidthCompatible={ScreenSize.md}>
             <MobileSelect defaultValue={timeFormat} onChange={handleTimeFormatChange} optionData={optionData4Time} />
+            <MobileSelect
+              defaultValue={timeZone}
+              onChange={(value) => handleTimeZoneChange({ value })}
+              optionData={[
+                {
+                  label: t(Strings.follow_system_time_zone),
+                  value: '',
+                },
+                ...getUtcOptionList(),
+              ]}
+            />
+            <div className={styles.showTimeZone}>
+              <Checkbox checked={includeTimeZone} size={14} onChange={handleIncludeTimeZoneChange}>
+                {t(Strings.field_display_time_zone)}
+              </Checkbox>
+            </div>
           </ComponentDisplay>
         </section>
       )}

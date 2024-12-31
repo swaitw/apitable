@@ -16,13 +16,14 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import { Strings, t } from '../../exports/i18n';
+import { getCustomConfig } from 'config';
 import { ResourceType } from 'types';
 import { CollaCommandName } from '..';
 import { ExecuteResult, ICollaCommandDef, ICollaCommandExecuteContext } from '../../command_manager';
-import { DashboardAction } from '../../model/dashboard';
-import { IDashboardLayout, Selectors } from '../../exports/store';
-import { DASHBOARD_MAX_WIDGET_COUNT } from 'config/constant';
+import { Strings, t } from '../../exports/i18n';
+import { IDashboardLayout } from '../../exports/store/interfaces';
+import { getDashboardSnapshot } from 'modules/database/store/selectors/resource/dashboard';
+import { DashboardAction } from '../../commands_actions/dashboard';
 
 export interface IAddWidgetToDashboard {
   cmd: CollaCommandName.AddWidgetToDashboard;
@@ -37,9 +38,9 @@ export const addWidgetToDashboard: ICollaCommandDef<IAddWidgetToDashboard> = {
   undoable: false,
 
   execute(context: ICollaCommandExecuteContext, options: IAddWidgetToDashboard) {
-    const { model: state } = context;
+    const { state: state } = context;
     const { dashboardId, widgetIds, cols } = options;
-    const dashboardSnapshot = Selectors.getDashboardSnapshot(state, dashboardId);
+    const dashboardSnapshot = getDashboardSnapshot(state, dashboardId);
 
     if (!dashboardSnapshot) {
       return null;
@@ -47,8 +48,8 @@ export const addWidgetToDashboard: ICollaCommandDef<IAddWidgetToDashboard> = {
 
     const layout = dashboardSnapshot.widgetInstallations.layout || [];
 
-    if (layout.length + widgetIds.length > DASHBOARD_MAX_WIDGET_COUNT) {
-      throw new Error(t(Strings.reach_dashboard_installed_limit, { count: DASHBOARD_MAX_WIDGET_COUNT }));
+    if (layout.length + widgetIds.length > Number(getCustomConfig().DASHBOARD_WIDGET_MAX_NUM)) {
+      throw new Error(t(Strings.reach_dashboard_installed_limit, { count: getCustomConfig().DASHBOARD_WIDGET_MAX_NUM }));
     }
 
     const newLayouts: IDashboardLayout[] = widgetIds.map((widgetId, index) => {

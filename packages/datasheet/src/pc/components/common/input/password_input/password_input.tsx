@@ -16,13 +16,13 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+import { useBoolean } from 'ahooks';
 import { FC } from 'react';
 import { ITextInputProps, TextInput } from '@apitable/components';
-import { EyeCloseOutlined, EyeNormalOutlined, LockFilled } from '@apitable/icons';
-import { useBoolean } from 'ahooks';
+import { EyeCloseOutlined, EyeOpenOutlined, LockFilled } from '@apitable/icons';
 import styles from './style.module.less';
 
-export const PasswordInput: FC<React.PropsWithChildren<ITextInputProps>> = props => {
+export const PasswordInput: FC<React.PropsWithChildren<ITextInputProps>> = (props) => {
   const [isVisible, { toggle }] = useBoolean(false);
 
   return (
@@ -30,12 +30,8 @@ export const PasswordInput: FC<React.PropsWithChildren<ITextInputProps>> = props
       type={isVisible ? 'text' : 'password'}
       prefix={<LockFilled />}
       suffix={
-        <div
-          className={styles.suffixIcon}
-          onClick={() => toggle()}
-          style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-        >
-          {isVisible ? <EyeNormalOutlined /> : <EyeCloseOutlined />}
+        <div className={styles.suffixIcon} onClick={() => toggle()} style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+          {isVisible ? <EyeOpenOutlined /> : <EyeCloseOutlined />}
         </div>
       }
       {...props}

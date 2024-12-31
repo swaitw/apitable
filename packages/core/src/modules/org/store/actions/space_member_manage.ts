@@ -17,16 +17,15 @@
  */
 
 import {
-  IUserInfo,
   ISelectedTeamInfoInSpace,
   IMemberInfoInSpace,
   ISubTeamListInSpaceBase,
   ITeamListInSpace,
   IInviteMemberList,
-} from '../../../../exports/store/interfaces';
-import { Api } from '../../../../exports/api';
+} from 'exports/store/interfaces';
+import { Api } from 'exports/api';
 import * as actions from '../../../shared/store/action_constants';
-import { ConfigConstant } from '../../../../config';
+import { ConfigConstant } from 'config';
 export function updateMemberListInSpace(memberListInSpace: IMemberInfoInSpace[]) {
   return {
     type: actions.UPDATE_MEMBER_LIST_IN_SPACE,
@@ -93,22 +92,7 @@ export function selecteTeamRowsInModal(arr: ISubTeamListInSpaceBase[]) {
     payload: arr,
   };
 }
-/**
- * Space - Team List
- * Query and get specific team list
- */
-export function getTeamListDataInSpace(_spaceId: string, _user: IUserInfo) {
-  let teamListInSpace: ITeamListInSpace[] = [];
-  return (dispatch: any) => {
-    Api.getTeamList().then(res => {
-      const { success, data } = res.data;
-      if (success) {
-        teamListInSpace = data;
-      }
-      dispatch(updateTeamListInSpace(teamListInSpace));
-    });
-  };
-}
+
 /**
  * Contacts - Team List
  * Get Team Info
@@ -122,6 +106,8 @@ export function getTeamInfo(_spaceId: string, teamId: string) {
         memberCount: data.memberCount,
         teamId: data.teamId,
       }));
+    }, err => {
+      console.error('API.readTeam', err);
     });
   };
 }
@@ -129,9 +115,9 @@ export function getTeamInfo(_spaceId: string, teamId: string) {
  * Space - invite member by email
  * invite member by email
  */
-export function sendInviteEmail(_spaceId: string, invite: IInviteMemberList[]) {
+export function sendInviteEmail(spaceId: string, invite: IInviteMemberList[]) {
   return (dispatch: any) => {
-    Api.sendInvite(invite).then(res => {
+    Api.sendInvite(spaceId, invite).then(res => {
       const { success } = res.data;
       dispatch(updateInviteStatus(true));
       if (success) {
@@ -142,8 +128,12 @@ export function sendInviteEmail(_spaceId: string, invite: IInviteMemberList[]) {
             memberCount: data.memberCount,
             teamId: data.teamId,
           }));
+        }, err => {
+          console.error('API.readTeam', err);
         });
       }
+    }, err => {
+      console.error('API.sendInvite', err);
     });
   };
 }
@@ -164,6 +154,8 @@ export function getMemberListDataInSpace(pageNo: number, teamId?: string) {
         const memberListInSpace: IMemberInfoInSpace[] = data.records;
         dispatch(updateMemberListInSpace(memberListInSpace));
       }
+    }, err => {
+      console.error('API.getMemberListInSpace', err);
     });
   };
 }
@@ -178,6 +170,8 @@ export function getEditMemberInfo(memberId: string) {
       if (res.data.success) {
         dispatch(updateMemberInfoInSpace(res.data.data));
       }
+    }, err => {
+      console.error('API.getMemberInfo', err);
     });
   };
 }
@@ -193,6 +187,8 @@ export function getSubTeamListDataInSpace(teamId: string) {
       if (success) {
         dispatch(updateSubTeamListInSpace(data));
       }
+    }, err => {
+      console.error('API.getSubTeams', err);
     });
   };
 }

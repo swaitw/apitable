@@ -16,10 +16,10 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import { ITransFormInfo, ITranslatePosition } from 'pc/components/preview_file/preview_file.interface';
-import { MouseDownType } from 'pc/components/selection_wrapper';
-import { isWindowsOS } from 'pc/utils/os';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { ITransFormInfo, ITranslatePosition } from 'pc/components/preview_file/preview_file.interface';
+import { isWindowsOS } from 'pc/utils/os';
+import { MouseDownType } from '../../../../multi_grid';
 import getFixedState from '../get_fixed_state';
 
 interface IImageEventsProps {

@@ -16,6 +16,13 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+import { IAutomationRobotDetailItem } from './robot_context';
+
+export interface IRobotHistoryTask {
+  status: number;
+  data: IRobotRunHistoryDetail;
+}
+
 export interface IRobotRunHistoryDetail {
   executedNodeIds: string[];
   nodeByIds: {
@@ -26,36 +33,53 @@ export interface IRobotRunHistoryDetail {
       startAt?: number;
       endAt?: number;
       errorStacks?: any[];
-    }
-  }
+    };
+  };
 }
+
 export interface IUISchemaLayoutGroup {
   title: string;
   items: string[];
 }
 
-export interface IRobotContext {
-  triggerTypes: ITriggerType[];
-  actionTypes: IActionType[];
-  currentRobotId?: string;
-  isHistory?: boolean;
-  robotList: IRobotBaseInfo[];
-  isNewRobotModalOpen: boolean;
-  isEditingRobotName: boolean;
-  isEditingRobotDesc: boolean;
+export enum AutomationScenario {
+  'datasheet',
+  'node',
 }
+
+export interface IRobotContext {
+  currentRobotId?: string;
+  resourceId?: string;
+  scenario: AutomationScenario;
+  robot?: IAutomationRobotDetailItem;
+}
+
+export type EnumTriggerEndpoint =
+  | 'button_field'
+  | 'button_clicked'
+  | 'form_submitted'
+  | 'record_matches_conditions'
+  | 'record_created'
+  | 'scheduled_time_arrive'
+  | 'sendLarkMsg'
+  | 'sendRequest'
+  | 'sendMail';
 
 interface INodeBaseType {
   name: string;
   description: string;
-  endpoint: string;
+  endpoint: EnumTriggerEndpoint;
   inputJsonSchema: INodeSchema;
   outputJsonSchema?: INodeSchema;
   service: {
     slug: string;
     name: string;
     logo: string;
-  }
+    themeLogo: {
+      dark: string;
+      light: string;
+    };
+  };
 }
 
 export interface ITriggerType extends INodeBaseType {
@@ -70,38 +94,74 @@ export type INodeType = ITriggerType | IActionType;
 
 export interface IRobotAction {
   id: string;
+  actionId: string;
   prevActionId: string;
   typeId: string;
+  actionTypeId: string;
   input: any;
 }
+
 export interface IRobotTrigger {
   triggerId: string;
+  prevTriggerId: string;
   triggerTypeId: string;
+  relatedResourceId?: string;
   input: any;
 }
+
 export interface INodeOutputSchema {
   id: string;
+  icon?: string;
   title: string;
   schema: IJsonSchema | undefined;
+  description?: string;
   uiSchema?: any;
 }
+
 export interface IRobot {
   name?: string;
   robotId: string;
   description?: string;
   isActive: boolean;
 }
-export interface IRobotBaseInfo extends IRobot {
-  nodes: any[];
+
+export interface IAutomationDatum {
+  resourceId: string;
+  robotId: string;
+  name: string;
+  description: string;
+  isActive: boolean;
+  isOverLimit: boolean;
+  updatedBy: number;
+  updatedAt: number;
+  props: Props;
+  triggers: Trigger[];
+  actions: Action[];
 }
+
+export type Action = IRobotAction;
+
+export type Trigger = IRobotTrigger;
+
+export interface Props {
+  failureNotifyEnable: boolean;
+}
+
+export interface IRobotBaseInfo extends IRobot {
+  nodes?: any[];
+}
+
 export interface IRobotNodeTypeInfo {
   nodeTypeId: string;
-  service: {
+  service?: {
     logo: string;
-  }
+  };
+  type: IRobotNodeType;
 }
-export interface IRobotCardInfo extends IRobot {
-  nodeTypeList: IRobotNodeTypeInfo[];
+
+export enum IRobotNodeType {
+  Action = 'action',
+  Trigger = 'trigger',
 }
 
 export interface IRobotRunHistoryItem {
@@ -156,6 +216,9 @@ export interface IJsonSchema {
    * Title of the schema
    */
   title?: string;
+
+  icon?: string;
+
   /**
    * Schema description
    */
@@ -164,7 +227,7 @@ export interface IJsonSchema {
    * Default json for the object represented by
    * this schema
    */
-  'default'?: any;
+  default?: any;
 
   /////////////////////////////////////////////////
   // Number Validation
@@ -243,9 +306,9 @@ export interface IJsonSchema {
    * Enumerates the values that this schema can be
    * e.g.
    * {"type": "string",
-     *  "enum": ["red", "green", "blue"]}
+   *  "enum": ["red", "green", "blue"]}
    */
-  'enum'?: any[];
+  enum?: any[];
   enumNames?: any[];
   /**
    * The basic type of this schema, can be one of
@@ -270,15 +333,19 @@ export interface IJsonSchema {
 
 export interface INodeSchema {
   schema: IJsonSchema;
-  // An extension to IJsonSchema. 
+  // An extension to IJsonSchema.
   // The ui of the control form, i.e. the uiSchema in the react json schema form, is placed here in the schema of the described data.
   uiSchema?: object;
 }
 
 export interface IRobotHeadAddBtn {
-  style?: React.CSSProperties;
-  container?: React.FC<React.PropsWithChildren<any>>;
   toolTips?: any;
-  useTextBtn?: boolean;
   btnStyle?: React.CSSProperties;
+}
+
+export enum RobotRunStatusEnums {
+  RUNNING = 0,
+  SUCCESS = 1,
+  ERROR = 2,
+  LIMIT = 4,
 }

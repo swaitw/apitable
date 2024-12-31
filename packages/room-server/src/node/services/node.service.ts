@@ -17,16 +17,17 @@
  */
 
 import { IFormProps, IPermissions, Role } from '@apitable/core';
-import { Injectable } from '@nestjs/common';
+import { Span } from '@metinseylan/nestjs-opentelemetry';
+import { forwardRef, Inject, Injectable } from '@nestjs/common';
+import { NodeBaseInfo, NodeDetailInfo, NodeRelInfo } from 'database/interfaces';
 import { MetaService } from 'database/resource/services/meta.service';
-import { get, omit } from 'lodash';
+import { get, keyBy, omit } from 'lodash';
 import { NodeDescriptionService } from 'node/services/node.description.service';
 import { NodeExtraConstant } from 'shared/common';
 import { DatasheetException, PermissionException, ServerException } from 'shared/exception';
 import { IBaseException } from 'shared/exception/base.exception';
 import { IAuthHeader, IFetchDataOriginOptions } from 'shared/interfaces';
 import { UnitMemberService } from 'unit/services/unit.member.service';
-import { NodeBaseInfo, NodeDetailInfo, NodeRelInfo } from '../../database/interfaces';
 import { NodeRelRepository } from '../repositories/node.rel.repository';
 import { NodeRepository } from '../repositories/node.repository';
 import { NodePermissionService } from './node.permission.service';
@@ -41,9 +42,10 @@ export class NodeService {
     private readonly nodePermissionService: NodePermissionService,
     private readonly nodeRepository: NodeRepository,
     private readonly nodeRelRepository: NodeRelRepository,
+    // @ts-ignore
+    @Inject(forwardRef(() => MetaService))
     private readonly resourceMetaService: MetaService,
-  ) {
-  }
+  ) {}
 
   async checkNodeIfExist(nodeId: string, exception?: IBaseException) {
     const count = await this.nodeRepository.selectCountByNodeId(nodeId);
@@ -52,6 +54,49 @@ export class NodeService {
     }
   }
 
+  async getFolderLastChildren(fldId: string): Promise<string> {
+    const nodes = await this.nodeRepository.find({
+      where: {
+        parentId: fldId,
+      },
+    });
+    if (!nodes) {
+      return '';
+    }
+    const nodeIdSet = new Map<string, boolean>();
+    nodes.forEach((node) => {
+      nodeIdSet.set(node.nodeId, false);
+    });
+    nodes.forEach((node) => {
+      if (node.preNodeId && nodeIdSet.has(node.preNodeId)) {
+        nodeIdSet.set(node.preNodeId, true);
+      }
+    });
+    for (const [key, value] of nodeIdSet) {
+      if (!value) {
+        return key;
+      }
+    }
+    return '';
+  }
+
+  async getNodeIcon(nodeId: string): Promise<string | undefined> {
+    const node = await this.nodeRepository.findOne({
+      where: {
+        nodeId,
+      },
+    });
+    if (!node) {
+      return undefined;
+    }
+    return node.icon;
+  }
+
+  async batchSave(nodes: any[]) {
+    return await this.nodeRepository.createQueryBuilder().insert().values(nodes).execute();
+  }
+
+  @Span()
   async checkUserForNode(userId: string, nodeId: string): Promise<string> {
     // Get the space ID which the node belongs to
     const spaceId = await this.getSpaceIdByNodeId(nodeId);
@@ -60,6 +105,7 @@ export class NodeService {
     return spaceId;
   }
 
+  @Span()
   async checkNodePermission(nodeId: string, auth: IAuthHeader): Promise<void> {
     const permission = await this.nodePermissionService.getNodeRole(nodeId, auth);
     if (!permission?.readable) {
@@ -67,6 +113,7 @@ export class NodeService {
     }
   }
 
+  @Span()
   async getMainNodeId(nodeId: string): Promise<string> {
     const raw = await this.nodeRelRepository.selectMainNodeIdByRelNodeId(nodeId);
     if (raw?.mainNodeId) {
@@ -108,6 +155,7 @@ export class NodeService {
     return omit(permission, ['userId', 'uuid', 'role', 'hasRole', 'isGhostNode', 'nodeFavorite', 'fieldPermissionMap']);
   }
 
+  @Span()
   async getNodeDetailInfo(nodeId: string, auth: IAuthHeader, origin: IFetchDataOriginOptions): Promise<NodeDetailInfo> {
     // Node permission view. If no auth is given, it is template access or share access.
     const permission = await this.nodePermissionService.getNodePermission(nodeId, auth, origin);
@@ -116,7 +164,7 @@ export class NodeService {
     // Node description
     const description = await this.nodeDescService.getDescription(nodeId);
     // Node revision
-    const revision = origin.notDst ? await this.getReversionByResourceId(nodeId) : await this.resourceMetaService.getRevisionByDstId(nodeId);
+    const revision = origin.notDst ? await this.getRevisionByResourceId(nodeId) : await this.resourceMetaService.getRevisionByDstId(nodeId);
     // Obtain node sharing state
     const nodeShared = await this.nodeShareSettingService.getShareStatusByNodeId(nodeId);
     // Obtain node permissions
@@ -131,6 +179,7 @@ export class NodeService {
         description: description || '{}',
         parentId: nodeInfo?.parentId || '',
         icon: nodeInfo?.icon || '',
+        nodePrivate: nodeInfo?.unitId != '0',
         nodeShared: nodeShared,
         nodePermitSet: nodePermitSet,
         revision: revision == null ? 0 : revision,
@@ -154,12 +203,16 @@ export class NodeService {
     return rawResult.spaceId;
   }
 
+  async getNameByNodeId(nodeId: string): Promise<string> {
+    return await this.nodeRepository.selectNameByNodeId(nodeId);
+  }
+
   async isTemplate(nodeId: string): Promise<boolean> {
     return (await this.nodeRepository.selectTemplateCountByNodeId(nodeId)) > 0;
   }
 
-  async getReversionByResourceId(resourceId: string): Promise<number | undefined> {
-    const entity = await this.resourceMetaService.selectReversionByResourceId(resourceId);
+  async getRevisionByResourceId(resourceId: string): Promise<number | undefined> {
+    const entity = await this.resourceMetaService.selectRevisionByResourceId(resourceId);
     return entity && Number(entity.revision);
   }
 
@@ -189,5 +242,42 @@ export class NodeService {
 
   async selectSpaceIdByNodeId(nodeId: string): Promise<{ spaceId: string } | undefined> {
     return await this.nodeRepository.selectSpaceIdByNodeId(nodeId);
+  }
+
+  async getRelNodeIdsByMainNodeIds(mainNodeIds: string[]): Promise<string[]> {
+    return await this.nodeRelRepository.selectRelNodeIdsByMainNodeIds(mainNodeIds);
+  }
+
+  async getNodeInfoMapByNodeIds(nodeIds: string[]): Promise<Map<string, { nodeName: string; relNodeId?: string }>> {
+    const nodeMap: Map<string, any> = new Map<string, any>();
+    if (!nodeIds.length) {
+      return nodeMap;
+    }
+    const nodes = await this.nodeRepository.selectNodeNameByNodeIds(nodeIds);
+    const nodeRel = await this.nodeRelRepository.selectRelNodeInfoByMainNodeIds(nodeIds);
+    const nodeRelMap = keyBy(nodeRel, 'mainNodeId');
+    for (const node of nodes) {
+      const info = {
+        nodeName: node.nodeName,
+        relNodeId: nodeRelMap[node.nodeId]?.relNodeId,
+      };
+      nodeMap.set(node.nodeId, info);
+    }
+    return nodeMap;
+  }
+
+  async nodePrivate(nodeId: string): Promise<boolean> {
+    return (await this.nodeRepository.selectUnitCountByNodeId(nodeId)) > 0;
+  }
+
+  async filterPrivateNode(nodeIds: string[]): Promise<string[]> {
+    if (!nodeIds.length) {
+      return [];
+    }
+    const nodes = await this.nodeRepository.selectTeamNodeByNodeIds(nodeIds);
+    if (!nodes || !nodes.length) {
+      return [];
+    }
+    return nodes.map((i) => i.nodeId);
   }
 }

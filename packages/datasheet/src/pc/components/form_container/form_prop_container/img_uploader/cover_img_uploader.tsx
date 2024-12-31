@@ -16,17 +16,18 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import { IconButton } from '@apitable/components';
-import { CutMethod, getImageThumbSrc, integrateCdnHost, isGif, Settings, Strings, t } from '@apitable/core';
 import classnames from 'classnames';
 import Image from 'next/image';
+import * as React from 'react';
+import { useState } from 'react';
+import { IconButton } from '@apitable/components';
+import { CutMethod, getImageThumbSrc, integrateCdnHost, isGif, Settings, Strings, t } from '@apitable/core';
+import { EditOutlined } from '@apitable/icons';
+import { useGetSignatureAssertByToken } from '@apitable/widget-sdk';
 import { ICropShape, IPreviewShape } from 'pc/components/common';
 import { ScreenSize } from 'pc/components/common/component_display';
 import { useResponsive } from 'pc/hooks';
 import { getCellValueThumbSrc } from 'pc/utils';
-import * as React from 'react';
-import { useState } from 'react';
-import BannerEditIcon from 'static/icon/datasheet/rightclick/datasheet_icon_rename.svg';
 import { IBasePropEditorProps, IModeEnum } from '../interface';
 import { IFileType, ImgBaseUploader } from './img_base_uploader';
 import styles from './style.module.less';
@@ -48,11 +49,12 @@ const customTips = {
   cropDesc: t(Strings.form_cover_crop_desc),
 };
 
-export const CoverImgUploader: React.FC<React.PropsWithChildren<ICoverImgUploaderProps>> = props => {
-  const { formId, mode, coverUrl, updateProps } = props;
+export const CoverImgUploader: React.FC<React.PropsWithChildren<ICoverImgUploaderProps>> = (props) => {
+  const { nodeId, mode, coverUrl, updateProps } = props;
   const [isModalShow, setModalShow] = useState(false);
   const officialImgs = Settings.workbench_folder_default_cover_list.value.split(',');
-  const coverImgUrl = coverUrl || getImageThumbSrc(integrateCdnHost(officialImgs[0]), officialImgParams);
+  const _coverImgUrl = coverUrl || getImageThumbSrc(integrateCdnHost(officialImgs[0]), officialImgParams);
+  const coverImgUrl = useGetSignatureAssertByToken(_coverImgUrl);
   const { screenIsAtMost } = useResponsive();
   const isMobile = screenIsAtMost(ScreenSize.md);
 
@@ -72,7 +74,7 @@ export const CoverImgUploader: React.FC<React.PropsWithChildren<ICoverImgUploade
 
   return (
     <ImgBaseUploader
-      formId={formId}
+      nodeId={nodeId}
       visible={isModalShow}
       imgUrl={coverImgUrl}
       cropShape={ICropShape.Rectangle}
@@ -90,7 +92,7 @@ export const CoverImgUploader: React.FC<React.PropsWithChildren<ICoverImgUploade
 
         {mode === IModeEnum.Edit && (
           <div className={classnames(styles.editBtn, isMobile && styles.editBtnMobile)}>
-            <IconButton onClick={() => setModalShow(true)} size="large" variant="background" icon={() => <BannerEditIcon />} />
+            <IconButton onClick={() => setModalShow(true)} size="large" variant="background" icon={() => <EditOutlined />} />
           </div>
         )}
       </div>

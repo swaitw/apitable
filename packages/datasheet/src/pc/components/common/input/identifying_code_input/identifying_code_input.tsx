@@ -16,15 +16,16 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import { FC, useEffect, useState } from 'react';
-import { VerificationCodeFilled } from '@apitable/icons';
-import { AutoTestID, ConfigConstant, StatusCode, Strings, t } from '@apitable/core';
-import { Button, ITextInputProps, TextInput } from '@apitable/components';
 import { useBoolean, useMount, useInterval } from 'ahooks';
-import { useRequest } from 'pc/hooks';
+import { FC, useEffect, useState } from 'react';
+import { Button, ITextInputProps, TextInput } from '@apitable/components';
+import { AutoTestID, ConfigConstant, StatusCode, Strings, t } from '@apitable/core';
+import { ShieldCheckFilled } from '@apitable/icons';
+import { Message } from 'pc/components/common/message/message';
+import { useRequest } from 'pc/hooks/use_request';
+import { useUserRequest } from 'pc/hooks/use_user_request';
+import { execNoTraceVerification, initNoTraceVerification } from 'pc/utils/no_trace_verification';
 import styles from './style.module.less';
-import { useUserRequest } from 'pc/hooks';
-import { execNoTraceVerification, initNoTraceVerification } from 'pc/utils';
 
 export interface IIdentifyingCodeInputProps extends ITextInputProps {
   mode?: ConfigConstant.LoginMode;
@@ -38,16 +39,13 @@ export interface IIdentifyingCodeInputProps extends ITextInputProps {
   setErrMsg: (
     data:
       | Partial<{
-        accountErrMsg: string;
-        identifyingCodeErrMsg: string;
-      }>
-      | ((prevState: {
-        accountErrMsg: string;
-        identifyingCodeErrMsg: string;
-      }) => Partial<{
-        accountErrMsg: string;
-        identifyingCodeErrMsg: string;
-      }>)
+          accountErrMsg: string;
+          identifyingCodeErrMsg: string;
+        }>
+      | ((prevState: { accountErrMsg: string; identifyingCodeErrMsg: string }) => Partial<{
+          accountErrMsg: string;
+          identifyingCodeErrMsg: string;
+        }>),
   ) => void;
   checkAccount?: () => boolean;
 }
@@ -63,21 +61,16 @@ export const IdentifyingCodeInput: FC<React.PropsWithChildren<IIdentifyingCodeIn
   ...rest
 }) => {
   const [second, setSecond] = useState(60);
-  const [isRunning, { setTrue: startTime, setFalse: closingTime }] = useBoolean(
-    false
-  );
+  const [isRunning, { setTrue: startTime, setFalse: closingTime }] = useBoolean(false);
   const [btnDisabled, setBtnDisabled] = useState(disabled);
   const [nvcSuccessData, setNvcSuccessData] = useState<string | null>(null);
   const { getSmsCodeReq, getEmailCodeReq } = useUserRequest();
   const { run: getSmsCode, loading: smsLoading } = useRequest(getSmsCodeReq, {
     manual: true,
   });
-  const { run: getEmailCode, loading: emailLoading } = useRequest(
-    getEmailCodeReq,
-    {
-      manual: true,
-    }
-  );
+  const { run: getEmailCode, loading: emailLoading } = useRequest(getEmailCodeReq, {
+    manual: true,
+  });
 
   useEffect(() => {
     setBtnDisabled(disabled);
@@ -103,10 +96,10 @@ export const IdentifyingCodeInput: FC<React.PropsWithChildren<IIdentifyingCodeIn
       setBtnDisabled(true);
       setSecond(second - 1);
     },
-    isRunning ? 1000 : undefined
+    isRunning ? 1000 : undefined,
   );
 
-  const getIdentifyingCode = async(nvcVal?: string) => {
+  const getIdentifyingCode = async (nvcVal?: string) => {
     if (checkAccount && !checkAccount()) return;
 
     let result: {
@@ -138,6 +131,9 @@ export const IdentifyingCodeInput: FC<React.PropsWithChildren<IIdentifyingCodeIn
       case StatusCode.SECONDARY_VALIDATION:
       case StatusCode.NVC_FAIL:
         break;
+      case StatusCode.COMMON_ERR:
+        Message.error({ content: message });
+        break;
       default:
         setErrMsg({ accountErrMsg: message });
     }
@@ -160,7 +156,7 @@ export const IdentifyingCodeInput: FC<React.PropsWithChildren<IIdentifyingCodeIn
       <div className={styles.identifyingCodeInput}>
         <TextInput
           maxLength={6}
-          prefix={<VerificationCodeFilled />}
+          prefix={<ShieldCheckFilled />}
           placeholder={t(Strings.placeholder_enter_your_verification_code)}
           className={styles.input}
           block
@@ -179,7 +175,9 @@ export const IdentifyingCodeInput: FC<React.PropsWithChildren<IIdentifyingCodeIn
             ? t(Strings.how_many_seconds, {
               seconds: second,
             })
-            : isLoading ? '' : t(Strings.message_code)}
+            : isLoading
+              ? ''
+              : t(Strings.message_code)}
         </Button>
       </div>
     </>

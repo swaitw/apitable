@@ -16,27 +16,28 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import { useThemeColors } from '@apitable/components';
-import { IReduxState, ISpaceInfo, IUserInfo, Navigation, Strings, t } from '@apitable/core';
 import { useUpdateEffect } from 'ahooks';
 import { Popover } from 'antd';
 import classnames from 'classnames';
 import { truncate } from 'lodash';
 import Image from 'next/image';
+import * as React from 'react';
+import { FC, useContext, useState } from 'react';
+import { useThemeColors } from '@apitable/components';
+import { IReduxState, ISpaceInfo, IUserInfo, Navigation, Strings, t } from '@apitable/core';
+import { LogoutOutlined, MoreStandOutlined, SettingOutlined } from '@apitable/icons';
+// eslint-disable-next-line no-restricted-imports
 import { Avatar, AvatarSize, AvatarType, ButtonPlus, ContextmenuItem, Modal, Tooltip } from 'pc/components/common';
 import { ScreenSize } from 'pc/components/common/component_display';
 import { TComponent } from 'pc/components/common/t_component';
-// @ts-ignore
-import { SocialPlatformMap, isSocialPlatformEnabled } from 'enterprise';
 import { NavigationContext } from 'pc/components/navigation/navigation_context';
 import { Router } from 'pc/components/route_manager/router';
 import { useNotificationCreate, useResponsive } from 'pc/hooks';
-import * as React from 'react';
-import { FC, useContext, useState } from 'react';
-import { useSelector } from 'react-redux';
-import MoreIcon from 'static/icon/common/common_icon_more_stand.svg';
-import ExitIcon from 'static/icon/space/space_icon_quitspace.svg';
-import ManagerIcon from 'static/icon/workbench/workbench_tab_icon_manage_normal.svg';
+import { useAppSelector } from 'pc/store/react-redux';
+// @ts-ignore
+import { SocialPlatformMap } from 'enterprise/home/social_platform/config';
+// @ts-ignore
+import { isSocialPlatformEnabled } from 'enterprise/home/social_platform/utils';
 import styles from './style.module.less';
 
 export interface ISpaceListItemProps {
@@ -50,7 +51,7 @@ export const SpaceListItem: FC<React.PropsWithChildren<ISpaceListItemProps>> = (
   const colors = useThemeColors();
   const [visible, setVisible] = useState(false);
   const { closeSpaceListDrawer } = useContext(NavigationContext);
-  const user = useSelector((state: IReduxState) => state.user.info) as IUserInfo;
+  const user = useAppSelector((state: IReduxState) => state.user.info) as IUserInfo;
   const { memberQuitSpaceAndNotice } = useNotificationCreate({ fromUserId: user.uuid, spaceId: user.spaceId });
   const { screenIsAtMost } = useResponsive();
   const isMobile = screenIsAtMost(ScreenSize.md);
@@ -61,7 +62,7 @@ export const SpaceListItem: FC<React.PropsWithChildren<ISpaceListItemProps>> = (
   useUpdateEffect(() => {
     if (user) {
       closeSpaceListDrawer();
-      Router.push(Navigation.SPACE_MANAGE, { params: { spaceId: user.spaceId }});
+      Router.push(Navigation.SPACE_MANAGE, { params: { spaceId: user.spaceId } });
     }
   }, [user.spaceId]);
 
@@ -72,7 +73,7 @@ export const SpaceListItem: FC<React.PropsWithChildren<ISpaceListItemProps>> = (
   const jumpSpaceManagement = (e: React.MouseEvent<HTMLElement, MouseEvent>) => {
     e.stopPropagation();
     if (user.spaceId === spaceId) {
-      Router.push(Navigation.SPACE_MANAGE, { params: { spaceId }});
+      Router.push(Navigation.SPACE_MANAGE, { params: { spaceId } });
     } else {
       window.location.href = `${domain}/management?spaceId=${spaceId}`;
     }
@@ -125,7 +126,7 @@ export const SpaceListItem: FC<React.PropsWithChildren<ISpaceListItemProps>> = (
       <div className={styles.leftItem}>
         <div className={styles.name}>{name}</div>
         {isSocialPlatformEnabled?.(spaceInfo) && (
-          <Tooltip title={SocialPlatformMap?.[spaceInfo.social.platform].toolTipInSpaceListItem || ''} placement='top'>
+          <Tooltip title={SocialPlatformMap?.[spaceInfo.social.platform].toolTipInSpaceListItem || ''} placement="top">
             <span className={styles.platformTag}>
               <Image src={SocialPlatformMap?.[spaceInfo.social.platform].logo || ''} alt={''} />
             </span>
@@ -134,7 +135,7 @@ export const SpaceListItem: FC<React.PropsWithChildren<ISpaceListItemProps>> = (
       </div>
       {managable ? (
         <ButtonPlus.Icon
-          icon={<ManagerIcon width={16} height={16} />}
+          icon={<SettingOutlined size={16} />}
           onClick={jumpSpaceManagement}
           className={classnames(styles.moreBtn, { [styles.visible]: isMobile })}
         />
@@ -142,20 +143,20 @@ export const SpaceListItem: FC<React.PropsWithChildren<ISpaceListItemProps>> = (
         !isSocialPlatformEnabled?.(spaceInfo) && (
           <Popover
             overlayClassName={styles.menu}
-            trigger='click'
-            placement='right'
+            trigger="click"
+            placement="right"
             align={{ offset: [25] }}
             visible={visible}
             mouseLeaveDelay={0}
             onVisibleChange={visibleChangeHandler}
             content={
               <div className={styles.container} onClick={closeMenuHandler}>
-                <ContextmenuItem icon={<ExitIcon />} name={t(Strings.quit_space)} onClick={quitSpace} />
+                <ContextmenuItem icon={<LogoutOutlined />} name={t(Strings.quit_space)} onClick={quitSpace} />
               </div>
             }
           >
             <ButtonPlus.Icon
-              icon={<MoreIcon width={16} height={16} fill={colors.thirdLevelText} />}
+              icon={<MoreStandOutlined size={16} color={colors.thirdLevelText} />}
               onClick={openMoreOperationHandler}
               className={classnames(styles.moreBtn, visible && styles.visible)}
             />

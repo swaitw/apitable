@@ -18,14 +18,17 @@
 
 package com.apitable.organization.service;
 
+import com.apitable.organization.dto.RoleBaseInfoDto;
+import com.apitable.organization.dto.UnitRoleInfoDTO;
+import com.apitable.organization.vo.RoleInfoVo;
+import com.apitable.organization.vo.RoleVo;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 
-import com.apitable.organization.vo.RoleInfoVo;
-import com.apitable.organization.vo.RoleVo;
-import com.apitable.organization.dto.RoleBaseInfoDto;
-
+/**
+ * role service.
+ */
 public interface IRoleService {
 
     /**
@@ -35,33 +38,67 @@ public interface IRoleService {
      * @param spaceId  the space's id
      * @param roleName the role's name
      * @param consumer the callback function
-
      */
     void checkDuplicationRoleName(String spaceId, String roleName, Consumer<Boolean> consumer);
 
     /**
+     * check whether the role name already exists in the space
+     * then the callback deal with the check result.
+     *
+     * @param spaceId  the space's id
+     * @param roleId   the current role id
+     * @param roleName the role's name
+     * @param consumer the callback function
+     */
+    void checkDuplicationRoleName(String spaceId, Long roleId, String roleName,
+                                  Consumer<Boolean> consumer);
+
+    /**
      * create role.
      *
-     * @param userId    the user's id
-     * @param spaceId   the space's id
-     * @param roleName  the role's name
+     * @param userId   the user's id
+     * @param spaceId  the space's id
+     * @param roleName the role's name
      * @return the new role's id
      */
     Long createRole(Long userId, String spaceId, String roleName);
 
+
+    /**
+     * create role.
+     *
+     * @param userId   the user's id
+     * @param spaceId  the space's id
+     * @param roleName the role's name
+     * @param position the role's position
+     * @return the new role's id
+     */
+    UnitRoleInfoDTO createRole(Long userId, String spaceId, String roleName, Integer position);
+
     /**
      * update role's information.
      *
-     * @param userId    the user's id
-     * @param roleId    the role's id
-     * @param roleName  the role's name
+     * @param userId   the user's id
+     * @param roleId   the role's id
+     * @param roleName the role's name
      */
     void updateRole(Long userId, Long roleId, String roleName);
+
+
+    /**
+     * update role's information.
+     *
+     * @param userId   the user's id
+     * @param roleId   the role's id
+     * @param roleName the role's name
+     * @param position the role's position
+     */
+    void updateRole(Long userId, Long roleId, String roleName, Integer position);
 
     /**
      * delete role.
      *
-     * @param roleId    the role's id
+     * @param roleId the role's id
      */
     void deleteRole(Long roleId);
 
@@ -69,16 +106,16 @@ public interface IRoleService {
      * check whether role exist in the space
      * then the callback deal with the check result.
      *
-     * @param spaceId   the space's id
-     * @param roleId    the role's id
-     * @param consumer  the callback function
+     * @param spaceId  the space's id
+     * @param roleId   the role's id
+     * @param consumer the callback function
      */
     void checkRoleExistBySpaceIdAndRoleId(String spaceId, Long roleId, Consumer<Boolean> consumer);
 
     /**
      * query the space's roles list.
      *
-     * @param spaceId   the space's id
+     * @param spaceId the space's id
      * @return role's information RolesVo
      */
     List<RoleInfoVo> getRoles(String spaceId);
@@ -102,8 +139,8 @@ public interface IRoleService {
     /**
      * fuzzy search by keyword in the space.
      *
-     * @param spaceId   the space's id
-     * @param keyword  fuzzy search's keyword
+     * @param spaceId the space's id
+     * @param keyword fuzzy search's keyword
      * @return the search result of roles.
      */
     List<Long> getRoleIdsByKeyWord(String spaceId, String keyword);
@@ -127,16 +164,17 @@ public interface IRoleService {
     /**
      * query role info by the space's id and roles' id.
      *
-     * @param spaceId   the space's id
-     * @param roleIds   the roles' id
+     * @param spaceId the space's id
+     * @param roleIds the roles' id
      * @return the role information.
      */
     List<RoleInfoVo> getRoleVos(String spaceId, List<Long> roleIds);
 
     /**
-     * init the space's role list:
-     * @param userId    the user's id
-     * @param spaceId   the space's id
+     * init the space's role list.
+     *
+     * @param userId  the user's id
+     * @param spaceId the space's id
      */
     void initRoleList(Long userId, String spaceId);
 
@@ -144,8 +182,26 @@ public interface IRoleService {
      * check whether roles exist in the space
      * then the callback deal with the check result.
      *
-     * @param spaceId   the space's id
-     * @param consumer  the callback function
+     * @param spaceId  the space's id
+     * @param consumer the callback function
      */
     void checkRoleExistBySpaceId(String spaceId, Consumer<Boolean> consumer);
+
+    /**
+     * get role id.
+     *
+     * @param spaceId space id
+     * @param unitIds role unit id
+     * @return role id list
+     */
+    List<Long> getRoleIdsByUnitIds(String spaceId, List<String> unitIds);
+
+    /**
+     * get role id.
+     *
+     * @param spaceId space id
+     * @param unitId  role unit id
+     * @return role id
+     */
+    Long getRoleIdByUnitId(String spaceId, String unitId);
 }

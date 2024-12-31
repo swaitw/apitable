@@ -17,6 +17,7 @@
  */
 
 import { ICommentContent, ICommentMsg, IListInsertAction } from '@apitable/core';
+import { Span } from '@metinseylan/nestjs-opentelemetry';
 import { Injectable } from '@nestjs/common';
 import { UnitService } from 'unit/services/unit.service';
 import { isEmpty, pickBy } from 'lodash';
@@ -27,6 +28,8 @@ import { JavaService } from 'shared/services/java/java.service';
 import { CommentDto } from '../dtos/comment.dto';
 import { RecordCommentRepository } from '../../datasheet/repositories/record.comment.repository';
 import { CommentListVo } from '../vos/comment.list.vo';
+import { IdWorker } from '../../../shared/helpers';
+import { RecordCommentEntity } from '../entities/record.comment.entity';
 
 @Injectable()
 export class RecordCommentService {
@@ -38,6 +41,29 @@ export class RecordCommentService {
 
   async getCommentEntity(dstId: string, recordId: string) {
     return await this.repo.selectCommentsByDstIdAndRecordId(dstId, recordId);
+  }
+
+  async recoverComments(comments: RecordCommentEntity[]) {
+    if (comments) {
+      comments.forEach(comment => {
+        comment.id = IdWorker.nextId() + '';
+        comment.revision = 0;
+      }
+      );
+      await this.repo
+        .createQueryBuilder()
+        .insert()
+        .values(comments)
+        .execute();
+    }
+  }
+
+  async getAllCommentsByDstId(dstId: string) {
+    return await this.repo.find({
+      where: {
+        dstId: dstId
+      }
+    });
   }
 
   /**
@@ -95,6 +121,7 @@ export class RecordCommentService {
     return firstMemberInfo && firstMemberInfo.userId === uuid;
   }
 
+  @Span()
   getCommentCountMapByDstId(dstId: string): Promise<{ [recordId: string]: number }> {
     return this.repo.selectRecordCommentCountByDstId(dstId);
   }
@@ -110,7 +137,7 @@ export class RecordCommentService {
    * @date 2021/4/21 5:24 PM
    */
   async getRecordCommentRevisions(dstId: string, recordId: string, excludeDeleted = true): Promise<string[]> {
-    const result = await this.repo.selectReversionsByDstIdAndRecordId(dstId, recordId, excludeDeleted);
+    const result = await this.repo.selectRevisionsByDstIdAndRecordId(dstId, recordId, excludeDeleted);
     if (result) {
       return result.map(entity => entity.revision);
     }

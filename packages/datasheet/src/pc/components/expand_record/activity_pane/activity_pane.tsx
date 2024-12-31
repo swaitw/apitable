@@ -16,26 +16,24 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import { IconButton, useThemeColors } from '@apitable/components';
-import { CollaCommandName, Selectors, Strings, t } from '@apitable/core';
-import { CloseMiddleOutlined } from '@apitable/icons';
 import { useLocalStorageState } from 'ahooks';
-import { Dropdown, Menu  } from 'antd';
+import { Dropdown, Menu } from 'antd';
 import classNames from 'classnames';
 import { pick } from 'lodash';
+import * as React from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { IconButton, useThemeColors } from '@apitable/components';
+import { CollaCommandName, Selectors, Strings, t } from '@apitable/core';
+import { CloseOutlined, DeleteOutlined, QuestionCircleOutlined, ChevronDownOutlined } from '@apitable/icons';
+// eslint-disable-next-line no-restricted-imports
 import { MobileContextMenu, Tooltip } from 'pc/components/common';
 import { ScreenSize } from 'pc/components/common/component_display';
 import { Modal } from 'pc/components/common/mobile/modal';
 import { useResponsive } from 'pc/hooks';
 import { resourceService } from 'pc/resource_service';
+import { useAppSelector } from 'pc/store/react-redux';
 import { ACTIVITY_SELECT_MAP, ActivitySelectType } from 'pc/utils';
 import { getEnvVariables } from 'pc/utils/env';
-import * as React from 'react';
-import { useCallback, useEffect, useState } from 'react';
-import { useSelector } from 'react-redux';
-import IconDelete from 'static/icon/common/common_icon_delete.svg';
-import HelpIcon from 'static/icon/common/common_icon_information.svg';
-import IconArrow from 'static/icon/common/common_icon_pulldown_line.svg';
 import { ActivityContext } from './activity_context';
 import { ActivityList } from './activity_list/activity_list';
 
@@ -43,7 +41,7 @@ import { CommentEditor } from './comment_editor';
 import { IActivityPaneProps, ICacheType, IChooseComment } from './interface';
 import styles from './style.module.less';
 
-export const ActivityPaneBase: React.FC<React.PropsWithChildren<IActivityPaneProps>> = props => {
+export const ActivityPaneBase: React.FC<React.PropsWithChildren<IActivityPaneProps>> = (props) => {
   const { expandRecordId, datasheetId, viewId, mirrorId, fromCurrentDatasheet, style, closable, onClose } = props;
   const colors = useThemeColors();
   const { screenIsAtMost } = useResponsive();
@@ -60,9 +58,9 @@ export const ActivityPaneBase: React.FC<React.PropsWithChildren<IActivityPanePro
   const [selectOpen, setSelectOpen] = useState(false);
 
   // Current operating mode
-  const unitMap = useSelector(state => Selectors.getUnitMap(state));
-  const showRecordHistory = useSelector(state => Selectors.getRecordHistoryStatus(state, datasheetId))!;
-  const [cacheType, setCacheType] = useLocalStorageState<ICacheType>('vika_activity_type', { defaultValue: {}});
+  const unitMap = useAppSelector((state) => Selectors.getUnitMap(state));
+  const showRecordHistory = useAppSelector((state) => Selectors.getRecordHistoryStatus(state, datasheetId))!;
+  const [cacheType, setCacheType] = useLocalStorageState<ICacheType>('vika_activity_type', { defaultValue: {} });
   const handleCacheType = useCallback(
     (type: ActivitySelectType) => {
       setCacheType({
@@ -123,11 +121,13 @@ export const ActivityPaneBase: React.FC<React.PropsWithChildren<IActivityPanePro
             <div className={styles.paneTitle}>
               {t(Strings.activity)}
               <Tooltip title={t(Strings.activity_tip)} trigger={'hover'}>
-                <a href={getEnvVariables().RECORD_ACTIVITY_HELP_URL} rel="noopener noreferrer" target="_blank">
-                  <HelpIcon
-                    style={{ cursor: 'pointer', verticalAlign: '-0.125em', marginLeft: 4, display: 'inline-block' }}
-                    fill={colors.thirdLevelText}
-                  />
+                <a
+                  href={getEnvVariables().RECORD_ACTIVITY_HELP_URL}
+                  rel="noopener noreferrer"
+                  target="_blank"
+                  style={{ cursor: 'pointer', verticalAlign: '-0.125em', marginLeft: 4, display: 'inline-block' }}
+                >
+                  <QuestionCircleOutlined color={colors.thirdLevelText} />
                 </a>
               </Tooltip>
             </div>
@@ -137,7 +137,7 @@ export const ActivityPaneBase: React.FC<React.PropsWithChildren<IActivityPanePro
               trigger={['click']}
               placement={closable ? 'bottomLeft' : 'bottomRight'}
               className={styles.activitySelect}
-              onVisibleChange={visible => setSelectOpen(visible)}
+              onVisibleChange={(visible) => setSelectOpen(visible)}
               overlay={
                 <Menu onClick={handleMenuClick}>
                   {Object.entries(showRecordHistory ? ACTIVITY_SELECT_MAP : pick(ACTIVITY_SELECT_MAP, ActivitySelectType.Comment)).map(
@@ -153,14 +153,14 @@ export const ActivityPaneBase: React.FC<React.PropsWithChildren<IActivityPanePro
               <div>
                 {ACTIVITY_SELECT_MAP[selectType][1]}
                 <span className={classNames(styles.selectIcon, { [styles.open!]: selectOpen })}>
-                  <IconArrow width={16} height={16} fill={colors.thirdLevelText} />
+                  <ChevronDownOutlined size={16} color={colors.thirdLevelText} />
                 </span>
               </div>
             </Dropdown>
           </div>
           {closable && !isMobile && (
             <IconButton
-              icon={CloseMiddleOutlined}
+              icon={CloseOutlined}
               shape="square"
               onClick={() => {
                 onClose && onClose();
@@ -191,7 +191,7 @@ export const ActivityPaneBase: React.FC<React.PropsWithChildren<IActivityPanePro
           data={[
             [
               {
-                icon: <IconDelete fill={colors.thirdLevelText} />,
+                icon: <DeleteOutlined color={colors.thirdLevelText} />,
                 text: t(Strings.delete),
                 isWarn: true,
                 onClick: () => {
@@ -223,4 +223,6 @@ export const ActivityPaneBase: React.FC<React.PropsWithChildren<IActivityPanePro
   );
 };
 
-export const ActivityPane = React.memo(ActivityPaneBase);
+const ActivityPane = React.memo(ActivityPaneBase);
+
+export default ActivityPane;

@@ -32,28 +32,29 @@ export const getShowFieldName = (name: string) => {
 };
 
 export const getCopyField = (field: IField, fieldMap: IFieldMap, viewId?: string, datasheetId?: string) => {
-  const commandManager = resourceService.instance!.commandManager;
   return (index: number, fieldId: string, offset: number, hiddenColumn?: boolean) => {
-    const result = commandManager.execute({
+    const result = resourceService.instance!.commandManager.execute({
       cmd: CollaCommandName.AddFields,
       copyCell: true,
       fieldId: field.id,
-      data: [{
-        data: {
-          name: getUniqName(
-            field.name + t(Strings.copy),
-            Object.keys(fieldMap).map(id => fieldMap[id].name),
-          ),
-          type: field.type,
-          property: field.property,
+      data: [
+        {
+          data: {
+            name: getUniqName(
+              field.name + t(Strings.copy),
+              Object.keys(fieldMap).map((id) => fieldMap[id].name),
+            ),
+            type: field.type,
+            property: field.property,
+          },
+          viewId: viewId,
+          index: index,
+          fieldId,
+          offset,
+          hiddenColumn,
         },
-        viewId: viewId,
-        index: index,
-        fieldId,
-        offset,
-        hiddenColumn,
-      }],
-      datasheetId
+      ],
+      datasheetId,
     });
 
     if (ExecuteResult.Success === result.result) {

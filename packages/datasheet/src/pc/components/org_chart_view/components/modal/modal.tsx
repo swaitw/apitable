@@ -16,57 +16,54 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+import { useClickAway, useMount } from 'ahooks';
 import { useContext, useRef, useState } from 'react';
 import * as React from 'react';
-import { t, Strings } from '@apitable/core';
-import { ExpandRecordOutlined } from '@apitable/icons';
 import { Typography, IconButton } from '@apitable/components';
-import { FieldEditor } from 'pc/components/expand_record/field_editor';
-import { expandRecordIdNavigate } from 'pc/components/expand_record';
-import { useClickAway, useMount } from 'ahooks';
-import styles from './styles.module.less';
-import { FlowContext } from '../../context/flow_context';
+import { t, Strings } from '@apitable/core';
+import { ExpandOutlined } from '@apitable/icons';
 import { useStoreState, useZoomPanHelper } from '@apitable/react-flow';
+import { expandRecordIdNavigate } from 'pc/components/expand_record';
+import { FieldEditor } from 'pc/components/expand_record/field_editor';
+import { KeyCode } from 'pc/utils';
 import { QUICK_ADD_MODAL_WIDTH, QUICK_ADD_MODAL_HEIGHT } from '../../constants';
+import { FlowContext } from '../../context/flow_context';
+import styles from './styles.module.less';
 
 interface IModalProps {
   recordId?: string;
+  setQuickAddRecId: React.Dispatch<React.SetStateAction<string | undefined>>;
 }
 
-export const Modal: React.FC<React.PropsWithChildren<IModalProps>> = ({
-  recordId,
-}) => {
+export const Modal: React.FC<React.PropsWithChildren<IModalProps>> = ({ recordId, setQuickAddRecId }) => {
+  const { primaryFieldId, datasheetId, offsetLeft, offsetTop, orgChartViewStatus, bodySize, nodesMap } = useContext(FlowContext);
 
-  const {
-    primaryFieldId,
-    datasheetId,
-    offsetLeft,
-    offsetTop,
-    orgChartViewStatus,
-    bodySize,
-    nodesMap,
-  } = useContext(FlowContext);
+  const { settingPanelVisible, settingPanelWidth, rightPanelWidth, rightPanelVisible } = orgChartViewStatus;
 
-  const {
-    settingPanelVisible,
-    settingPanelWidth,
-    rightPanelWidth,
-    rightPanelVisible,
-  } = orgChartViewStatus;
+  const [translateX, translateY, scale] = useStoreState((state) => state.transform);
 
-  const [translateX, translateY, scale] = useStoreState(state => state.transform);
-
-  const {
-    transform
-  } = useZoomPanHelper();
+  const { transform } = useZoomPanHelper();
 
   const [focusFieldId, setFocusFieldId] = useState<string | null>(primaryFieldId);
 
   const titleFieldRef = useRef(null);
+  const mountRef = useRef(false);
 
-  useClickAway(() => {
-    setFocusFieldId(null);
-  }, [titleFieldRef]);
+  useClickAway(
+    () => {
+      if (mountRef.current) {
+        setFocusFieldId(null);
+      }
+    },
+    [titleFieldRef],
+    'click',
+  );
+
+  const keyDownHandler = (e: React.KeyboardEvent) => {
+    if (e.keyCode === KeyCode.Enter && !e.shiftKey) {
+      setQuickAddRecId(undefined);
+    }
+  };
 
   const node = nodesMap[recordId!]!;
   const { x, y } = node.position;
@@ -108,6 +105,9 @@ export const Modal: React.FC<React.PropsWithChildren<IModalProps>> = ({
       y: translateY - (_offsetY > 0 ? _offsetY : 0),
       zoom: scale,
     });
+    setTimeout(() => {
+      mountRef.current = true;
+    });
   });
 
   if (!recordId || !node) return null;
@@ -119,17 +119,14 @@ export const Modal: React.FC<React.PropsWithChildren<IModalProps>> = ({
         left: modalLeft,
         top,
         width: QUICK_ADD_MODAL_WIDTH,
-        height: QUICK_ADD_MODAL_HEIGHT,
       }}
     >
       <header>
-        <Typography variant="h7">
-          {t(Strings.set_record)}
-        </Typography>
-        <IconButton icon={ExpandRecordOutlined} onClick={() => expandRecordIdNavigate(recordId)} />
+        <Typography variant="h7">{t(Strings.set_record)}</Typography>
+        <IconButton icon={ExpandOutlined} onClick={() => expandRecordIdNavigate(recordId)} />
       </header>
       <div className={styles.content}>
-        <div ref={titleFieldRef}>
+        <div ref={titleFieldRef} onKeyDown={keyDownHandler}>
           <FieldEditor
             datasheetId={datasheetId}
             fieldId={primaryFieldId}

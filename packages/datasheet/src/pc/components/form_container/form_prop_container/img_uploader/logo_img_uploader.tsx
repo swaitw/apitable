@@ -16,40 +16,48 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import { useThemeColors } from '@apitable/components';
-import { isGif, Strings, t } from '@apitable/core';
 import classnames from 'classnames';
 import Image from 'next/image';
-import { ICropShape } from 'pc/components/common';
+import * as React from 'react';
+import { useState } from 'react';
+import { useThemeColors } from '@apitable/components';
+import { isGif, Strings, t } from '@apitable/core';
+import { AddOutlined, EditOutlined } from '@apitable/icons';
+import { ICropShape, ButtonPlus } from 'pc/components/common';
 import { ScreenSize } from 'pc/components/common/component_display';
 import { useResponsive } from 'pc/hooks';
 import { getCellValueThumbSrc } from 'pc/utils';
-import * as React from 'react';
-import { useState } from 'react';
-import IconAdd from 'static/icon/common/add_big.svg';
-import BannerEditIcon from 'static/icon/datasheet/rightclick/datasheet_icon_rename.svg';
-import { ButtonPlus } from '../../../common';
 import { IBasePropEditorProps, IModeEnum } from '../interface';
+import { UploadContainerShape, UploadContainerSize } from './enum';
 import { ImgBaseUploader } from './img_base_uploader';
 import styles from './style.module.less';
 
 interface ILogoImgUploaderProps extends IBasePropEditorProps {
   logoUrl?: string;
+  size?: UploadContainerSize;
+  shape?: UploadContainerShape;
 }
 
 const customTips = {
   cropDesc: t(Strings.custom_upload_tip),
 };
 
-export const LogoImgUploader: React.FC<React.PropsWithChildren<ILogoImgUploaderProps>> = props => {
+export const LogoImgUploader: React.FC<React.PropsWithChildren<ILogoImgUploaderProps>> = (props) => {
   const colors = useThemeColors();
-  const { formId, mode, logoUrl, updateProps } = props;
-  const [isModalShow, setModalShow] = useState(false);
   const { screenIsAtMost } = useResponsive();
   const isMobile = screenIsAtMost(ScreenSize.md);
+  const {
+    nodeId,
+    mode,
+    logoUrl,
+    updateProps,
+    size = isMobile ? UploadContainerSize.MobileNormal : UploadContainerSize.Normal,
+    shape = UploadContainerShape.Square,
+  } = props;
+  const [isModalShow, setModalShow] = useState(false);
   const logoSize = isMobile ? 80 : 120;
   const logoAddIconSize = isMobile ? 16 : 32;
-  const logoWrapClassName = classnames(styles.logoImgWrapper, isMobile && styles.logoWrapMobile);
+  const logoWrapClassName = classnames(styles.logoImgWrapper, isMobile && styles.logoWrapMobile, logoUrl && styles.notEmpty);
 
   const onChange = (file: any) => {
     const logoUrl = getCellValueThumbSrc(file, {
@@ -62,9 +70,16 @@ export const LogoImgUploader: React.FC<React.PropsWithChildren<ILogoImgUploaderP
   return (
     <>
       {mode === IModeEnum.Edit ? (
-        <div className={logoWrapClassName}>
+        <div
+          className={logoWrapClassName}
+          style={{
+            width: size,
+            height: size,
+            borderRadius: shape === UploadContainerShape.Square ? 8 : '50%',
+          }}
+        >
           <ImgBaseUploader
-            formId={formId}
+            nodeId={nodeId}
             visible={isModalShow}
             imgUrl={logoUrl}
             cropShape={ICropShape.Square}
@@ -76,14 +91,14 @@ export const LogoImgUploader: React.FC<React.PropsWithChildren<ILogoImgUploaderP
             <div className={styles.logoImg} onClick={() => setModalShow(true)}>
               {!logoUrl && (
                 <div className={classnames(styles.logoPlaceHolder, isMobile && styles.placeholderMobile)}>
-                  <IconAdd width={logoAddIconSize} height={logoAddIconSize} fill={colors.fourthLevelText} />
+                  <AddOutlined size={logoAddIconSize} color={colors.fourthLevelText} />
                   <span>{t(Strings.add_form_logo)}</span>
                 </div>
               )}
               {logoUrl && <Image src={logoUrl} alt="cover" layout={'fill'} />}
               {logoUrl && (
                 <div className={classnames(styles.editBtn, isMobile && styles.editBtnMobile)}>
-                  <ButtonPlus.Icon size="small" onClick={() => setModalShow(true)} icon={<BannerEditIcon />} />
+                  <ButtonPlus.Icon size="small" onClick={() => setModalShow(true)} icon={<EditOutlined />} />
                 </div>
               )}
             </div>

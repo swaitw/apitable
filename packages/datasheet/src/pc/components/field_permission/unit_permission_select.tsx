@@ -16,35 +16,33 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+import { useClickAway } from 'ahooks';
+import { Divider } from 'antd';
+import classnames from 'classnames';
 import { useLayoutEffect, useRef, useState, useEffect } from 'react';
 import * as React from 'react';
-import styles from './styles.module.less';
+import { DoubleSelect, Typography, Button, useThemeColors, IDoubleOptions } from '@apitable/components';
+import { ConfigConstant, Selectors, Strings, t, IUnitIds } from '@apitable/core';
+import { AddOutlined, CheckOutlined, ChevronDownOutlined, CloseOutlined } from '@apitable/icons';
+import { MobileSelect } from 'pc/components/common';
+import { ComponentDisplay, ScreenSize } from 'pc/components/common/component_display';
+import { Message } from 'pc/components/common/message/message';
 import { PopStructure } from 'pc/components/editors/pop_structure';
 import { MemberOptionList } from 'pc/components/list';
-import { useSelector } from 'react-redux';
-import { ConfigConstant, Selectors, Strings, t, IUnitIds } from '@apitable/core';
-import { Divider } from 'antd';
 import { MemberItem } from 'pc/components/multi_grid/cell/cell_member/member_item';
+import { useAppSelector } from 'pc/store/react-redux';
 import { stopPropagation } from 'pc/utils';
-import IconClose from 'static/icon/datasheet/datasheet_icon_exit.svg';
-import { DoubleSelect, Typography, Button, useThemeColors, IDoubleOptions } from '@apitable/components';
 import { IUnitPermissionSelectProps } from './interface';
-import classnames from 'classnames';
-import { useClickAway } from 'ahooks';
-import { ComponentDisplay, ScreenSize } from 'pc/components/common/component_display';
-import PulldownIcon from 'static/icon/common/common_icon_pulldown_line.svg';
-import { MobileSelect } from 'pc/components/common';
-import { AddOutlined, CheckOutlined } from '@apitable/icons';
-import { Message } from 'pc/components/common/message/message';
+import styles from './styles.module.less';
 
-export const UnitPermissionSelect: React.FC<React.PropsWithChildren<IUnitPermissionSelectProps>> = props => {
+export const UnitPermissionSelect: React.FC<React.PropsWithChildren<IUnitPermissionSelectProps>> = (props) => {
   const colors = useThemeColors();
-  const { permissionList, onSubmit, classNames, adminAndOwnerUnitIds = [], showTeams, searchEmail } = props;
+  const { permissionList, onSubmit, classNames, adminAndOwnerUnitIds = [], showTeams, searchEmail, showGroup } = props;
   const unitMap =
-    useSelector(state => {
+    useAppSelector((state) => {
       return Selectors.getUnitMap(state);
     }) || {};
-  const datasheetId = useSelector(state => state.pageParams.datasheetId)!;
+  const datasheetId = useAppSelector((state) => state.pageParams.datasheetId)!;
   const [height, setHeight] = useState(0);
   const [editing, setEditing] = useState(false);
   const [unitValue, setUnitValue] = useState<IUnitIds>([]);
@@ -53,8 +51,8 @@ export const UnitPermissionSelect: React.FC<React.PropsWithChildren<IUnitPermiss
   const unitListRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const noPermissionMembers = useSelector(state => state.catalogTree.noPermissionMembers);
-  const permissionCommitRemindStatus = useSelector(state => state.catalogTree.permissionCommitRemindStatus);
+  const noPermissionMembers = useAppSelector((state) => state.catalogTree.noPermissionMembers);
+  const permissionCommitRemindStatus = useAppSelector((state) => state.catalogTree.permissionCommitRemindStatus);
   useEffect(() => {
     if (permissionCommitRemindStatus && noPermissionMembers) {
       setUnitValue([...noPermissionMembers]);
@@ -79,7 +77,7 @@ export const UnitPermissionSelect: React.FC<React.PropsWithChildren<IUnitPermiss
     !editing && document.body.click();
     stopPropagation(e);
     if (toggleClose) {
-      setEditing(editing => !editing);
+      setEditing((editing) => !editing);
     } else {
       setEditing(true);
     }
@@ -102,10 +100,10 @@ export const UnitPermissionSelect: React.FC<React.PropsWithChildren<IUnitPermiss
       openMemberList(e, false);
       return;
     }
-    const unitInfos = unitValue.map(unitId => {
+    const unitInfos = unitValue.map((unitId) => {
       return unitMap[unitId];
     });
-    
+
     if (unitInfos.some(({ unitId }) => adminAndOwnerUnitIds.includes(unitId))) {
       Message.error({ content: t(Strings.no_permission_setting_admin) });
       return;
@@ -116,8 +114,8 @@ export const UnitPermissionSelect: React.FC<React.PropsWithChildren<IUnitPermiss
   };
 
   const removeUnit = (unitId: string) => {
-    setUnitValue(value => {
-      return value.filter(id => {
+    setUnitValue((value) => {
+      return value.filter((id) => {
         return id !== unitId;
       });
     });
@@ -129,23 +127,25 @@ export const UnitPermissionSelect: React.FC<React.PropsWithChildren<IUnitPermiss
         <div className={styles.unitValue} onClick={openMemberList} tabIndex={-1}>
           <div className={styles.placeholder}>
             <AddOutlined color={colors.thirdLevelText} />
-            {!unitValue.length && <Typography variant="body3" color={colors.thirdLevelText} style={{ lineHeight: 1.1, wordBreak: 'keep-all' }}>
-              {t(Strings.add_member_or_unit)}
-            </Typography>}
+            {!unitValue.length && (
+              <Typography variant="body3" color={colors.thirdLevelText} style={{ lineHeight: 1.1, wordBreak: 'keep-all', marginLeft: 8 }}>
+                {t(Strings.add_member_or_unit)}
+              </Typography>
+            )}
           </div>
           {unitValue.map((unitId) => {
             const unitInfo = unitMap[unitId];
             return (
               <MemberItem unitInfo={unitInfo} key={unitId}>
                 <div
-                  onClick={e => {
+                  onClick={(e) => {
                     stopPropagation(e);
                     removeUnit(unitId);
                   }}
                   onMouseDown={stopPropagation}
                   style={{ cursor: 'pointer' }}
                 >
-                  <IconClose width={8} height={8} fill={colors.secondLevelText} />
+                  <CloseOutlined size={8} color={colors.secondLevelText} />
                 </div>
               </MemberItem>
             );
@@ -160,7 +160,7 @@ export const UnitPermissionSelect: React.FC<React.PropsWithChildren<IUnitPermiss
               disabled={false}
               onSelected={changePermission}
               triggerCls={styles.doubleSelect}
-              options={permissionList.map(item => {
+              options={permissionList.map((item) => {
                 return {
                   label: item.label,
                   subLabel: item.subLabel,
@@ -175,7 +175,7 @@ export const UnitPermissionSelect: React.FC<React.PropsWithChildren<IUnitPermiss
                 triggerComponent={
                   <div className={styles.mobileRoleSelect}>
                     {ConfigConstant.permissionText[permissionValue.value!]}
-                    {<PulldownIcon className={styles.arrowIcon} width={16} height={16} fill={colors.fourthLevelText} />}
+                    {<ChevronDownOutlined className={styles.arrowIcon} size={16} color={colors.fourthLevelText} />}
                   </div>
                 }
                 renderList={({ setVisible }) => {
@@ -219,6 +219,7 @@ export const UnitPermissionSelect: React.FC<React.PropsWithChildren<IUnitPermiss
                 inputRef={inputRef}
                 searchEmail={searchEmail}
                 showTeams={showTeams}
+                showGroup={showGroup}
               />
             </PopStructure>
           </div>

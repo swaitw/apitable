@@ -18,33 +18,32 @@
 
 package com.apitable.workspace.vo;
 
+import com.apitable.core.support.tree.Tree;
+import com.apitable.shared.support.serializer.NullArraySerializer;
+import com.apitable.shared.support.serializer.NullBooleanSerializer;
+import com.apitable.shared.support.serializer.NullStringSerializer;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
-import com.apitable.shared.support.serializer.NullArraySerializer;
-import com.apitable.shared.support.serializer.NullStringSerializer;
-import com.apitable.core.support.tree.Tree;
-import io.swagger.annotations.ApiModel;
-import io.swagger.annotations.ApiModelProperty;
-import lombok.Data;
-
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
+import lombok.Data;
 
 /**
  * <p>
- * View of the number of shared nodes
+ * View of the number of shared nodes.
  * </p>
  */
 @Data
-@ApiModel("View of the number of shared nodes")
+@Schema(description = "View of the number of shared nodes")
 public class NodeShareTree implements Tree {
 
-    @ApiModelProperty(value = "Node ID", example = "nod10", position = 1)
+    @Schema(description = "Node ID", example = "nod10")
     private String nodeId;
 
-    @ApiModelProperty(value = "Node Name", example = "Node Name", position = 2)
+    @Schema(description = "Node Name", example = "Node Name")
     private String nodeName;
 
-    @ApiModelProperty(value = "Node icon", example = ":smile", position = 3)
+    @Schema(description = "Node icon", example = ":smile")
     @JsonSerialize(nullsUsing = NullStringSerializer.class)
     private String icon;
 
@@ -57,13 +56,17 @@ public class NodeShareTree implements Tree {
     @JsonIgnore
     private String cover;
 
-    @JsonIgnore
+    @Schema(description = "Node extra")
     private String extra;
 
-    @ApiModelProperty(value = "Node Type[1:Folder,2:Datasheet]", example = "1", position = 4)
+    @Schema(description = "Node Type[1:Folder,2:Datasheet]", example = "1")
     private Integer type;
 
-    @ApiModelProperty(value = "Child node", position = 4)
+    @Schema(description = "node private", example = "false")
+    @JsonSerialize(nullsUsing = NullBooleanSerializer.class)
+    private Boolean nodePrivate;
+
+    @Schema(description = "Child node")
     @JsonSerialize(nullsUsing = NullArraySerializer.class)
     private List<NodeShareTree> children;
 
@@ -80,7 +83,7 @@ public class NodeShareTree implements Tree {
 
     @JsonIgnore
     @Override
-    public List getChildrenNodes() {
+    public List<NodeShareTree> getChildrenNodes() {
         return this.children;
     }
 

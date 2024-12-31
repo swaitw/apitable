@@ -16,15 +16,13 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import { FC, useContext } from 'react';
-import styles from './style.module.less';
-import { FavoriteOutlined, FavoriteFilled } from '@apitable/icons';
-import { useCatalogTreeRequest } from 'pc/hooks';
-import { useRequest } from 'pc/hooks';
-import { t, Strings, IReduxState } from '@apitable/core';
+import { FC } from 'react';
+import { t, Strings } from '@apitable/core';
+import { StarOutlined, StarFilled } from '@apitable/icons';
+import { useCatalogTreeRequest, useRequest } from 'pc/hooks';
+import { useAppSelector } from 'pc/store/react-redux';
 import { Tooltip } from '../tooltip';
-import { WorkbenchSideContext } from 'pc/components/common_side/workbench_side/workbench_side_context';
-import { useSelector } from 'react-redux';
+import styles from './style.module.less';
 
 export interface INodeFavoriteStatusProps {
   nodeId: string;
@@ -32,28 +30,23 @@ export interface INodeFavoriteStatusProps {
 }
 
 export const NodeFavoriteStatus: FC<React.PropsWithChildren<INodeFavoriteStatusProps>> = ({ nodeId, enabled }) => {
+  const activeNodePrivate = useAppSelector((state) => {
+    return state.catalogTree.treeNodesMap[nodeId]?.nodePrivate || state.catalogTree.privateTreeNodesMap[nodeId]?.nodePrivate;
+  });
   const { updateNodeFavoriteStatusReq } = useCatalogTreeRequest();
   const { run: updateNodeFavoriteStatus, loading } = useRequest(updateNodeFavoriteStatusReq, { manual: true });
-  const treeNodesMap = useSelector((state: IReduxState) => state.catalogTree.treeNodesMap);
-
-  const { openFavorite } = useContext(WorkbenchSideContext);
 
   const clickHandler = () => {
-    if (loading) { return; }
-    updateNodeFavoriteStatus(nodeId);
-    if (!treeNodesMap[nodeId].nodeFavorite) {
-      openFavorite(); 
+    if (loading) {
+      return;
     }
+    updateNodeFavoriteStatus(nodeId, activeNodePrivate);
   };
 
   return (
     <Tooltip title={enabled ? t(Strings.remove_favorite) : t(Strings.favorite)} trigger="hover">
       <div className={styles.favoriteStatus} onClick={clickHandler}>
-        {
-          enabled ?
-            <FavoriteFilled size={16} className={styles.favorite} /> :
-            <FavoriteOutlined size={16} className={styles.unFavorite} />
-        }
+        {enabled ? <StarFilled size={16} className={styles.favorite} /> : <StarOutlined size={16} className={styles.unFavorite} />}
       </div>
     </Tooltip>
   );

@@ -24,14 +24,18 @@ let formId: string | undefined;
 
 store.subscribe(function formIdChange() {
   const state = store.getState();
-  const spaceId = state.space.activeId || state.share.spaceId;
-  const { shareId, templateId } = state.pageParams;
+  const spaceId = state.space.activeId || state.share.spaceId || state.embedInfo.spaceId;
+  const { shareId, templateId, embedId } = state.pageParams;
 
-  if ((!spaceId && !shareId && !templateId)) {
+  if (!spaceId && !shareId && !templateId && !embedId) {
     return;
   }
 
-  if ((shareId && (!spaceId || !resourceService.instance?.initialized))) {
+  if (shareId && (!spaceId || !resourceService.instance?.initialized)) {
+    return;
+  }
+
+  if (embedId && (!spaceId || !resourceService.instance?.initialized || !state.embedInfo?.spaceId)) {
     return;
   }
 
@@ -42,9 +46,10 @@ store.subscribe(function formIdChange() {
     return;
   }
 
-  resourceService.instance?.initialized && resourceService.instance?.switchResource({
-    from: prevFormId, to: formId!, resourceType: ResourceType.Form,
-  });
-
+  resourceService.instance?.initialized &&
+    resourceService.instance?.switchResource({
+      from: prevFormId,
+      to: formId!,
+      resourceType: ResourceType.Form,
+    });
 });
-

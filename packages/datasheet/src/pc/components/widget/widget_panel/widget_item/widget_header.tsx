@@ -1,24 +1,22 @@
-import { Divider, IconButton, useContextMenu, useThemeColors } from '@apitable/components';
-import { CollaCommandName, ResourceType, Selectors, Strings, t, WidgetPackageStatus, WidgetReleaseType } from '@apitable/core';
-import {
-  CloseMiddleOutlined, DragOutlined, MoreOutlined, RefreshOutlined, SettingOutlined, WidgetExpandOutlined, WidgetNarrowOutlined,
-} from '@apitable/icons';
 import type { InputRef } from 'antd';
 import { Input } from 'antd';
 import classNames from 'classnames';
+import * as React from 'react';
+import { useRef, useState } from 'react';
+import { Divider, IconButton, useContextMenu, useThemeColors } from '@apitable/components';
+import { CollaCommandName, ResourceType, Selectors, Strings, t, WidgetPackageStatus, WidgetReleaseType } from '@apitable/core';
+import { CloseOutlined, DragOutlined, MoreOutlined, ReloadOutlined, SettingOutlined, ExpandOutlined, NarrowOutlined } from '@apitable/icons';
+// eslint-disable-next-line no-restricted-imports
 import { Tooltip } from 'pc/components/common';
 import { useCheckInput } from 'pc/hooks';
 import { resourceService } from 'pc/resource_service';
-import * as React from 'react';
-import { useRef, useState } from 'react';
-import { useSelector } from 'react-redux';
-import IconExpand from 'static/icon/datasheet/datasheet_icon_expand_record.svg';
+import { useAppSelector } from 'pc/store/react-redux';
 import { closeWidgetRoute, expandWidgetRoute } from '../../expand_widget';
 import { useCloudStorage } from '../../hooks/use_cloud_storage';
 import { expandWidgetDevConfig } from '../../widget_center/widget_create_modal';
-import { IWidgetLoaderRefs } from '../../widget_loader';
 import { WIDGET_MENU } from '../widget_list';
 import { IWidgetPropsBase } from './interface';
+import { IWidgetBlockRefs } from './widget_block';
 import styles from './style.module.less';
 
 interface IWidgetHeaderProps extends IWidgetPropsBase {
@@ -32,16 +30,29 @@ interface IWidgetHeaderProps extends IWidgetPropsBase {
   toggleWidgetDevMode?: () => void;
   dragging: boolean;
   setDragging: Function;
-  widgetLoader: React.RefObject<IWidgetLoaderRefs>;
+  widgetLoader: React.RefObject<IWidgetBlockRefs>;
   refreshVersion: (delta?: number | undefined) => void;
   isFullScreenWidget: boolean;
   toggleFullScreenWidget: () => void;
 }
 
-export const WidgetHeader: React.FC<React.PropsWithChildren<IWidgetHeaderProps>> = props => {
+export const WidgetHeader: React.FC<React.PropsWithChildren<IWidgetHeaderProps>> = (props) => {
   const {
-    className, widgetId, widgetPanelId, displayMode = 'hover', dragging, setDragging, config = {}, closeModal,
-    isSettingOpened, toggleSetting, toggleWidgetDevMode, widgetLoader, refreshVersion, isFullScreenWidget, toggleFullScreenWidget,
+    className,
+    widgetId,
+    widgetPanelId,
+    displayMode = 'hover',
+    dragging,
+    setDragging,
+    config = {},
+    closeModal,
+    isSettingOpened,
+    toggleSetting,
+    toggleWidgetDevMode,
+    widgetLoader,
+    refreshVersion,
+    isFullScreenWidget,
+    toggleFullScreenWidget,
   } = props;
   const colors = useThemeColors();
   const inputRef = useRef<InputRef>(null);
@@ -51,8 +62,8 @@ export const WidgetHeader: React.FC<React.PropsWithChildren<IWidgetHeaderProps>>
   });
 
   const { show, hideAll } = useContextMenu({ id: WIDGET_MENU });
-  const widget = useSelector(state => Selectors.getWidget(state, widgetId));
-  const isExpandWidget = useSelector(state => state.pageParams.widgetId === widgetId);
+  const widget = useAppSelector((state) => Selectors.getWidget(state, widgetId));
+  const isExpandWidget = useAppSelector((state) => state.pageParams.widgetId === widgetId);
   const [pickerViewId] = useCloudStorage<string | undefined>('_picker_view_id', widgetId);
 
   const tooltipPlacement = isFullScreenWidget ? 'bottom' : undefined;
@@ -78,15 +89,15 @@ export const WidgetHeader: React.FC<React.PropsWithChildren<IWidgetHeaderProps>>
             return;
           }
           widget?.widgetPackageId &&
-          setCodeUrl &&
-          expandWidgetDevConfig({
-            codeUrl,
-            widgetId,
-            onConfirm: devUrl => {
-              devUrl && setCodeUrl(devUrl);
-            },
-            widgetPackageId: widget.widgetPackageId,
-          });
+            setCodeUrl &&
+            expandWidgetDevConfig({
+              codeUrl,
+              widgetId,
+              onConfirm: (devUrl) => {
+                devUrl && setCodeUrl(devUrl);
+              },
+              widgetPackageId: widget.widgetPackageId,
+            });
           toggleWidgetDevMode?.();
         },
         toggleSetting,
@@ -125,10 +136,10 @@ export const WidgetHeader: React.FC<React.PropsWithChildren<IWidgetHeaderProps>>
     }
     expandWidgetRoute(widgetId);
   };
-  const ReactIconExpand = () => <IconExpand width={16} height={16} fill={colors.thirdLevelText} />;
+  const ReactIconExpand = () => <ExpandOutlined size={16} color={colors.thirdLevelText} />;
   const ReactMoreOutlined = () => <MoreOutlined size={16} color={colors.thirdLevelText} className={styles.rotateIcon} />;
 
-  const DividerMargin8 = () => <Divider style={{ margin: '8px' }} orientation='vertical' />;
+  const DividerMargin8 = () => <Divider style={{ margin: '8px' }} orientation="vertical" />;
 
   const nameMouseUp = (e: React.SyntheticEvent) => {
     setDragging(false);
@@ -162,7 +173,7 @@ export const WidgetHeader: React.FC<React.PropsWithChildren<IWidgetHeaderProps>>
     >
       {!config.hideDrag && (
         <span className={classNames(styles.dragHandle, styles.operateButton)}>
-          <DragOutlined size={10} color={colors.thirdLevelText} />
+          <DragOutlined size={14} color={colors.thirdLevelText} />
         </span>
       )}
       <span className={styles.widgetName}>
@@ -172,12 +183,12 @@ export const WidgetHeader: React.FC<React.PropsWithChildren<IWidgetHeaderProps>>
               defaultValue={widget?.snapshot.widgetName}
               ref={inputRef}
               onPressEnter={saveWidgetName}
-              size='small'
+              size="small"
               style={{ height: 24, fontSize: '12px' }}
               onBlur={saveWidgetName}
               autoFocus
               onChange={onChange}
-              onMouseDown={e => {
+              onMouseDown={(e) => {
                 e.stopPropagation();
               }}
               className={classNames({
@@ -209,7 +220,7 @@ export const WidgetHeader: React.FC<React.PropsWithChildren<IWidgetHeaderProps>>
             styles.operateButton,
           )}
           onClick={() => toggleSetting?.()}
-          onMouseDown={e => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
         >
           <Tooltip
             title={isSettingOpened ? t(Strings.widget_hide_settings_tooltip) : t(Strings.widget_show_settings_tooltip)}
@@ -241,7 +252,7 @@ export const WidgetHeader: React.FC<React.PropsWithChildren<IWidgetHeaderProps>>
       )}
       {config.isDevMode && (
         <span
-          data-guide-id='WIDGET_ITEM_REFRESH'
+          data-guide-id="WIDGET_ITEM_REFRESH"
           className={classNames(styles.npOpacity, styles.operateButton, 'dragHandleDisabled')}
           onClick={() => {
             refreshVersion();
@@ -249,13 +260,13 @@ export const WidgetHeader: React.FC<React.PropsWithChildren<IWidgetHeaderProps>>
           }}
         >
           <Tooltip title={t(Strings.widget_operate_refresh)} placement={tooltipPlacement}>
-            <IconButton icon={RefreshOutlined} size='small' />
+            <IconButton icon={ReloadOutlined} size="small" />
           </Tooltip>
         </span>
       )}
       {!config.hideMoreOperate && (
         <span
-          data-guide-id='WIDGET_ITEM_MORE'
+          data-guide-id="WIDGET_ITEM_MORE"
           className={classNames(
             {
               [styles.npOpacity]: displayMode === 'always' || config.isDevMode || isExpandWidget,
@@ -278,14 +289,14 @@ export const WidgetHeader: React.FC<React.PropsWithChildren<IWidgetHeaderProps>>
             placement={tooltipPlacement}
           >
             <IconButton
-              icon={isFullScreenWidget ? WidgetNarrowOutlined : WidgetExpandOutlined}
+              icon={isFullScreenWidget ? NarrowOutlined : ExpandOutlined}
               style={{ marginRight: 8 }}
               onClick={() => toggleFullScreenWidget()}
             />
           </Tooltip>
           <IconButton
-            icon={CloseMiddleOutlined}
-            size='small'
+            icon={CloseOutlined}
+            size="small"
             onClick={() => {
               isFullScreenWidget && toggleFullScreenWidget();
               closeWidgetRoute(widgetId);

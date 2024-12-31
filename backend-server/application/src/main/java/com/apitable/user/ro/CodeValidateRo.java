@@ -18,22 +18,22 @@
 
 package com.apitable.user.ro;
 
-import javax.validation.constraints.NotBlank;
-
-import io.swagger.annotations.ApiModel;
-import io.swagger.annotations.ApiModelProperty;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
+import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
 /**
  * <p>
- * Verification code verification request parameters
+ * Verification code verification request parameters.
  * </p>
  */
 @Data
-@ApiModel("Verification code verification request parameters")
+@Schema(description = "Verification code verification request parameters")
 public class CodeValidateRo {
 
-    @ApiModelProperty(value = "Verification Code", example = "123456", position = 3, required = true)
+    @Schema(description = "Verification Code",
+        requiredMode = RequiredMode.REQUIRED, example = "123456")
     @NotBlank(message = "The verification code cannot be empty")
     private String code;
 

@@ -18,29 +18,30 @@
 
 package com.apitable.space.ro;
 
-import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.apitable.core.support.deserializer.StringToLongDeserializer;
-import io.swagger.annotations.ApiModel;
-import io.swagger.annotations.ApiModelProperty;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
-
-import javax.validation.constraints.NotNull;
 
 /**
  * <p>
- * Request parameters for space joining application processing
+ * Request parameters for space joining application processing.
  * </p>
  */
 @Data
-@ApiModel("Request parameters for space joining application processing")
+@Schema(description = "Request parameters for space joining application processing")
 public class SpaceJoinProcessRo {
 
-    @ApiModelProperty(value = "Notification ID", dataType = "java.lang.String", required = true, example = "761263712638")
+    @Schema(description = "Notification ID", requiredMode = RequiredMode.REQUIRED,
+        type = "java.lang.String", example = "761263712638")
     @JsonDeserialize(using = StringToLongDeserializer.class)
     @NotNull(message = "Notification ID cannot be empty")
     private Long notifyId;
 
-    @ApiModelProperty(value = "Agree or not", dataType = "java.lang.Boolean", required = true, example = "true")
+    @Schema(description = "Agree or not", requiredMode = RequiredMode.REQUIRED,
+        type = "java.lang.Boolean", example = "true")
     @NotNull(message = "Agree or not cannot be blank")
     private Boolean agree;
 }

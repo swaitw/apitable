@@ -16,6 +16,11 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+import { useSize, useLocalStorageState } from 'ahooks';
+import { IFuncUpdater } from 'ahooks/lib/createUseStorageState';
+import { Fragment, FC, useEffect, useMemo, useRef, useState } from 'react';
+import { useDispatch } from 'react-redux';
+import { batchActions } from 'redux-batched-actions';
 import {
   FieldType,
   IOrgChartViewProperty,
@@ -35,20 +40,20 @@ import {
   IDPrefix,
   OrgChartStyleKeyType,
   getUniqName,
-  ISetRecordOptions,
+  ISetRecordOptions, IOneWayLinkField,
 } from '@apitable/core';
 import { ReactFlowProvider } from '@apitable/react-flow';
-import { useSize } from 'ahooks';
-import { useLocalStorageState } from 'ahooks';
+import { TriggerCommands } from 'modules/shared/apphook/trigger_commands';
 import { resourceService } from 'pc/resource_service';
+import { useAppSelector } from 'pc/store/react-redux';
+import { executeCommandWithMirror } from 'pc/utils/execute_command_with_mirror';
 import { getStorage, setStorage, StorageName } from 'pc/utils/storage';
-import { Fragment, FC, useEffect, useMemo, useRef, useState } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { batchActions } from 'redux-batched-actions';
 import { VikaSplitPanel } from '../common';
 import { useCardHeight } from '../common/hooks/use_card_height';
 import { notify } from '../common/notify';
 import { NotifyKey } from '../common/notify/notify.interface';
+import { EdgeContextMenu } from './components/context_menu/edge_context_menu';
+import { NodeContextMenu } from './components/context_menu/node_context_menu';
 import { CreateFieldModal } from './components/create_field_modal';
 import { Cycle } from './components/cycle/cycle';
 import { OrgChartSettingPanel } from './components/org_chart_setting_panel';
@@ -58,14 +63,9 @@ import { FlowContext, IFlowContext } from './context/flow_context';
 import { useElements } from './hooks/use_elements';
 import { IGhostNodesRef, INodeStateMap, IViewNodeStateMap } from './interfaces';
 import { OrgChart } from './org_chart';
-import { NodeContextMenu } from './components/context_menu/node_context_menu';
-import { EdgeContextMenu } from './components/context_menu/edge_context_menu';
-import styles from './styles.module.less';
-import { IFuncUpdater } from 'ahooks/lib/createUseStorageState';
-import { executeCommandWithMirror } from 'pc/utils/execute_command_with_mirror';
-import { TriggerCommands } from 'modules/shared/apphook/trigger_commands';
 // @ts-ignore
-import { getWizardRunCount } from 'enterprise';
+import { getWizardRunCount } from 'enterprise/guide/utils';
+import styles from './styles.module.less';
 
 const _ReactFlowProvider: any = ReactFlowProvider;
 
@@ -75,12 +75,7 @@ export interface IOrgChartViewProps {
   isMobile?: boolean;
 }
 
-export const OrgChartView: FC<React.PropsWithChildren<IOrgChartViewProps>> = ({
-  width,
-  height,
-  isMobile,
-}) => {
-
+export const OrgChartView: FC<React.PropsWithChildren<IOrgChartViewProps>> = ({ width, height, isMobile }) => {
   const {
     activeView,
     fieldMap,
@@ -93,7 +88,7 @@ export const OrgChartView: FC<React.PropsWithChildren<IOrgChartViewProps>> = ({
     columns,
     permissions,
     fieldPermissionMap,
-  } = useSelector((state: IReduxState) => {
+  } = useAppSelector((state: IReduxState) => {
     return {
       currentSearchCell: Selectors.getCurrentSearchItem(state),
       activeView: Selectors.getCurrentView(state) as IOrgChartViewProperty,
@@ -109,11 +104,10 @@ export const OrgChartView: FC<React.PropsWithChildren<IOrgChartViewProps>> = ({
     };
   }, shallowEqual);
 
-  const { style: orgChartStyle } = activeView;
-  const { id: viewId } = activeView;
+  const { style: orgChartStyle, id: viewId } = activeView;
 
   const { linkFieldId, horizontal } = orgChartStyle;
-  const linkField = fieldMap[linkFieldId] as ILinkField;
+  const linkField = fieldMap[linkFieldId] as ILinkField | IOneWayLinkField;
   const linkFieldRole = Selectors.getFieldRoleByFieldId(fieldPermissionMap, linkFieldId);
   const isCryptoLinkField = Boolean(linkFieldRole && linkFieldRole === ConfigConstant.Role.None);
   const isFieldDeleted = Boolean(linkFieldId && !isCryptoLinkField && !linkField);
@@ -127,9 +121,7 @@ export const OrgChartView: FC<React.PropsWithChildren<IOrgChartViewProps>> = ({
   const overGhostRef = useRef<IGhostNodesRef | null>(null);
 
   const nodeMapId = `${datasheetId}-${viewId}`;
-  const setNodeStateMap = (
-    value: INodeStateMap | IFuncUpdater<INodeStateMap> | undefined
-  ) => {
+  const setNodeStateMap = (value: INodeStateMap | IFuncUpdater<INodeStateMap> | undefined) => {
     if (typeof value === 'function') {
       _setNodeStateMap({
         [nodeMapId]: value(nodeStateMap?.[nodeMapId]),
@@ -142,26 +134,15 @@ export const OrgChartView: FC<React.PropsWithChildren<IOrgChartViewProps>> = ({
     }
   };
 
-  const {
-    rightPanelVisible,
-    rightPanelWidth,
-    settingPanelVisible: _settingPanelVisible,
-    settingPanelWidth,
-  } = orgChartViewStatus;
+  const { rightPanelVisible, rightPanelWidth, settingPanelVisible: _settingPanelVisible, settingPanelWidth } = orgChartViewStatus;
   const settingPanelVisible = (permissions.visualizationEditable || permissions.editable) && _settingPanelVisible;
 
   const containerRef = useRef<HTMLDivElement>(null);
   const containerSize = useSize(containerRef);
 
-  const {
-    offsetLeft,
-    offsetTop,
-  } = useMemo(() => {
+  const { offsetLeft, offsetTop } = useMemo(() => {
     if (containerRef.current) {
-      const {
-        left,
-        top,
-      } = containerRef.current.getBoundingClientRect();
+      const { left, top } = containerRef.current.getBoundingClientRect();
       return {
         offsetLeft: left,
         offsetTop: top,
@@ -195,25 +176,11 @@ export const OrgChartView: FC<React.PropsWithChildren<IOrgChartViewProps>> = ({
 
   const primaryFieldId = columns[0].fieldId;
 
-  const fieldEditable =
-    !isMobile
-    && !isCryptoLinkField
-    && !isFieldDeleted
-    && !isFieldInvalid
-    && !isReaderLinkField
-    && permissions.cellEditable;
+  const fieldEditable = !isMobile && !isCryptoLinkField && !isFieldDeleted && !isFieldInvalid && !isReaderLinkField && permissions.cellEditable;
 
   const fieldVisible = !isCryptoLinkField && !isFieldDeleted && !isFieldInvalid;
 
-  const {
-    initialElements,
-    unhandledNodes,
-    cycleElements,
-    nodesMap,
-    handlingCount,
-    pre,
-    bounds,
-  } = useElements({
+  const { initialElements, unhandledNodes, cycleElements, nodesMap, handlingCount, pre, bounds } = useElements({
     linkFieldId,
     fieldMap,
     getCardHeight,
@@ -228,28 +195,24 @@ export const OrgChartView: FC<React.PropsWithChildren<IOrgChartViewProps>> = ({
   });
 
   const hasLinkField = activeView.columns.some(
-    c => fieldMap[c.fieldId].type === FieldType.Link
-      && fieldMap[c.fieldId].property.foreignDatasheetId === datasheetId
+    (c) => [FieldType.Link, FieldType.OneWayLink].includes(fieldMap[c.fieldId].type) && fieldMap[c.fieldId].property.foreignDatasheetId === datasheetId,
   );
 
   const setMenuVisible = (visible: boolean) => {
     const orgChartStatusMap = getStorage(StorageName.OrgChartStatusMap);
     let status: Partial<IOrgChartViewStatus> = {};
     if (orgChartStatusMap) {
-      status = orgChartStatusMap[`${spaceId}_${datasheetId}_${activeView.id}`] || {};
+      status = orgChartStatusMap[`${spaceId}_${datasheetId}_${viewId}`] || {};
       if (settingPanelVisible) {
         dispatch(
-          batchActions([
-            StoreActions.toggleOrgChartRightPanel(visible, datasheetId),
-            StoreActions.toggleOrgChartSettingPanel(false, datasheetId),
-          ]),
+          batchActions([StoreActions.toggleOrgChartRightPanel(visible, datasheetId), StoreActions.toggleOrgChartSettingPanel(false, datasheetId)]),
         );
       } else {
         dispatch(StoreActions.toggleOrgChartRightPanel(visible, datasheetId));
       }
     }
     setStorage(StorageName.OrgChartStatusMap, {
-      [`${spaceId}_${datasheetId}_${activeView.id}`]: {
+      [`${spaceId}_${datasheetId}_${viewId}`]: {
         ...status,
         rightPanelVisible: settingPanelVisible ? true : visible,
         settingPanelVisible: false,
@@ -261,19 +224,19 @@ export const OrgChartView: FC<React.PropsWithChildren<IOrgChartViewProps>> = ({
   const handleSettingPanelClose = () => {
     const { guideStatus } = orgChartViewStatus;
     if (guideStatus) {
-      dispatch(StoreActions.toggleOrgChartSettingPanel(false, datasheetId!));
+      dispatch(StoreActions.toggleOrgChartSettingPanel(false, datasheetId));
     } else {
       dispatch(
         batchActions([
-          StoreActions.toggleOrgChartSettingPanel(false, datasheetId!),
-          StoreActions.toggleOrgChartGuideStatus(true, datasheetId!),
-          StoreActions.toggleOrgChartRightPanel(true, datasheetId!),
-        ])
+          StoreActions.toggleOrgChartSettingPanel(false, datasheetId),
+          StoreActions.toggleOrgChartGuideStatus(true, datasheetId),
+          StoreActions.toggleOrgChartRightPanel(true, datasheetId),
+        ]),
       );
     }
     const restStatus = guideStatus ? {} : { guideStatus: true, guideWidth: true };
     setStorage(StorageName.OrgChartStatusMap, {
-      [`${spaceId}_${datasheetId}_${activeView.id}`]: {
+      [`${spaceId}_${datasheetId}_${viewId}`]: {
         ...orgChartViewStatus,
         settingPanelVisible: false,
         ...restStatus,
@@ -314,31 +277,36 @@ export const OrgChartView: FC<React.PropsWithChildren<IOrgChartViewProps>> = ({
         key: NotifyKey.AddField,
       });
 
-      executeCommandWithMirror(() => {
-        resourceService.instance!.commandManager.execute({
-          cmd: CollaCommandName.SetOrgChartStyle,
-          viewId,
-          styleKey: OrgChartStyleKeyType.LinkFieldId,
-          styleValue: newId,
-        });
-      }, {
-        style: {
-          ...activeView.style,
-          [OrgChartStyleKeyType.LinkFieldId]: newId,
-        }
-      });
+      executeCommandWithMirror(
+        () => {
+          resourceService.instance!.commandManager.execute({
+            cmd: CollaCommandName.SetOrgChartStyle,
+            viewId,
+            styleKey: OrgChartStyleKeyType.LinkFieldId,
+            styleValue: newId,
+          });
+        },
+        {
+          style: {
+            ...orgChartStyle,
+            [OrgChartStyleKeyType.LinkFieldId]: newId,
+          },
+        },
+      );
     }
   };
 
   useEffect(() => {
     const storeOrgChartViewStatus = getStorage(StorageName.OrgChartStatusMap);
-    const orgChartViewStatus = storeOrgChartViewStatus?.[`${spaceId}_${datasheetId}_${activeView.id}`] || {};
+    const orgChartViewStatus = storeOrgChartViewStatus?.[`${spaceId}_${datasheetId}_${viewId}`] || {};
     const defaultOrgChartViewStatus = {
       ...defaultViewStatus,
       ...orgChartViewStatus,
     };
     const _rightPanelVisible = !isMobile && defaultOrgChartViewStatus.rightPanelVisible && !isFieldDeleted && !isFieldInvalid;
-    const _settingPanelVisible = Boolean(!isMobile && !mirrorId && defaultOrgChartViewStatus.settingPanelVisible || isFieldDeleted || isFieldInvalid);
+    const _settingPanelVisible = Boolean(
+      (!isMobile && !mirrorId && defaultOrgChartViewStatus.settingPanelVisible) || isFieldDeleted || isFieldInvalid,
+    );
     dispatch(
       batchActions([
         StoreActions.toggleCalendarGuideStatus(defaultOrgChartViewStatus.guideStatus, datasheetId),
@@ -351,11 +319,9 @@ export const OrgChartView: FC<React.PropsWithChildren<IOrgChartViewProps>> = ({
     // eslint-disable-next-line
   }, [viewId]);
 
-  const commandManager = resourceService.instance!.commandManager;
-
   const handleChange = (data: ISetRecordOptions[]) => {
     if (data.length) {
-      commandManager.execute({
+      resourceService.instance!.commandManager.execute({
         cmd: CollaCommandName.SetRecords,
         datasheetId,
         data,
@@ -400,7 +366,7 @@ export const OrgChartView: FC<React.PropsWithChildren<IOrgChartViewProps>> = ({
     bounds,
   };
 
-  const user = useSelector(state => state.user);
+  const user = useAppSelector((state) => state.user);
   /****** User guidance ******/
   const wizardHandler = () => {
     // There are no link nodes and the architecture view is created ORG_VIEW_CREATE is executed before ORG_VIEW_PANEL is executed
@@ -440,21 +406,10 @@ export const OrgChartView: FC<React.PropsWithChildren<IOrgChartViewProps>> = ({
   let panelRight = <Fragment />;
   let size = 0;
   if (settingPanelVisible) {
-    panelRight = (
-      <OrgChartSettingPanel
-        onClose={handleSettingPanelClose}
-        onAddField={addField}
-      />
-    );
+    panelRight = <OrgChartSettingPanel onClose={handleSettingPanelClose} onAddField={addField} />;
     size = settingPanelWidth;
   } else if (rightPanelVisible && cycleElements.length === 0) {
-    panelRight = (
-      <RecordList
-        nodes={unhandledNodes}
-        onClose={() => setMenuVisible(false)}
-        disabled={!permissions.editable}
-      />
-    );
+    panelRight = <RecordList nodes={unhandledNodes} onClose={() => setMenuVisible(false)} disabled={!permissions.editable} />;
     size = rightPanelWidth;
   }
 
@@ -467,11 +422,11 @@ export const OrgChartView: FC<React.PropsWithChildren<IOrgChartViewProps>> = ({
           style={{ overflow: 'none' }}
           size={size}
           allowResize={false}
-          panelLeft={(
+          panelLeft={
             <_ReactFlowProvider>
               <div
                 className={styles.orgChartView}
-                onContextMenu={e => {
+                onContextMenu={(e) => {
                   e.preventDefault();
                 }}
                 style={{ height }}
@@ -479,7 +434,7 @@ export const OrgChartView: FC<React.PropsWithChildren<IOrgChartViewProps>> = ({
                 <Cycle elements={cycleElements} />
               </div>
             </_ReactFlowProvider>
-          )}
+          }
           panelRight={panelRight}
         />
       </FlowContext.Provider>
@@ -492,7 +447,7 @@ export const OrgChartView: FC<React.PropsWithChildren<IOrgChartViewProps>> = ({
         ref={containerRef}
         style={{ height }}
         className={styles.orgChartView}
-        onContextMenu={e => {
+        onContextMenu={(e) => {
           e.preventDefault();
         }}
       >
@@ -502,7 +457,7 @@ export const OrgChartView: FC<React.PropsWithChildren<IOrgChartViewProps>> = ({
           style={{ overflow: 'none' }}
           size={size}
           allowResize={false}
-          panelLeft={(
+          panelLeft={
             <_ReactFlowProvider>
               <OrgChart />
               {fieldVisible && linkField && (
@@ -512,13 +467,11 @@ export const OrgChartView: FC<React.PropsWithChildren<IOrgChartViewProps>> = ({
                 </>
               )}
             </_ReactFlowProvider>
-          )}
+          }
           panelRight={panelRight}
         />
       </div>
-      {(!linkField && !hasLinkField) &&
-        <CreateFieldModal onAdd={addField} />
-      }
+      {!linkField && !hasLinkField && <CreateFieldModal onAdd={addField} />}
     </FlowContext.Provider>
   );
 };

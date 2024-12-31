@@ -16,62 +16,17 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import { FieldType } from '@apitable/core';
+import { ReactElement } from 'react';
 import { colorVars } from '@apitable/components';
-import {
-  ColumnAttachmentFilled,
-  ColumnAutonumberFilled,
-  AccountFilled,
-  ColumnCheckboxFilled,
-  ColumnLastmodifiedtimeFilled,
-  ColumnTextFilled,
-  ColumnCreatedbyFilled,
-  ColumnCreatedtimeFilled,
-  ColumnSingleFilled,
-  ColumnCurrencyFilled,
-  ColumnEmailFilled,
-  ColumnFormulaFilled,
-  ColumnPercentFilled,
-  ColumnFigureFilled,
-  ColumnMultipleFilled,
-  ColumnCalendarFilled,
-  ColumnLinktableFilled,
-  ColumnUrlOutlined,
-  ColumnLastmodifiedbyFilled,
-  ColumnLongtextFilled,
-  ColumnPhoneFilled,
-  ColumnLookupFilled,
-  ColumnRatingFilled,
-} from '@apitable/icons';
+import { FieldType } from '@apitable/core';
+import { FieldIconMapFieldType } from '@apitable/widget-sdk';
 
-const FieldIconMap = {
-  [FieldType.Text]: ColumnLongtextFilled,
-  [FieldType.Number]: ColumnFigureFilled,
-  [FieldType.SingleSelect]: ColumnSingleFilled,
-  [FieldType.MultiSelect]: ColumnMultipleFilled,
-  [FieldType.DateTime]: ColumnCalendarFilled,
-  [FieldType.Attachment]: ColumnAttachmentFilled,
-  [FieldType.Link]: ColumnLinktableFilled,
-  [FieldType.URL]: ColumnUrlOutlined,
-  [FieldType.Email]: ColumnEmailFilled,
-  [FieldType.Phone]: ColumnPhoneFilled,
-  [FieldType.Checkbox]: ColumnCheckboxFilled,
-  [FieldType.Rating]: ColumnRatingFilled,
-  [FieldType.Member]: AccountFilled,
-  [FieldType.LookUp]: ColumnLookupFilled,
-  [FieldType.Formula]: ColumnFormulaFilled,
-  [FieldType.Currency]: ColumnCurrencyFilled,
-  [FieldType.Percent]: ColumnPercentFilled,
-  [FieldType.SingleText]: ColumnTextFilled,
-  [FieldType.AutoNumber]: ColumnAutonumberFilled,
-  [FieldType.CreatedTime]: ColumnCreatedtimeFilled,
-  [FieldType.LastModifiedTime]: ColumnLastmodifiedtimeFilled,
-  [FieldType.CreatedBy]: ColumnCreatedbyFilled,
-  [FieldType.LastModifiedBy]: ColumnLastmodifiedbyFilled,
+export const getFieldTypeIconOrNull = (type: FieldType): ReactElement | null => {
+  return FieldIconMapFieldType[type] as unknown as ReactElement;
 };
 
-export const getFieldTypeIcon = (type: FieldType, fillColor: string = colorVars.thirdLevelText, width = 16, height = 16) => {
-  const FieldIcon = FieldIconMap[type];
+export const getFieldTypeIcon = (type: FieldType, fillColor: string = colorVars.thirdLevelText, width = 16, height = 16): any => {
+  const FieldIcon = FieldIconMapFieldType[type];
   if (!FieldIcon) {
     return <div />;
   }

@@ -40,6 +40,7 @@ export interface INodePermissionBase {
 }
 
 export type NodePermission = INodePermissionBase & IPermissions;
+export type UserNodePermissionMap = { [userId: string]: NodePermission };
 
 export interface IUserBaseInfo {
   userId: string;
@@ -124,4 +125,20 @@ export interface INotificationCreateRo {
    * from user ID
    */
   fromUserId?: string;
+}
+
+export interface IApiUsage {
+  isAllowOverLimit?: boolean;
+
+  /**
+   * @deprecated This property is deprecated. Use the `apiCallUsedNumsCurrentMonth` instead.
+   */
+  apiUsageUsedCount?: number;
+  apiCallUsedNumsCurrentMonth?: number;
+
+  /**
+   * @deprecated This property is deprecated. Use the `apiCallNumsPerMonth` instead.
+   */
+  maxApiUsageCount?: number;
+  apiCallNumsPerMonth?: number;
 }

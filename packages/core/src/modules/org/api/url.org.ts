@@ -17,10 +17,6 @@
  */
 
 // ================ Contacts related =======================
-// Address Book - Query the department list of the specified space
-export const TEAM_LIST = '/org/team/branch';
-// Address Book - Query the member list of the specified department
-export const MEMBER_LIST = '/org/member/list';
 // address book - get member details
 export const MEMBER_INFO = '/org/member/read';
 // Space Station-Address Book Management-Member Management-Pagination to query the member list of the specified department
@@ -54,10 +50,6 @@ export const TEAM_ADD_MEMBER = '/org/member/addMember';
 export const GET_ADD_MEMBERS = '/org/search/unit';
 // Space station - determine whether member mailboxes exist in the space
 export const EXIST_EMAIL = '/org/member/checkEmail';
-// Space Station - Mail invites external members for the first time
-export const SEND_INVITE = '/org/member/sendInvite';
-// space station-mail invites external members again
-export const RESEND_INVITE = '/org/member/sendInviteSingle';
 // Space station - download employee information form template
 export const DOWNLOAD_MEMBER_FILE = '/org/member/downloadTemplate';
 // space station - upload employee information form
@@ -70,6 +62,12 @@ export const SEARCH_UNIT = '/org/searchUnit';
 export const GET_SUB_UNIT_LIST = '/org/getSubUnitList';
 // Query the list of organizational units that belong to the space
 export const MEMBER_UNITS = '/org/member/units';
+
+export const COLLABORATOR_INFO = 'node/collaborator/info';
+
+export const GET_ORG_YACH_GROUP = 'org/yach/group/page';
+
+export const YACH_ADD_ROLE = 'org/yach/node/addRole';
 
 /**
  * Edit Member Info
@@ -92,3 +90,5 @@ export const GET_MEMBER_LIST_BY_ROLE = '/org/roles/:roleId/members';
 export const ADD_ROLE_MEMBER = '/org/roles/:roleId/members';
 export const DELETE_ROLE_MEMBER = '/org/roles/:roleId/members';
 export const INIT_ROLE = '/org/roles/init';
+export const TEAM_LIST_LAYERED = 'org/team/tree';
+export const COLLABORATOR_LIST_PAGE = '/node/collaborator/page';

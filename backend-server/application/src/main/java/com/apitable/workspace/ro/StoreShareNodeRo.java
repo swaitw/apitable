@@ -18,26 +18,24 @@
 
 package com.apitable.workspace.ro;
 
-import io.swagger.annotations.ApiModel;
-import io.swagger.annotations.ApiModelProperty;
+import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
-
-import javax.validation.constraints.NotBlank;
 
 /**
  * <p>
- * Transfer sharing node request parameters
+ * Transfer sharing node request parameters.
  * </p>
  */
 @Data
-@ApiModel("Transfer sharing node request parameters")
+@Schema(description = "Transfer sharing node request parameters")
 public class StoreShareNodeRo {
 
     @NotBlank(message = "Space ID cannot be empty")
-    @ApiModelProperty(value = "Space ID", example = "spc20cjiwis2", position = 1)
+    @Schema(description = "Space ID", example = "spc20cjiwis2")
     private String spaceId;
 
     @NotBlank(message = "The share ID cannot be empty")
-    @ApiModelProperty(value = "Share ID", example = "shrSJ921CNsj", position = 2)
+    @Schema(description = "Share ID", example = "shrSJ921CNsj")
     private String shareId;
 }

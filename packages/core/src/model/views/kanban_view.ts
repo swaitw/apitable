@@ -17,12 +17,11 @@
  */
 
 import { Settings } from 'config';
-import { IJOTAction, OTActionName } from 'engine';
 import { Strings, t } from '../../exports/i18n';
-import { DatasheetActions } from 'model';
-import { IFieldMap, IKanbanViewProperty, ISetKanbanStyleValue, ISnapshot, ViewType } from '../../exports/store';
+import { DatasheetActions } from 'commands_actions/datasheet';
+import { IFieldMap, IKanbanViewProperty, ISnapshot } from '../../exports/store/interfaces';
+import { ViewType } from 'modules/shared/store/constants';
 import { IViewColumn, IViewProperty } from '../../exports/store/interfaces';
-import { getViewIndex } from '../../exports/store/selectors';
 import { FieldType, IField, IMemberProperty } from 'types';
 import { CardView } from './card_view';
 import { integrateCdnHost } from 'utils';
@@ -101,40 +100,9 @@ export class KanbanView extends CardView {
       rows: this.defaultRows(srcView),
       style: this.defaultStyle(snapshot, activeViewId!),
       groupInfo: [{ fieldId: this.findGroupFieldId(srcView, snapshot.meta.fieldMap)!, desc: false }],
+      displayHiddenColumnWithinMirror: true
     };
   }
-
-  static setViewStyle2Action = (
-    snapshot: ISnapshot,
-    payload: ISetKanbanStyleValue & { viewId: string },
-  ): IJOTAction | null => {
-    const { viewId, styleKey, styleValue } = payload;
-
-    const viewIndex = getViewIndex(snapshot, viewId);
-    if (viewIndex < 0) {
-      return null;
-    }
-
-    const view = snapshot.meta.views[viewIndex] as IKanbanViewProperty;
-    if (view.type !== ViewType.Kanban || styleValue === view.style[styleKey]) {
-      return null;
-    }
-
-    if (styleValue == null) {
-      return {
-        n: OTActionName.ObjectDelete,
-        p: ['meta', 'views', viewIndex, 'style', styleKey],
-        od: view.style[styleKey],
-      };
-    }
-
-    return {
-      n: OTActionName.ObjectReplace,
-      p: ['meta', 'views', viewIndex, 'style', styleKey],
-      oi: styleValue,
-      od: view.style[styleKey],
-    };
-  };
 
   static getViewIntroduce() {
     return {

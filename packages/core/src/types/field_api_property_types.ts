@@ -17,14 +17,17 @@
  */
 
 /**
-  * API Meta open interface definition
-  */
+ * API Meta open interface definition
+ */
 import type { APIMetaFieldPropertyFormatEnums, APIMetaMemberType, TSymbolAlign } from './field_api_enums';
 import type { IAPIMetaField } from './field_api_types';
-import type { BasicValueType, RollUpFuncType } from './field_types';
+import type { BasicValueType, ILookUpSortInfo, LookUpLimitType, RollUpFuncType } from './field_types';
+import type { IOpenLookUpFilterInfo } from './open';
+import { ButtonFieldActionNameEnum, ButtonFieldActionOpenLinkNameEnum, ButtonFieldStyleNameEnum } from './open';
+
 /**
-  * Field properties
-  */
+ * Field properties
+ */
 export interface IAPIMetaSingleTextFieldFieldProperty {
   defaultValue?: string;
 }
@@ -40,7 +43,7 @@ export interface IAPIMetaCurrencyFieldProperty {
   defaultValue?: string;
   precision: number;
   symbol: string;
-  symbolAlign?: TSymbolAlign
+  symbolAlign?: TSymbolAlign;
 }
 
 export interface IAPIMetaPercentFieldProperty {
@@ -48,7 +51,8 @@ export interface IAPIMetaPercentFieldProperty {
   precision: number;
 }
 
-export type IAPIMetaNumberBaseFieldProperty = IAPIMetaNumberFieldProperty
+export type IAPIMetaNumberBaseFieldProperty =
+  | IAPIMetaNumberFieldProperty
   | IAPIMetaCurrencyFieldProperty
   | IAPIMetaPercentFieldProperty
   | IAPIMetaRatingFieldProperty
@@ -62,11 +66,30 @@ export interface IAPIMetaSelectOption {
   color: {
     name: string;
     value: string;
-  }
+  };
 }
 
 export interface IAPIMetaSingleSelectFieldProperty {
   options?: IAPIMetaSelectOption[];
+}
+
+export interface IAPIMetaButtonFieldProperty {
+  text: string;
+  style: {
+    type: ButtonFieldStyleNameEnum,
+    color: object
+  },
+  action: {
+    type?: ButtonFieldActionNameEnum,
+    openLink?: {
+      type: ButtonFieldActionOpenLinkNameEnum,
+      expression: string
+    },
+    automation?: {
+      automationId: string,
+      triggerId: string
+    }
+  }
 }
 
 export type IAPIMetaMultiSelectFieldProperty = IAPIMetaSingleSelectFieldProperty;
@@ -81,6 +104,7 @@ export interface IAPIMetaMemberFieldProperty {
   options?: IAPIMetaMember[];
   isMulti?: boolean;
   shouldSendMsg?: boolean;
+  subscription?: boolean;
 }
 
 export interface IAPIMetaUser {
@@ -97,7 +121,8 @@ export interface IAPIMetaLastModifiedByFieldProperty {
   options?: IAPIMetaUser[];
 }
 
-export type IAPIMetaMemberBaseFieldProperty = IAPIMetaMemberFieldProperty
+export type IAPIMetaMemberBaseFieldProperty =
+  | IAPIMetaMemberFieldProperty
   | IAPIMetaCreateByFieldProperty
   | IAPIMetaLastModifiedByFieldProperty
   | null;
@@ -111,19 +136,25 @@ export interface IAPIMetaRatingFieldProperty {
   max: number;
 }
 
-export interface IAPIMetaDateTimeFieldProperty {
+export interface IAPIMetaDateTimeBaseFieldProperty {
   format: string;
   autoFill?: boolean;
   includeTime: boolean;
+  timeZone?: string;
+  includeTimeZone?: boolean;
 }
 
-export type IAPIMetaCreatedTimeFieldProperty = IAPIMetaDateTimeFieldProperty;
+export type IAPIMetaDateTimeFieldProperty = IAPIMetaDateTimeBaseFieldProperty;
+
+export type IAPIMetaCreatedTimeFieldProperty = IAPIMetaDateTimeBaseFieldProperty;
 
 export type IAPIMetaLastModifiedTimeFieldProperty = IAPIMetaCreatedTimeFieldProperty;
 
-export type IAPIMetaDateTimeBaseFieldProperty = IAPIMetaDateTimeFieldProperty
-  | IAPIMetaCreatedTimeFieldProperty
-  | IAPIMetaLastModifiedTimeFieldProperty;
+export interface IAPIMetaOneWayLinkFieldProperty {
+  foreignDatasheetId: string;
+  limitToViewId?: string;
+  limitSingleRecord?: boolean;
+}
 
 export interface IAPIMetaLinkFieldProperty {
   foreignDatasheetId: string;
@@ -160,6 +191,8 @@ export interface IAPIMetaDateTimeFormat {
   dateFormat: string;
   timeFormat: string;
   includeTime: boolean;
+  timeZone?: string;
+  includeTimeZone?: boolean;
 }
 
 export interface IAPIMetaNoneStringValueFormat {
@@ -175,6 +208,10 @@ export interface IAPIMetaLookupFieldProperty {
   rollupFunction?: RollUpFuncType;
   valueType?: IAPIMetaValueType;
   format?: IAPIMetaNoneStringValueFormat;
+  enableFilterSort?: boolean;
+  filterInfo?: IOpenLookUpFilterInfo;
+  sortInfo?: ILookUpSortInfo;
+  lookUpLimit?: LookUpLimitType;
 }
 
 export interface IAPIMetaFormulaFieldProperty {
@@ -184,7 +221,8 @@ export interface IAPIMetaFormulaFieldProperty {
   format?: IAPIMetaNoneStringValueFormat;
 }
 
-export type IAPIMetaFieldProperty = IAPIMetaSingleTextFieldFieldProperty
+export type IAPIMetaFieldProperty =
+  | IAPIMetaSingleTextFieldFieldProperty
   | IAPIMetaNumberFieldProperty
   | IAPIMetaCurrencyFieldProperty
   | IAPIMetaPercentFieldProperty
@@ -198,6 +236,8 @@ export type IAPIMetaFieldProperty = IAPIMetaSingleTextFieldFieldProperty
   | IAPIMetaDateTimeFieldProperty
   | IAPIMetaCreatedTimeFieldProperty
   | IAPIMetaLastModifiedTimeFieldProperty
+  | IAPIMetaOneWayLinkFieldProperty
   | IAPIMetaLinkFieldProperty
   | IAPIMetaLookupFieldProperty
-  | IAPIMetaFormulaFieldProperty;
+  | IAPIMetaFormulaFieldProperty
+  | IAPIMetaButtonFieldProperty;

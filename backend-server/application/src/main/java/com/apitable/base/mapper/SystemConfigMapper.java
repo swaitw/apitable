@@ -18,21 +18,21 @@
 
 package com.apitable.base.mapper;
 
-import java.util.List;
-
-import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import org.apache.ibatis.annotations.Param;
-
 import com.apitable.base.entity.SystemConfigEntity;
 import com.apitable.base.model.SystemConfigDTO;
+import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import java.util.List;
+import org.apache.ibatis.annotations.Param;
 
 /**
- * Basics - System Configuration Table Mapper Interface
+ * Basics - System Configuration Table Mapper Interface.
  */
 public interface SystemConfigMapper extends BaseMapper<SystemConfigEntity> {
 
     /**
-     * Find the configuration record id to which the most popular recommendations in the Template Center belong according to the language
+     * Find the configuration record id to which the most popular recommendations
+     * in the Template Center belong according to the language.
+     *
      * @param type configuration type
      * @param lang configuration language
      * @return configuration primary key id
@@ -40,7 +40,8 @@ public interface SystemConfigMapper extends BaseMapper<SystemConfigEntity> {
     Long selectIdByTypeAndLang(@Param("type") Integer type, @Param("lang") String lang);
 
     /**
-     * Find the configuration information in the system configuration table according to type
+     * Find the configuration information in the system configuration table according to type.
+     *
      * @param type Configuration type
      * @param lang Configuration language (optional)
      * @return configuration information
@@ -48,15 +49,15 @@ public interface SystemConfigMapper extends BaseMapper<SystemConfigEntity> {
     String selectConfigMapByType(@Param("type") Integer type, @Param("lang") String lang);
 
     /**
-     * query i18n name by type
+     * query i18n name by type.
      *
-     * @param type  config type
+     * @param type config type
      * @return SystemConfigDTO list
      */
     List<SystemConfigDTO> selectConfigDtoByType(@Param("type") Integer type);
 
     /**
-     * batch insert
+     * batch insert.
      *
      * @param entities System Config Entities
      * @return affected rows count
@@ -64,7 +65,7 @@ public interface SystemConfigMapper extends BaseMapper<SystemConfigEntity> {
     int insertBatch(@Param("entities") List<SystemConfigEntity> entities);
 
     /**
-     * remove by table ids
+     * remove by table ids.
      *
      * @param ids       System Config Table ID List
      * @param updatedBy Updater User ID

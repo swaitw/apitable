@@ -18,33 +18,35 @@
 
 package com.apitable.organization.service.impl;
 
+import cn.hutool.core.collection.CollUtil;
+import com.apitable.core.util.ExceptionUtil;
+import com.apitable.organization.entity.TeamMemberRelEntity;
+import com.apitable.organization.enums.OrganizationException;
+import com.apitable.organization.mapper.TeamMemberRelMapper;
+import com.apitable.organization.service.ITeamMemberRelService;
+import com.apitable.organization.service.ITeamService;
+import com.apitable.shared.util.ibatis.ExpandServiceImpl;
+import com.baomidou.mybatisplus.core.toolkit.IdWorker;
+import com.baomidou.mybatisplus.extension.toolkit.SqlHelper;
+import jakarta.annotation.Resource;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-
-import javax.annotation.Resource;
-
-import cn.hutool.core.collection.CollUtil;
-import com.baomidou.mybatisplus.core.toolkit.IdWorker;
-import com.baomidou.mybatisplus.extension.toolkit.SqlHelper;
 import lombok.extern.slf4j.Slf4j;
-
-import com.apitable.organization.enums.OrganizationException;
-import com.apitable.organization.mapper.TeamMapper;
-import com.apitable.organization.mapper.TeamMemberRelMapper;
-import com.apitable.organization.service.ITeamMemberRelService;
-import com.apitable.shared.util.ibatis.ExpandServiceImpl;
-import com.apitable.core.util.ExceptionUtil;
-import com.apitable.organization.entity.TeamMemberRelEntity;
-
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * team member relationship service implementation.
+ */
 @Service
 @Slf4j
-public class TeamMemberRelServiceImpl extends ExpandServiceImpl<TeamMemberRelMapper, TeamMemberRelEntity> implements ITeamMemberRelService {
+public class TeamMemberRelServiceImpl
+    extends ExpandServiceImpl<TeamMemberRelMapper, TeamMemberRelEntity>
+    implements ITeamMemberRelService {
     @Resource
-    private TeamMapper teamMapper;
+    private ITeamService iTeamService;
 
     @Override
     public void addMemberTeams(List<Long> memberIds, List<Long> teamIds) {
@@ -69,6 +71,7 @@ public class TeamMemberRelServiceImpl extends ExpandServiceImpl<TeamMemberRelMap
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void createBatch(List<TeamMemberRelEntity> entities) {
         if (CollUtil.isEmpty(entities)) {
             return;
@@ -99,8 +102,7 @@ public class TeamMemberRelServiceImpl extends ExpandServiceImpl<TeamMemberRelMap
     @Override
     public void removeByTeamId(Long teamId) {
         log.info("Delete the binding relationship between member and department");
-        List<Long> subTeamIds = teamMapper.selectAllSubTeamIdsByParentId(teamId, true);
-        subTeamIds.add(teamId);
+        List<Long> subTeamIds = iTeamService.getAllTeamIdsInTeamTree(teamId);
         baseMapper.deleteByTeamIds(subTeamIds);
     }
 
@@ -113,5 +115,10 @@ public class TeamMemberRelServiceImpl extends ExpandServiceImpl<TeamMemberRelMap
     @Override
     public void removeByTeamIdsAndMemberId(Long memberId, List<Long> teamIds) {
         baseMapper.deleteByTeamIdsAndMemberId(memberId, teamIds);
+    }
+
+    @Override
+    public List<TeamMemberRelEntity> getByMemberIds(List<Long> memberIds) {
+        return baseMapper.selectByMemberIds(memberIds);
     }
 }

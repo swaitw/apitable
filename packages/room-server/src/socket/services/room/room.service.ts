@@ -19,9 +19,11 @@
 import { MetadataValue } from '@grpc/grpc-js';
 import { Injectable, Logger } from '@nestjs/common';
 import { isNil } from '@nestjs/common/utils/shared.utils';
+import { showAnonymous } from 'app.environment';
 import { Value } from 'grpc/generated/google/protobuf/struct';
-import { CHANGESETS_CMD, CHANGESETS_MESSAGE_ID, Retryable, TRACE_ID } from 'shared/common';
+import { CHANGESETS_CMD, CHANGESETS_MESSAGE_ID } from 'shared/common';
 import { GatewayConstants, SocketConstants } from 'shared/common/constants/socket.module.constants';
+import { Retryable } from 'shared/decorator/retry.decorator';
 import { BroadcastTypes } from 'shared/enums/broadcast-types.enum';
 import { RequestTypes } from 'shared/enums/request-types.enum';
 import { ServerErrorCode, SocketEventEnum } from 'shared/enums/socket.enum';
@@ -39,7 +41,8 @@ export class RoomService {
   constructor(
     private readonly nestService: NestService,
     private readonly nestClient: GrpcClient
-  ) {}
+  ) {
+  }
 
   async clientDisconnect(socket: Socket) {
     const rooms = socket.rooms;
@@ -78,16 +81,14 @@ export class RoomService {
     const createTime = Date.now();
     const isExistRoom = socket.rooms.has(room);
     const _grpcMetadata = initGlobalGrpcMetadata();
-    const traceId = _grpcMetadata.get(TRACE_ID)[0];
 
     this.logger.log({
       action: 'WatchRoom',
-      traceId: traceId,
       message: `WatchRoom Start roomId:[${message.roomId}]`,
     });
 
     if (isExistRoom) {
-      this.logger.log(`traceId[${traceId}] User are already in room,
+      this.logger.log(`User are already in room,
       socketId: ${socket.id} has already in room: ${JSON.stringify(socket.rooms[room])}`);
     }
     // notifies nest-server to handle `WatchRoom` messages
@@ -96,18 +97,22 @@ export class RoomService {
     if ('success' in result && result.success) {
       // Broadcast join and userEnter when the client does not exist in the room
       if (!isExistRoom) {
-        socket.join(room);
-        this.logger.log({ room, socketId: socket.id, message: `traceId[${traceId}] User are join in room` });
-        // Notify the client that all connected new users join the room
-        socket.broadcast.to(room).emit(BroadcastTypes.ACTIVATE_COLLABORATORS, {
-          collaborators: [
-            {
-              socketId: socket.id,
-              createTime,
-              ...result.data.collaborator,
-            },
-          ],
-        });
+        void socket.join(room);
+        this.logger.log({ room, socketId: socket.id, message: 'User are join in room' });
+        if (!showAnonymous && !result.data.collaborator) {
+          this.logger.log('Ignored Anonymous');
+        } else {
+          // Notify the client that all connected new users join the room
+          socket.broadcast.to(room).emit(BroadcastTypes.ACTIVATE_COLLABORATORS, {
+            collaborators: [
+              {
+                socketId: socket.id,
+                createTime,
+                ...result.data.collaborator,
+              },
+            ],
+          });
+        }
         result.data.collaborator = undefined;
 
         // Call an asynchronous customRequest to get the collaborator given to the other nodes,
@@ -122,7 +127,6 @@ export class RoomService {
     const endTime = +new Date();
     this.logger.log({
       action: 'WatchRoom',
-      traceId: traceId,
       ms: endTime - createTime,
       message: `WatchRoom End roomId:[${message.roomId}] Success, total time: ${endTime - createTime}ms`,
     });
@@ -164,7 +168,7 @@ export class RoomService {
     const room = message.roomId;
     // to prevent when you are the only one, disconnection will report an error
     if (socket.nsp.adapter.rooms.has(room)) {
-      socket.leave(room);
+      void socket.leave(room);
       socket.broadcast.to(room).emit(BroadcastTypes.DEACTIVATE_COLLABORATOR, { socketId: socket.id, ...message });
       this.logger.log({ message: 'User are leave room', room, socketId: socket.id });
     }
@@ -186,11 +190,9 @@ export class RoomService {
     const createTime = Date.now();
     const room = message.roomId;
     const _grpcMetadata = initGlobalGrpcMetadata(this.changesetToGrpcMeta(message.changesets));
-    const traceId = _grpcMetadata.get(CHANGESETS_MESSAGE_ID)[0];
 
     this.logger.log({
       action: 'RoomChange',
-      traceId: traceId,
       message: `RoomChange Start roomId:[${message.roomId}]`,
     });
 
@@ -204,7 +206,6 @@ export class RoomService {
     const endTime = +new Date();
     this.logger.log({
       action: 'RoomChange',
-      traceId: traceId,
       ms: endTime - createTime,
       message: `RoomChange End roomId:[${message.roomId}] Success, total time: ${endTime - createTime}ms`,
     });

@@ -23,13 +23,13 @@ import { FILTER_HEADERS } from './constant';
 const LANG_MAP = {
   en_US: 'en-US',
   zh_CN: 'zh-CN',
-}
+};
 
 const filterCustomHeader = (headers?: Record<string, string | string[] | undefined>): Record<string, string> => {
   if (!headers) return {};
   const _headers = {};
   for (const k in headers) {
-    if (!FILTER_HEADERS.map(item => item.toUpperCase()).includes(k.toUpperCase())) {
+    if (!FILTER_HEADERS.map((item) => item.toUpperCase()).includes(k.toUpperCase())) {
       continue;
     }
     _headers[k] = headers[k];
@@ -37,14 +37,14 @@ const filterCustomHeader = (headers?: Record<string, string | string[] | undefin
   return _headers;
 };
 
-export const getInitialProps = async(context: { ctx: NextPageContext }) => {
+export const getInitialProps = (context: { ctx: NextPageContext }) => {
   const envVars = getEnvVars();
   const cookie = context.ctx.req?.headers.cookie;
   const filterHeaders = filterCustomHeader(context.ctx.req?.headers);
 
   const baseResponse = {
     env: process.env.ENV,
-    version: process.env.WEB_CLIENT_VERSION,
+    version: process.env.WEB_CLIENT_VERSION || 'development',
     envVars: JSON.stringify(envVars),
   };
 
@@ -60,12 +60,10 @@ export const getInitialProps = async(context: { ctx: NextPageContext }) => {
       const parts = value.split(`; ${name}=`);
       if (parts.length >= 2) return parts[1].split(';').shift();
       return null;
-    }
+    };
     // server lang
     const langParts = getCookie('lang');
-    // client cache cookie while language toggle
-    const localeParts = getCookie('client-lang');
-    locale = localeParts || langParts || locale;
+    locale = langParts || locale;
   }
 
   if (language) {
@@ -75,5 +73,5 @@ export const getInitialProps = async(context: { ctx: NextPageContext }) => {
   return {
     ...baseResponse,
     locale,
-  }
-}
+  };
+};

@@ -20,12 +20,15 @@ package com.apitable.user.service;
 
 import com.apitable.user.dto.UserInPausedDto;
 import com.apitable.user.dto.UserLangDTO;
+import com.apitable.user.dto.UserSensitiveDTO;
 import com.apitable.user.entity.UserEntity;
 import com.apitable.user.ro.UserOpRo;
 import com.apitable.user.vo.UserInfoVo;
+import com.apitable.user.vo.UserSimpleVO;
 import com.baomidou.mybatisplus.extension.service.IService;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 
 /**
  * User table service class.
@@ -82,7 +85,7 @@ public interface IUserService extends IService<UserEntity> {
      * @return UserEntity
      */
     List<UserEntity> getByCodeAndMobilePhones(String code,
-        Collection<String> mobilePhones);
+                                              Collection<String> mobilePhones);
 
     /**
      * Get Users.
@@ -111,7 +114,7 @@ public interface IUserService extends IService<UserEntity> {
      * @return user id
      */
     Long createByExternalSystem(String externalId, String nickName,
-        String avatar, String email, String remark);
+                                String avatar, String email, String remark);
 
     /**
      * create user.
@@ -133,7 +136,7 @@ public interface IUserService extends IService<UserEntity> {
      * @return userId
      */
     Long create(String areaCode, String mobile, String nickName, String avatar,
-        String email, String spaceName);
+                String email, String spaceName);
 
     /**
      * Create an account by phone number.
@@ -145,7 +148,7 @@ public interface IUserService extends IService<UserEntity> {
      * @return user
      */
     UserEntity createUserByMobilePhone(String areaCode, String mobile,
-        String nickName, String avatar);
+                                       String nickName, String avatar);
 
     /**
      * Create an account by email.
@@ -154,6 +157,25 @@ public interface IUserService extends IService<UserEntity> {
      * @return UserEntity
      */
     UserEntity createUserByEmail(String email);
+
+    /**
+     * Create an account by email.
+     *
+     * @param email    email
+     * @param password password
+     * @return UserEntity
+     */
+    UserEntity createUserByEmail(String email, String password);
+
+    /**
+     * Create an account by email.
+     *
+     * @param email    email
+     * @param password password
+     * @param lang lang
+     * @return UserEntity
+     */
+    UserEntity createUserByEmail(String email, String password, String lang);
 
     /**
      * initial new space for new user.
@@ -184,8 +206,9 @@ public interface IUserService extends IService<UserEntity> {
      *
      * @param userId User ID
      * @param email  email
+     * @param oldEmail old email
      */
-    void updateEmailByUserId(Long userId, String email);
+    void updateEmailByUserId(Long userId, String email, String oldEmail);
 
     /**
      * User Unbind Email.
@@ -334,7 +357,7 @@ public interface IUserService extends IService<UserEntity> {
      * @return {@link UserLangDTO}
      */
     List<UserLangDTO> getLangAndEmailByIds(List<Long> userIds,
-        String defaultLocale);
+                                           String defaultLocale);
 
     /**
      * Obtain user ID according to uuid.
@@ -342,7 +365,7 @@ public interface IUserService extends IService<UserEntity> {
      * @param uuid User uuid
      * @return User ID
      */
-    Long getUserIdByUuid(String uuid);
+    Long getUserIdByUuidWithCheck(String uuid);
 
     /**
      * Query users by user's name.
@@ -361,4 +384,35 @@ public interface IUserService extends IService<UserEntity> {
      * @return user's email
      */
     String getEmailByUserId(Long userId);
+
+    /**
+     * Close Paused User.
+     * Among them, the account has applied for cancellation for more than limit Days
+     */
+    void closePausedUser(int limitDays);
+
+    /**
+     * get user email and mobile phone.
+     *
+     * @param userIds user id list
+     * @return UserSensitiveDTO
+     */
+    List<UserSensitiveDTO> getUserSensitiveInfoByIds(List<Long> userIds);
+
+    /**
+     * get user simple info.
+     *
+     * @param userIds user id list
+     * @param spaceId user's space id
+     * @return a map with userId as key
+     */
+    Map<Long, UserSimpleVO> getUserSimpleInfoMap(String spaceId, List<Long> userIds);
+
+    /**
+     * get user simple info.
+     *
+     * @param userIds user id list
+     * @return list UserEntity
+     */
+    List<UserEntity> getByIds(List<Long> userIds);
 }

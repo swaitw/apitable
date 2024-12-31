@@ -16,16 +16,40 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+import { usePrevious } from 'ahooks';
+import deDE from 'antd/es/date-picker/locale/de_DE';
+import enUS from 'antd/es/date-picker/locale/en_US';
+import esES from 'antd/es/date-picker/locale/es_ES';
+import frFR from 'antd/es/date-picker/locale/fr_FR';
+import itIT from 'antd/es/date-picker/locale/it_IT';
+import jaJP from 'antd/es/date-picker/locale/ja_JP';
+import koKR from 'antd/es/date-picker/locale/ko_KR';
+import ruRU from 'antd/es/date-picker/locale/ru_RU';
+import zhCN from 'antd/es/date-picker/locale/zh_CN';
+import zhTW from 'antd/es/date-picker/locale/zh_TW';
+import classNames from 'classnames';
+import dayjs from 'dayjs';
+import customParseFormat from 'dayjs/plugin/customParseFormat';
+import timezone from 'dayjs/plugin/timezone';
+import 'dayjs/locale/zh-cn';
+import utc from 'dayjs/plugin/utc';
+import { isEqual } from 'lodash';
+import * as React from 'react';
+import { forwardRef, useEffect, useState } from 'react';
 import { Loading, lightColors } from '@apitable/components';
 import {
   DATASHEET_ID,
   DateFormat,
+  diffTimeZone,
   Field,
   getDay,
   getLanguage,
+  getTimeZone,
+  getTimeZoneAbbrByUtc,
   getToday,
   IDateTimeField,
   IRecordAlarmClient,
+  isDstDate,
   ITimestamp,
   notInTimestampRange,
   Selectors,
@@ -35,33 +59,30 @@ import {
   t,
   WithOptional,
 } from '@apitable/core';
-import { NotificationSmallOutlined } from '@apitable/icons';
-import { usePrevious } from 'ahooks';
-import enUS from 'antd/es/date-picker/locale/en_US';
-import zhCN from 'antd/es/date-picker/locale/zh_CN';
-import classNames from 'classnames';
-import dayjs from 'dayjs';
-import 'dayjs/locale/zh-cn';
-import customParseFormat from 'dayjs/plugin/customParseFormat';
-import { isEqual } from 'lodash';
+import { NotificationOutlined } from '@apitable/icons';
+// eslint-disable-next-line no-restricted-imports
 import { Tooltip } from 'pc/components/common';
 import { ComponentDisplay, ScreenSize } from 'pc/components/common/component_display';
+import { useAppSelector } from 'pc/store/react-redux';
 import { printableKey, stopPropagation } from 'pc/utils';
 import { getEnvVariables } from 'pc/utils/env';
-import { forwardRef, useEffect, useState } from 'react';
-import * as React from 'react';
-import { useSelector } from 'react-redux';
 import { isLegalDateKey } from '../../../utils/keycode';
 import { IBaseEditorProps, IEditor } from '../interface';
 import { DatePickerMobile } from './mobile';
-import style from './style.module.less';
 import { TimePicker } from './time_picker_only';
 // @ts-ignore
-import { DateTimeAlarm } from 'enterprise';
+import DateTimeAlarm from 'enterprise/alarm/date_time_alarm/date_time_alarm';
+import style from './style.module.less';
 
 dayjs.extend(customParseFormat);
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
 const DEFAULT_FORMAT = 'YYYY-MM-DD';
+
+const formatDateNoYear = (dateFormat?: string) => {
+  return dateFormat === DateFormat[4] || dateFormat === DateFormat[6] || dateFormat === DateFormat[7];
+};
 
 const DatePicker = React.lazy(() => import('./date_picker'));
 
@@ -88,6 +109,8 @@ export interface IDateTimeEditorProps extends IBaseEditorProps {
   recordId?: string;
   curAlarm?: WithOptional<IRecordAlarmClient, 'id'>;
   setCurAlarm?: (val?: WithOptional<IRecordAlarmClient, 'id'>) => void;
+  disabled?: boolean;
+  userTimeZone?: string;
 }
 
 const DATE_COMPONENT_HEIGHT = 264;
@@ -104,7 +127,7 @@ export class DateTimeEditorBase extends React.PureComponent<IDateTimeEditorProps
 
   override state: IDateTimeEditorState = {
     dateValue: '',
-    displayDateStr: '',
+    displayDateStr: this.props.dataValue ? dayjs.tz(this.props.dataValue).format(Field.bindModel(this.props.field).dateFormat) : '',
     timeValue: '',
     dateOpen: false,
     timeOpen: false,
@@ -135,14 +158,14 @@ export class DateTimeEditorBase extends React.PureComponent<IDateTimeEditorProps
       });
       return;
     }
-    const { dateFormat } = Field.bindModel(this.props.field);
+    const { dateFormat, timeZone = this.props.userTimeZone } = Field.bindModel(this.props.field);
     const timeFormat = 'HH:mm';
     this.timestamp = timestamp;
-    const dateTime = dayjs(timestamp);
+    const dateTime = dayjs.tz(timestamp);
     this.setState({
-      dateValue: dateTime.format(DEFAULT_FORMAT),
-      displayDateStr: dateTime.format(dateFormat),
-      timeValue: dateTime.format(timeFormat),
+      dateValue: timeZone ? dateTime.tz(timeZone).format(DEFAULT_FORMAT) : dateTime.format(DEFAULT_FORMAT),
+      displayDateStr: timeZone ? dateTime.tz(timeZone).format(dateFormat) : dateTime.format(dateFormat),
+      timeValue: timeZone ? dateTime.tz(timeZone).format(timeFormat) : dateTime.format(timeFormat),
     });
   }
 
@@ -152,17 +175,32 @@ export class DateTimeEditorBase extends React.PureComponent<IDateTimeEditorProps
 
   onDateValueChange = (date: dayjs.Dayjs | null, dateValue: string, displayDateStr: string, isSetTime?: boolean) => {
     const { timeValue, timeOpen } = this.state;
+    const { timeZone = this.props.userTimeZone } = Field.bindModel(this.props.field);
     if (date) {
       this.timestamp = date.valueOf();
     } else {
       this.shouldUseOriginTime = true;
     }
-    const ignoreSetTime = isSetTime ? false : !timeOpen && !timeValue;
+    const ignoreSetTime = isSetTime ? false : !timeOpen && (timeValue === '00:00' || !timeValue);
+
+    let curTimeValue = timeValue;
+    if (date && !ignoreSetTime) {
+      if (timeZone) {
+        curTimeValue = dayjs
+          .tz(date?.format('YYYY-MM-DD HH:mm'))
+          .tz(timeZone)
+          .format('HH:mm');
+      } else {
+        curTimeValue = date.format('HH:mm');
+      }
+    } else if (date === null) {
+      curTimeValue = '';
+    }
 
     return this.setState({
       dateValue,
       displayDateStr,
-      timeValue: date && !ignoreSetTime ? date.format('HH:mm') : date === null ? '' : timeValue,
+      timeValue: curTimeValue,
     });
   };
 
@@ -187,7 +225,7 @@ export class DateTimeEditorBase extends React.PureComponent<IDateTimeEditorProps
       });
       return;
     }
-    if (cur.dataValue && dayjs(cur.dataValue).format(Field.bindModel(this.props.field).dateFormat) === this.state.displayDateStr) {
+    if (cur.dataValue && dayjs.tz(cur.dataValue).format(Field.bindModel(this.props.field).dateFormat) === this.state.displayDateStr) {
       return;
     }
     if (!cur.dataValue && !this.state.displayDateStr) {
@@ -201,7 +239,7 @@ export class DateTimeEditorBase extends React.PureComponent<IDateTimeEditorProps
       const nextState = { timeValue } as IDateTimeEditorState;
       if (!this.state.dateValue) {
         const { dateFormat } = Field.bindModel(this.props.field);
-        const dateTime = dayjs();
+        const dateTime = dayjs.tz();
         this.timestamp = dateTime.valueOf();
         nextState.dateValue = dateTime.format(DEFAULT_FORMAT);
         nextState.displayDateStr = dateTime.format(dateFormat);
@@ -210,26 +248,26 @@ export class DateTimeEditorBase extends React.PureComponent<IDateTimeEditorProps
     });
   };
 
-  format2StandardDate = (dateStr: string): ITimestamp | null => str2timestamp(dateStr);
+  format2StandardDate = (dateStr: string, dateFormat?: string): ITimestamp | null => str2timestamp(dateStr, dateFormat);
 
   getInputValue() {
-    const { field } = this.props;
+    const { field, userTimeZone } = this.props;
     const { property } = field;
-    const { dateValue } = this.state;
+    const { dateValue, displayDateStr } = this.state;
     let { timeValue } = this.state;
-    const { timeFormat } = Field.bindModel(this.props.field);
+    const { timeFormat, timeZone = userTimeZone, dateFormat } = Field.bindModel(this.props.field);
     if (!dateValue && !timeValue) {
       return null;
     }
     const { autoFill } = property;
     let dateTimestamp = new Date(getToday()).getTime();
     if (dateValue) {
-
-      const timestamp = this.format2StandardDate(dateValue);
+      const timestamp = formatDateNoYear(dateFormat) ? this.format2StandardDate(dateValue):
+        this.format2StandardDate(displayDateStr, dateFormat);
       if (timestamp == null || notInTimestampRange(timestamp)) {
         return null;
       }
-      const datetime = dayjs(timestamp);
+      const datetime = dayjs.tz(timestamp);
       /**
        * @description Automatic filling of dates with years
        * @type {boolean}
@@ -237,17 +275,18 @@ export class DateTimeEditorBase extends React.PureComponent<IDateTimeEditorProps
       const isIncludesYear = dayjs(dateValue, ['Y-M-D', 'D/M/Y', 'YYYY']).isValid();
 
       if (datetime.year() === 2001 && !isIncludesYear) {
-        dateTimestamp = datetime.year(dayjs().year()).valueOf();
+        dateTimestamp = datetime.year(dayjs.tz().year()).valueOf();
       } else {
         dateTimestamp = timestamp;
       }
 
       if (autoFill && !timeValue) {
-        timeValue = dayjs().format(timeFormat);
+        timeValue = dayjs.tz().format(timeFormat);
       }
     }
     const time = str2time(timeValue, field) || 0;
-    return dateTimestamp + time;
+    const isdst = isDstDate(`${dateValue} ${timeValue}`, timeZone);
+    return dateTimestamp + time + diffTimeZone(timeZone, isdst);
   }
 
   onEndEdit(cancel: boolean, clear = true) {
@@ -341,7 +380,7 @@ export class DateTimeEditorBase extends React.PureComponent<IDateTimeEditorProps
   onTimeOpenChange = (open: boolean) => {
     if (this.state.timeOpen !== open) {
       open && this.setPopupPosition();
-      this.setState(pre => ({
+      this.setState((pre) => ({
         timeOpen: open,
         dateOpen: open ? false : pre.dateOpen,
       }));
@@ -374,6 +413,14 @@ export class DateTimeEditorBase extends React.PureComponent<IDateTimeEditorProps
     const lang = {
       'zh-CN': zhCN,
       'en-US': enUS,
+      'zh-HK': zhTW,
+      'fr-FR': frFR,
+      'de-DE': deDE,
+      'it-IT': itIT,
+      'ja-JP': jaJP,
+      'ko-KR': koKR,
+      'ru-RU': ruRU,
+      'es-ES': esES,
     }[getLanguage()];
 
     const locale = {
@@ -383,18 +430,19 @@ export class DateTimeEditorBase extends React.PureComponent<IDateTimeEditorProps
       previousMonth: '',
       nextMonth: '',
     };
-    const { field, recordId, datasheetId } = this.props;
-    const { dateFormat, timeFormat } = Field.bindModel(field);
+    const { field, recordId, datasheetId, userTimeZone } = this.props;
+    const { dateFormat, timeFormat, includeTimeZone, timeZone = userTimeZone } = Field.bindModel(field);
+
     const { timeValue, dateValue, displayDateStr, dateOpen, timeOpen, point, isIllegal } = this.state;
     const { editable, showAlarm } = this.props;
 
     let value;
 
     if (!this.shouldUseOriginTime && this.timestamp != null) {
-      value = dayjs(this.timestamp);
+      value = dayjs.tz(this.timestamp);
     } else if (dateFormat) {
-      const val = str2timestamp(dateValue);
-      value = val ? dayjs(val) : dayjs();
+      const val = str2timestamp(displayDateStr, dateFormat);
+      value = val ? dayjs.tz(val) : dayjs.tz();
     }
     // 'YYYY/MM/DD', dateInputSplitBySlash
     //   'YYYY-MM-DD',dateInputSplitByDash
@@ -420,6 +468,12 @@ export class DateTimeEditorBase extends React.PureComponent<IDateTimeEditorProps
       [style.only]: !field.property.includeTime,
     });
 
+    let abbr = '';
+    if (includeTimeZone) {
+      const tz = timeZone || getTimeZone();
+      abbr = getTimeZoneAbbrByUtc(tz)!;
+    }
+
     return (
       <div
         className={style.dateEditor}
@@ -429,10 +483,10 @@ export class DateTimeEditorBase extends React.PureComponent<IDateTimeEditorProps
         }}
         ref={this.setDivRef}
         onMouseMove={stopPropagation}
-        onClick={e => e.stopPropagation}
+        onClick={(e) => e.stopPropagation}
         onWheel={stopPropagation}
       >
-        <Tooltip visible={isIllegal} getTooltipContainer={this.getCalendarContainer} title={t(Strings.date_cell_input_tips)} placement='top'>
+        <Tooltip open={isIllegal} getTooltipContainer={this.getCalendarContainer} title={t(Strings.date_cell_input_tips)} placement="top">
           <div className={style.dateWrapper}>
             <div
               className={classNames(style.dateContent, {
@@ -444,7 +498,7 @@ export class DateTimeEditorBase extends React.PureComponent<IDateTimeEditorProps
                   ref={this.setDateEditorRef}
                   format={dateFormat}
                   locale={locale}
-                  prefixCls='cp-calendar'
+                  prefixCls="cp-calendar"
                   className={dateInputClassName}
                   placeholder={editable ? dateFormat.toLowerCase() : ''}
                   showDateInput={false}
@@ -463,12 +517,16 @@ export class DateTimeEditorBase extends React.PureComponent<IDateTimeEditorProps
                   disabled={Boolean(this.props.disabled)}
                   onKeyDown={this.keyDown}
                   renderFooter={() =>
-                    showAlarm && getEnvVariables().RECORD_TASK_REMINDER_VISIBLE && DateTimeAlarm && (
+                    showAlarm &&
+                    getEnvVariables().RECORD_TASK_REMINDER_VISIBLE &&
+                    DateTimeAlarm &&
+                    dateValue && (
                       <DateTimeAlarm
                         datasheetId={datasheetId}
                         recordId={recordId || ''}
                         fieldId={field.id}
                         includeTime={field.property.includeTime}
+                        timeZone={timeZone}
                         dateValue={dateValue}
                         timeValue={timeValue}
                         curAlarm={this.props.curAlarm}
@@ -485,7 +543,7 @@ export class DateTimeEditorBase extends React.PureComponent<IDateTimeEditorProps
               </React.Suspense>
               {field.property.includeTime && (
                 <TimePicker
-                  prefixCls='cp-time-picker'
+                  prefixCls="cp-time-picker"
                   className={style.timeInput}
                   placeholder={editable ? timeFormat.toLowerCase() : ''}
                   getPopupContainer={this.getCalendarContainer}
@@ -499,12 +557,14 @@ export class DateTimeEditorBase extends React.PureComponent<IDateTimeEditorProps
                   onChange={this.onTimeValueChange}
                   onOpenChange={this.onTimeOpenChange}
                   value={timeValue}
+                  timeZone={timeZone}
                 />
               )}
+              {abbr && <span className={style.abbr}>({abbr})</span>}
             </div>
             {showAlarm && getEnvVariables().RECORD_TASK_REMINDER_VISIBLE && Boolean(this.props.curAlarm) && (
               <span className={style.alarm}>
-                <NotificationSmallOutlined color={lightColors.deepPurple[500]} size={14} />
+                <NotificationOutlined color={lightColors.deepPurple[500]} size={16} />
               </span>
             )}
           </div>
@@ -515,7 +575,8 @@ export class DateTimeEditorBase extends React.PureComponent<IDateTimeEditorProps
 }
 
 const DateTimeEditorHoc: React.ForwardRefRenderFunction<DateTimeEditorBase, IDateTimeEditorProps> = (props, ref) => {
-  const snapshot = useSelector(Selectors.getSnapshot);
+  const snapshot = useAppSelector(Selectors.getSnapshot);
+  const userTimeZone = useAppSelector(Selectors.getUserTimeZone)!;
   const alarm = props.recordId ? Selectors.getDateTimeCellAlarmForClient(snapshot!, props.recordId, props.field.id) : undefined;
   const previousAlarm = usePrevious(alarm);
   const [curAlarm, setCurAlarm] = useState<WithOptional<IRecordAlarmClient, 'id'> | undefined>();
@@ -542,11 +603,11 @@ const DateTimeEditorHoc: React.ForwardRefRenderFunction<DateTimeEditorBase, IDat
   return (
     <div style={{ flex: 1, width: '100%' }}>
       <ComponentDisplay minWidthCompatible={ScreenSize.md}>
-        <DateTimeEditorBase {...props} ref={ref} curAlarm={curAlarm} setCurAlarm={setCurAlarm} />
+        <DateTimeEditorBase {...props} ref={ref} curAlarm={curAlarm} setCurAlarm={setCurAlarm} userTimeZone={userTimeZone} />
       </ComponentDisplay>
 
       <ComponentDisplay maxWidthCompatible={ScreenSize.md}>
-        <DatePickerMobile {...props} curAlarm={curAlarm} ref={ref} />
+        <DatePickerMobile {...props} curAlarm={curAlarm} ref={ref} userTimeZone={userTimeZone} />
       </ComponentDisplay>
     </div>
   );

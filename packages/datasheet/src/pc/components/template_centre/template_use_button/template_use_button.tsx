@@ -16,21 +16,22 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import { Button } from '@apitable/components';
-import { AutoTestID, ConfigConstant, Events, IReduxState, ITemplateTree, Navigation, Player, Strings, t } from '@apitable/core';
-import { Modal } from 'pc/components/common';
-// @ts-ignore
-import { LoginModal } from 'enterprise';
-import { Router } from 'pc/components/route_manager/router';
-import { useRequest, useUserRequest } from 'pc/hooks';
+import { usePostHog } from 'posthog-js/react';
 import * as React from 'react';
 import { useEffect, useMemo, useState } from 'react';
-import { useSelector } from 'react-redux';
-import IconArrowRight from 'static/icon/datasheet/rightclick/datasheet_icon_insert_right.svg';
+import { Button } from '@apitable/components';
+import { AutoTestID, ConfigConstant, Events, IReduxState, ITemplateTree, Navigation, Player, Strings, t, TrackEvents } from '@apitable/core';
+import { ArrowRightOutlined } from '@apitable/icons';
+import { Modal } from 'pc/components/common';
+import { Router } from 'pc/components/route_manager/router';
+import { useRequest, useUserRequest } from 'pc/hooks';
+import { useAppSelector } from 'pc/store/react-redux';
 import { UsingTemplateModal } from '../using_template_modal';
-import styles from './style.module.less';
 // @ts-ignore
-import { SubscribeUsageTipType, triggerUsageAlert } from 'enterprise';
+import { SubscribeUsageTipType, triggerUsageAlert } from 'enterprise/billing/trigger_usage_alert';
+// @ts-ignore
+import { LoginModal } from 'enterprise/home/login_modal/login_modal';
+import styles from './style.module.less';
 
 interface ITemplateUseButtonProps {
   style?: React.CSSProperties;
@@ -39,7 +40,7 @@ interface ITemplateUseButtonProps {
   block?: boolean;
 }
 
-const calcNodeNum = (directory: ITemplateTree[]):number => {
+const calcNodeNum = (directory: ITemplateTree[]): number => {
   return directory.reduce<number>((total, cur) => {
     if (!cur.children.length) {
       return total + 1;
@@ -48,17 +49,18 @@ const calcNodeNum = (directory: ITemplateTree[]):number => {
   }, 0);
 };
 
-export const TemplateUseButton: React.FC<React.PropsWithChildren<ITemplateUseButtonProps>> = props => {
+export const TemplateUseButton: React.FC<React.PropsWithChildren<ITemplateUseButtonProps>> = (props) => {
   const { style, showIcon, children, id, block } = props;
-  const userInfo = useSelector((state: IReduxState) => state.user.info);
-  const spaceId = useSelector(state => state.space.activeId);
-  const { templateId, categoryId } = useSelector((state: IReduxState) => state.pageParams);
+  const userInfo = useAppSelector((state: IReduxState) => state.user.info);
+  const spaceId = useAppSelector((state) => state.space.activeId);
+  const { templateId, categoryId } = useAppSelector((state: IReduxState) => state.pageParams);
   const [openTemplateModal, setOpenTemplateModal] = useState('');
   const [openLoginModal, setOpenLoginModal] = useState(false);
-  const templateDirectory = useSelector(state => state.templateCentre.directory);
-  const spaceInfo = useSelector(state => state.space.curSpaceInfo);
+  const templateDirectory = useAppSelector((state) => state.templateCentre.directory);
+  const spaceInfo = useAppSelector((state) => state.space.curSpaceInfo);
   const { getLoginStatusReq } = useUserRequest();
   const { run: getLoginStatus } = useRequest(getLoginStatusReq, { manual: true });
+  const posthog = usePostHog();
 
   const nodeNumber = useMemo(() => {
     return calcNodeNum(templateDirectory!.nodeTree.children);
@@ -72,6 +74,7 @@ export const TemplateUseButton: React.FC<React.PropsWithChildren<ITemplateUseBut
   }, [openTemplateModal]);
 
   const openUseTemplateModal = () => {
+    posthog?.capture(TrackEvents.TemplateUse);
     // Current user is not logged in
     if (!userInfo) {
       Modal.confirm({
@@ -82,13 +85,13 @@ export const TemplateUseButton: React.FC<React.PropsWithChildren<ITemplateUseBut
           Router.redirect(Navigation.LOGIN);
         },
         okButtonProps: { id: AutoTestID.GO_LOGIN_BTN },
-        type: 'warning'
+        type: 'warning',
       });
       return;
     }
     // Current user is logged in
     if (!spaceId && templateId) {
-      Router.push(Navigation.TEMPLATE, { params: { categoryId, templateId, spaceId: userInfo!.spaceId }});
+      Router.push(Navigation.TEMPLATE, { params: { categoryId, templateId, spaceId: userInfo!.spaceId } });
       return;
     }
     const result = triggerUsageAlert?.('maxSheetNums', { usage: spaceInfo!.sheetNums + nodeNumber, alwaysAlert: true }, SubscribeUsageTipType?.Alert);
@@ -98,60 +101,40 @@ export const TemplateUseButton: React.FC<React.PropsWithChildren<ITemplateUseBut
     setOpenTemplateModal(templateId!);
   };
 
-  const afterLogin = async(data: string, loginMode: ConfigConstant.LoginMode) => {
+  const afterLogin = async (data: string, loginMode: ConfigConstant.LoginMode) => {
     if (data) {
       if (loginMode === ConfigConstant.LoginMode.PHONE) {
-        Router.push(Navigation.INVITATION_VALIDATION, { query: { token: data, reference: window.location.href }});
+        Router.push(Navigation.INVITATION_VALIDATION, { query: { token: data, reference: window.location.href } });
       } else if (loginMode === ConfigConstant.LoginMode.MAIL) {
-        Router.push(Navigation.IMPROVING_INFO, { query: { token: data, reference: window.location.href }});
+        Router.push(Navigation.IMPROVING_INFO, { query: { token: data, reference: window.location.href } });
       }
     } else {
       const userInfo = await getLoginStatus();
       if (!userInfo) {
         return;
       }
-      Router.push(Navigation.TEMPLATE, { params: { categoryId, templateId, spaceId: userInfo!.spaceId }});
+      Router.push(Navigation.TEMPLATE, { params: { categoryId, templateId, spaceId: userInfo!.spaceId } });
     }
   };
 
   return (
     <>
-      <div
-        onClick={openUseTemplateModal}
-        id={id}
-        className={styles.usingBtn}
-        style={style}
-      >
-        {children ? children :
-          <Button
-            style={{ ...style }}
-            block={block}
-            color='warning'
-            size="middle"
-          >
+      <div onClick={openUseTemplateModal} id={id} className={styles.usingBtn} style={style}>
+        {children ? (
+          children
+        ) : (
+          <Button style={{ ...style }} block={block} color="warning" size="middle">
             {t(Strings.apply_template)}
-            {showIcon && <IconArrowRight fill='white' />}
+            {showIcon && <ArrowRightOutlined color="white" />}
           </Button>
-        }
-
+        )}
       </div>
-      {
-        openTemplateModal &&
+      {openTemplateModal && (
         <div>
-          <UsingTemplateModal
-            templateId={templateId!}
-            onCancel={setOpenTemplateModal}
-          />
+          <UsingTemplateModal templateId={templateId!} onCancel={setOpenTemplateModal} />
         </div>
-      }
-      {
-        openLoginModal &&
-        LoginModal &&
-        <LoginModal
-          onCancel={() => setOpenLoginModal(false)}
-          afterLogin={afterLogin}
-        />
-      }
+      )}
+      {openLoginModal && LoginModal && <LoginModal onCancel={() => setOpenLoginModal(false)} afterLogin={afterLogin} />}
     </>
   );
 };

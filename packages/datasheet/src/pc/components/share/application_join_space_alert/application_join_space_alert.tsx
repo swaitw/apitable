@@ -16,20 +16,18 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+import classnames from 'classnames';
+import { FC, useState } from 'react';
+import ReactDOM from 'react-dom';
 import { Button, useThemeColors } from '@apitable/components';
 import { AutoTestID, DATASHEET_ID, IReduxState, Navigation, Strings, t } from '@apitable/core';
-import classnames from 'classnames';
+import { CloseOutlined, Star2Filled, UserAddOutlined } from '@apitable/icons';
 import { ButtonPlus, Modal } from 'pc/components/common';
 import { ScreenSize } from 'pc/components/common/component_display';
 import { TComponent } from 'pc/components/common/t_component';
 import { Router } from 'pc/components/route_manager/router';
 import { useRequest, useResponsive, useSpaceRequest } from 'pc/hooks';
-import { FC, useState } from 'react';
-import ReactDOM from 'react-dom';
-import { useSelector } from 'react-redux';
-import CloseIcon from 'static/icon/common/common_icon_close_small.svg';
-import JoinIcon from 'static/icon/datasheet/share/datasheet_icon_share_join.svg';
-import ShareStarIcon from 'static/icon/datasheet/share/datasheet_icon_share_star.svg';
+import { useAppSelector } from 'pc/store/react-redux';
 import styles from './style.module.less';
 
 export interface IApplicationJoinSpaceAlertProps {
@@ -38,14 +36,18 @@ export interface IApplicationJoinSpaceAlertProps {
   defaultVisible?: boolean;
 }
 
-export const ApplicationJoinSpaceAlert: FC<React.PropsWithChildren<IApplicationJoinSpaceAlertProps>> = ({ spaceId, spaceName, defaultVisible = true }) => {
+export const ApplicationJoinSpaceAlert: FC<React.PropsWithChildren<IApplicationJoinSpaceAlertProps>> = ({
+  spaceId,
+  spaceName,
+  defaultVisible = true,
+}) => {
   const colors = useThemeColors();
   const { screenIsAtMost } = useResponsive();
   const isMobile = screenIsAtMost(ScreenSize.md);
   const [minimized, setMinimized] = useState(isMobile ? true : !defaultVisible);
   const { applyJoinSpaceReq } = useSpaceRequest();
   const { run: applyJoinSpace } = useRequest(applyJoinSpaceReq, { manual: true });
-  const userInfo = useSelector((state: IReduxState) => state.user.info);
+  const userInfo = useAppSelector((state: IReduxState) => state.user.info);
 
   const renderMinimized = () => {
     const container = document.getElementById(DATASHEET_ID.APPLICATION_JOIN_SPACE_BTN);
@@ -54,8 +56,8 @@ export const ApplicationJoinSpaceAlert: FC<React.PropsWithChildren<IApplicationJ
         <ButtonPlus.Font
           className={classnames(styles.joinBtn, minimized && !isMobile && styles.fadeIn)}
           onClick={() => applicationJoinHandler()}
-          icon={<JoinIcon width={24} height={24} fill={colors.secondLevelText} />}
-          size='small'
+          icon={<UserAddOutlined size={24} color={colors.secondLevelText} />}
+          size="small"
           shadow
         />,
         container,
@@ -77,7 +79,7 @@ export const ApplicationJoinSpaceAlert: FC<React.PropsWithChildren<IApplicationJ
         content: t(Strings.require_login_tip),
         okText: t(Strings.go_login),
         onOk: () => {
-          Router.push(Navigation.LOGIN, { query: { reference: window.location.href }});
+          Router.push(Navigation.LOGIN, { query: { reference: window.location.href } });
         },
         okButtonProps: { id: AutoTestID.GO_LOGIN_BTN },
         type: 'warning',
@@ -100,9 +102,9 @@ export const ApplicationJoinSpaceAlert: FC<React.PropsWithChildren<IApplicationJ
         <div className={styles.container}>
           <span className={styles.text}>{t(Strings.apply_join_space_alert_text)}</span>
           <Button
-            color='warning'
+            color="warning"
             size={isMobile ? 'small' : 'middle'}
-            prefixIcon={!isMobile && <ShareStarIcon fill='#FFEB3A' />}
+            prefixIcon={!isMobile && <Star2Filled color="#FFEB3A" />}
             className={styles.applicationBtn}
             onClick={applicationJoinHandler}
             shape={isMobile ? 'round' : undefined}
@@ -110,7 +112,7 @@ export const ApplicationJoinSpaceAlert: FC<React.PropsWithChildren<IApplicationJ
             {t(Strings.apply_join_space)}
           </Button>
           <div className={styles.closeBtn} onClick={closeHandler}>
-            <CloseIcon />
+            <CloseOutlined />
           </div>
         </div>
       )}

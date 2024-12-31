@@ -16,8 +16,6 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import Color from 'color';
-import { rgba2hex } from 'helper';
 import styled, { css } from 'styled-components';
 import { applyDefaultTheme } from 'theme';
 import { IIconButtonWrapperProps } from './interface';
@@ -71,23 +69,23 @@ export const IconButtonStyle = styled.div.attrs(applyDefaultTheme) <IIconButtonW
     `;
   }}
   ${(props) => {
-    const { palette } = props.theme;
+    const { color } = props.theme;
     const isSquare = props.shape === 'square';
     switch (props.variant) {
       case 'default':
         let defaultVariant = css`
-            color: ${props.active ? palette.primary : palette.text.third};
-            background: ${props.active ? palette.background.activeItem : 'unset'};
+            color: ${color.textCommonTertiary};
+            background: ${props.active ? color.bgBglessActiveSolid : 'unset'};
           `;
         if (!props.active && !props.disabled) {
           defaultVariant = [
             ...defaultVariant,
             css`
               &:hover {
-                background: ${palette.background.iconButton};
+                background: ${color.bgBglessHover};
               }
               &:active {
-                background: ${rgba2hex(Color(palette.background.mask).alpha(0.16).string(), palette.background.iconButton)};
+                background: ${color.bgBglessActive};
               }
             `
           ];
@@ -97,20 +95,18 @@ export const IconButtonStyle = styled.div.attrs(applyDefaultTheme) <IIconButtonW
       case 'background':
         let bgVariant = css`
            border-radius: ${isSquare ? '6px' : '32px'};
-           color: ${palette.text.third};
-           background: ${palette.background.iconButton};
+           color: ${color.textCommonTertiary};
+           background: ${color.bgControlsDefault};
         `;
         if (!props.disabled) {
           bgVariant = [
             ...bgVariant,
             css`
               &:hover {
-                background: ${props.disabled ? 'inherit' :
-    rgba2hex(Color(palette.background.mask).alpha(0.16).string(), palette.background.iconButton)};
+                background: ${props.disabled ? 'inherit' : color.bgBglessHoverSolid};
               }
               &:active {
-                background: ${props.disabled ? 'inherit' :
-    rgba2hex(Color(palette.background.mask).alpha(0.30).string(), palette.background.iconButton)};
+                background: ${props.disabled ? 'inherit' : color.bgBglessActiveSolid};
               }
             `
           ];
@@ -119,8 +115,8 @@ export const IconButtonStyle = styled.div.attrs(applyDefaultTheme) <IIconButtonW
       case 'blur':
         let blurVariant = css`
           border-radius: ${isSquare ? '6px' : '32px'};
-          color: ${palette.text.third};
-          background: ${palette.background.iconButton};
+          color: ${color.textCommonTertiary};
+          background: ${color.bgControlsDefault};
           @supports (backdrop-filter: blur(16px)) {
             backdrop-filter: blur(3px);
             opacity: 0.7;
@@ -131,12 +127,12 @@ export const IconButtonStyle = styled.div.attrs(applyDefaultTheme) <IIconButtonW
             ...blurVariant,
             css`
               &:hover {
-                background: ${palette.background.iconButton};
+                background: ${color.bgBglessHoverSolid};
                 opacity: 1;
               }
               &:active {
-                transform: scale(0.5, 0.5);    
-                background: ${rgba2hex(Color(palette.background.mask).alpha(0.16).string(), palette.background.iconButton)};
+                transform: scale(0.5, 0.5);
+                background: ${color.bgBglessActiveSolid};
               }
             `
           ];

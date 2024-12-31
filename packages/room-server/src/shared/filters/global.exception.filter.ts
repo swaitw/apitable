@@ -16,15 +16,16 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import { ApiTipConfig, ApiTipConstant, ConfigConstant, Strings, t } from '@apitable/core';
-import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus, Logger } from '@nestjs/common';
+import { ApiTipConstant, ConfigConstant } from '@apitable/core';
+import { ArgumentsHost, BadRequestException, Catch, ExceptionFilter, HttpStatus, Logger, NotFoundException } from '@nestjs/common';
 import * as Sentry from '@sentry/node';
+import { isArray } from 'class-validator';
 import { FastifyReply, FastifyRequest } from 'fastify';
 import { ServerResponse } from 'http';
 import { I18nService } from 'nestjs-i18n';
 import { USER_HTTP_DECORATE } from 'shared/common';
-import { ApiException, ServerException } from 'shared/exception';
-import { IExceptionOption, IHttpErrorResponse } from 'shared/interfaces/http.interfaces';
+import { ApiException, OverLimitException, ServerException } from 'shared/exception';
+import { IHttpErrorResponse } from 'shared/interfaces/http.interfaces';
 
 /**
  * Global exception filter
@@ -77,29 +78,28 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       errMsg = exception.getMessage();
       httpStatusCode = exception.getStatusCode();
     }
-
-    if (exception instanceof HttpException) {
+    if (exception instanceof NotFoundException) {
       httpStatusCode = exception.getStatus() || HttpStatus.INTERNAL_SERVER_ERROR;
       statusCode = exception.getStatus() || HttpStatus.INTERNAL_SERVER_ERROR;
-      if (httpStatusCode === HttpStatus.NOT_FOUND) {
-        // 404 means API not found
-        errMsg = t(Strings[ApiTipConfig.api.tips[ApiTipConstant.api_not_exists].id]);
+      // 404 means API not found
+      errMsg = await this.i18n.translate(ApiTipConstant.api_not_exists, {
+        lang: request[USER_HTTP_DECORATE]?.locale,
+      });
+    }
+    if (exception instanceof BadRequestException) {
+      errMsg = exception.getResponse()['message'];
+      if (isArray(errMsg)) {
+        errMsg = errMsg[0];
       }
-      if (httpStatusCode === HttpStatus.BAD_REQUEST) {
-        const errorMessages = exception.getResponse()['message'][0].split('.');
-        errMsg = errorMessages[errorMessages.length - 1];
-        if (ApiTipConstant[errMsg]) {
-          errMsg = await this.i18n.translate(errMsg, {
-            lang: request[USER_HTTP_DECORATE]?.locale,
-          });
-          // TODO Does not meet the http status specification, the parameter error should be 400
-          httpStatusCode = HttpStatus.OK;
-        }
-      } else {
-        const errorOption: IExceptionOption = exception.getResponse() as IExceptionOption;
-        errMsg = typeof errorOption === 'string' ? errorOption : errorOption.message;
+      if (ApiTipConstant[errMsg]) {
+        errMsg = await this.i18n.translate(errMsg, {
+          lang: request[USER_HTTP_DECORATE]?.locale,
+        });
+        // TODO Does not meet the http status specification, the parameter error should be 400
+        httpStatusCode = HttpStatus.OK;
       }
     }
+
     // handle API exceptions with internationalization
     if (exception instanceof ApiException) {
       httpStatusCode = exception.getTip().statusCode;
@@ -110,6 +110,12 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       });
     }
 
+    if (exception instanceof OverLimitException) {
+      httpStatusCode = exception.getStatus();
+      statusCode = exception.ex.getCode();
+      errMsg = exception.ex.getMessage();
+    }
+
     // standard error response
     const errorResponse: IHttpErrorResponse = {
       success: false,
@@ -117,20 +123,24 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       message: errMsg,
     };
 
-    this.logger.error({
-      message: `request error: ${exception?.message || ''}`, 
-      response: exception?.response || ''
-    },
-    exception?.stack || errMsg);
+    this.logger.error(
+      {
+        message: `request error: ${exception?.message || ''}`,
+        response: exception?.response || '',
+      },
+      exception?.stack || errMsg,
+    );
 
-    // set header, status code and error response data
-    if (response instanceof ServerResponse) {
-      response.setHeader('Content-Type', 'application/json');
-      response.statusCode = httpStatusCode;
-      response.write(JSON.stringify(errorResponse));
-      response.end();
-    } else {
-      response.status(httpStatusCode).send(errorResponse);
-    }
+    try {
+      // set header, status code and error response data
+      if (response instanceof ServerResponse) {
+        response.setHeader('Content-Type', 'application/json');
+        response.statusCode = httpStatusCode;
+        response.write(JSON.stringify(errorResponse));
+        response.end();
+      } else {
+        await response.status(httpStatusCode).send(errorResponse);
+      }
+    } catch (e) {}
   }
 }

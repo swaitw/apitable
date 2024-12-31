@@ -16,17 +16,14 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import * as React from 'react';
 import { Tooltip } from 'antd';
+import * as React from 'react';
 import { IconButton, colorVars } from '@apitable/components';
-
-import IconNext from 'static/icon/datasheet/activity/datasheet_icon_activity_under.svg';
-import IconPre from 'static/icon/datasheet/activity/datasheet_icon_activity_up.svg';
-
+import { ArrowDownOutlined, ArrowUpOutlined } from '@apitable/icons';
 import styles from '../style.module.less';
 
-const ReactIconNext = () => <IconNext width={16} height={16} fill={'white'} />;
-const ReactIconPre = () => <IconPre width={16} height={16} fill={'white'} />;
+const ReactIconNext = () => <ArrowDownOutlined size={16} color={'white'} />;
+const ReactIconPre = () => <ArrowUpOutlined size={16} color={'white'} />;
 
 interface IPageTurnProps {
   preButtonTip: string;
@@ -39,15 +36,7 @@ interface IPageTurnProps {
 }
 
 export const PageTurn: React.FC<React.PropsWithChildren<IPageTurnProps>> = (props) => {
-  const {
-    preButtonTip,
-    nextButtonTip,
-    onClickPre,
-    onClickNext,
-    disablePre,
-    disableNext,
-    isPlainButtons = false,
-  } = props;
+  const { preButtonTip, nextButtonTip, onClickPre, onClickNext, disablePre, disableNext, isPlainButtons = false } = props;
 
   if (isPlainButtons) {
     return (
@@ -66,7 +55,7 @@ export const PageTurn: React.FC<React.PropsWithChildren<IPageTurnProps>> = (prop
                 margin: '0 4px',
                 pointerEvents: disablePre ? 'auto' : 'none',
               }}
-              icon={() => <IconPre width={16} height={16} fill={colorVars.fc3} />}
+              icon={() => <ArrowUpOutlined size={16} color={colorVars.fc3} />}
             />
           </span>
         </Tooltip>
@@ -84,22 +73,18 @@ export const PageTurn: React.FC<React.PropsWithChildren<IPageTurnProps>> = (prop
                 margin: '0 4px',
                 pointerEvents: disableNext ? 'auto' : 'none',
               }}
-              icon={() => <IconNext width={16} height={16} fill={colorVars.fc3} />}
+              icon={() => <ArrowDownOutlined size={16} color={colorVars.fc3} />}
             />
           </span>
         </Tooltip>
       </div>
     );
   }
-   
+
   return (
     <div className={styles.pagingButtonWrapper}>
       <Tooltip title={preButtonTip}>
-        <span
-          style={{ cursor: !disablePre ? 'not-allowed' : 'pointer' }}
-          className={!disablePre ? styles.noBg : ''}
-          onClick={onClickPre}
-        >
+        <span style={{ cursor: !disablePre ? 'not-allowed' : 'pointer' }} className={!disablePre ? styles.noBg : ''} onClick={onClickPre}>
           <IconButton
             component="button"
             disabled={!disablePre}
@@ -111,11 +96,7 @@ export const PageTurn: React.FC<React.PropsWithChildren<IPageTurnProps>> = (prop
       </Tooltip>
       <span className={styles.gapLine} />
       <Tooltip title={nextButtonTip}>
-        <span
-          style={{ cursor: !disableNext ? 'not-allowed' : 'pointer' }}
-          className={!disableNext ? styles.noBg : ''}
-          onClick={onClickNext}
-        >
+        <span style={{ cursor: !disableNext ? 'not-allowed' : 'pointer' }} className={!disableNext ? styles.noBg : ''} onClick={onClickNext}>
           <IconButton
             component="button"
             disabled={!disableNext}
